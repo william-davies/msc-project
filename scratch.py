@@ -25,3 +25,18 @@ P5_real = pd.read_excel(
 )
 
 # %%
+frames = P5_real["Row/frame"]
+zeros = frames.index[frames == 0]  # idk why but frames at the end are labelled frame 0
+zeros_array = np.array(zeros)
+assert (zeros_array == np.arange(zeros_array[0], zeros_array[-1] + 1)).all()
+
+final_valid_idx = zeros[0]
+frames = frames[:final_valid_idx]
+bvp = P5_real["BVP"][:final_valid_idx]
+
+# %%
+plt.title("BVP vs frame")
+plt.plot(frames, bvp)
+plt.xlabel("Frame")
+plt.ylabel("BVP")
+plt.show()
