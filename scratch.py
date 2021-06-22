@@ -112,15 +112,28 @@ inf_data = pd.read_excel(
 
 def get_label_from_range(column_values, range):
     try:
-        return " ".join(column_values[range[0] : range[1] + 1])
+        label = " ".join(column_values[range[0] : range[1] + 1])
     except IndexError:
-        return column_values[range[0]]
+        label = column_values[range[0]]
+    label = label.lower()
+    return label.replace(" ", "_")
 
 
-for treatment_label_col_range, frame_col in zip(treatment_label_col_ranges, frame_cols):
+new_header = [""] * 3 * len(treatment_label_col_ranges)
+
+for idx, treatment_label_col_range in enumerate(treatment_label_col_ranges):
     column_values = inf_data.columns.values
     treatment_label = get_label_from_range(column_values, treatment_label_col_range)
     print(treatment_label)
+    new_header[3 * idx] = f"{treatment_label}_frame"
+    new_header[3 * idx + 1] = f"{treatment_label}_bvp"
+    new_header[3 * idx + 2] = f"{treatment_label}_resp"
+
+
+# %%
+new_header = inf_data.iloc[0]
+data_row = inf_data.iloc[1:, 2:]
+
 # %%
 participant_dirnames = next(os.walk("Stress Dataset"))[1]
 
