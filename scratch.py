@@ -100,12 +100,6 @@ participant_dirnames = next(os.walk("Stress Dataset"))[1]
 PARTICIPANT_ID_PATTERN = "^(\d{10}P\d{1,2})_"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
 # %%
-unprocessed_inf_data = pd.read_excel(
-    "Stress Dataset/0726094551P5_609/test.xlsx",
-    sheet_name="Inf",
-)
-
-
 def build_new_header(data, treatment_label_col_ranges):
     """
     :param data: DataFrame
@@ -133,7 +127,6 @@ def build_new_header(data, treatment_label_col_ranges):
     for idx, treatment_label_col_range in enumerate(treatment_label_col_ranges):
         column_values = data.columns.values
         treatment_label = get_label_from_range(column_values, treatment_label_col_range)
-        print(treatment_label)
         new_header[3 * idx] = f"{treatment_label}_frame"
         new_header[3 * idx + 1] = f"{treatment_label}_bvp"
         new_header[3 * idx + 2] = f"{treatment_label}_resp"
@@ -164,16 +157,22 @@ def convert_excel_to_csv(participant_dirname):
     print(participant_id)
 
     unprocessed_data = pd.read_excel(
-        os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
+        os.path.join(participant_dirpath, f"test.xlsx"),
         sheet_name="Inf",
     )
 
     processed_data = process_excel_dataframe(unprocessed_data)
 
     csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
-    processed_data.to_csv(csv_filepath)
+    processed_data.to_csv(csv_filepath, index=False)
 
 
+#%%
+convert_excel_to_csv("0726094551P5_609")
+
+# %%
+inf_data = pd.read_csv("Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
+# %%
 for participant_dirname in participant_dirnames:
     print(participant_dirname)
     convert_excel_to_csv(participant_dirname)
