@@ -96,37 +96,76 @@ TREATMENT_LABEL_COL_RANGES = list(
 )
 
 participant_dirnames = next(os.walk("Stress Dataset"))[1]
+participant_dirnames = sorted(participant_dirnames)
 
 PARTICIPANT_ID_PATTERN = "^(\d{10}P\d{1,2})_"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
+
+FRAME_COLS = np.arange(
+    string.ascii_lowercase.index("c"), string.ascii_lowercase.index("q") + 1, 3
+)  # row/frame column
+DATA_COL_RANGES = [
+    np.arange(frame_col, frame_col + 3) for frame_col in FRAME_COLS
+]  # row/frame, bvp, resp.
 # %%
-def build_new_header(data, treatment_label_col_ranges):
+
+unprocessed_p1_data = pd.read_excel(
+    "Stress Dataset/0726094551P5_609/test.xlsx",
+    sheet_name="InfP1",
+    # usecols="C:E,G:H,J,M:N,P"
+)
+
+unprocessed_p5_data = pd.read_excel(
+    "Stress Dataset/0726094551P5_609/test.xlsx",
+    sheet_name="InfP5",
+    # usecols="C:E,G:H,J,M:N,P"
+)
+
+# %%
+
+
+def build_new_header(data, data_col_ranges):
     """
     :param data: DataFrame
-    :param treatment_label_col_ranges: [(start, ), (start, end), ...]. If end is not specified,
-    then the column range is only column start.
+    :param data_col_ranges:
     :return:
     """
 
-    def get_label_from_range(column_values, range):
+    def get_label_from_range(all_column_values, range):
         """
-
-        :param column_values: values of DataFrame columns
-        :param range: (start, end) you want to index with
+        Get treatment label from int range.
+        :param all_column_values: np.array: DataFrame columns
+        :param range: np.array: columns indices
         :return:
         """
-        try:
-            label = " ".join(column_values[range[0] : range[1] + 1])
-        except IndexError:
-            label = column_values[range[0]]
+        columns_in_range = all_column_values[range]
+        named_columns = remove_unnamed_columns(columns_in_range)
+        label = " ".join(named_columns)
         label = label.lower()
         return label.replace(" ", "_")
 
-    new_header = [""] * 3 * len(treatment_label_col_ranges)
+    def remove_unnamed_columns(columns):
+        """
+        e.g.
+        input: ['Infinity R5', 'Unnamed: 15', 'Unnamed: 16']
+        output: ['Infinity R5']
+        :param columns:
+        :return:
+        """
+        filtered_columns = []
+        UNNAMED_COL_PATTERN = "^Unnamed: \d{1,2}$"
+        UNNAMED_COL_PATTERN = re.compile(UNNAMED_COL_PATTERN)
 
-    for idx, treatment_label_col_range in enumerate(treatment_label_col_ranges):
+        for col in columns:
+            if not UNNAMED_COL_PATTERN.search(col):
+                filtered_columns.append(col)
+        return filtered_columns
+
+    new_header = [""] * 3 * len(data_col_ranges)
+
+    for idx, data_col_range in enumerate(data_col_ranges):
         column_values = data.columns.values
-        treatment_label = get_label_from_range(column_values, treatment_label_col_range)
+        treatment_label = get_label_from_range(column_values, data_col_range)
         new_header[3 * idx] = f"{treatment_label}_frame"
         new_header[3 * idx + 1] = f"{treatment_label}_bvp"
         new_header[3 * idx + 2] = f"{treatment_label}_resp"
@@ -157,7 +196,7 @@ def convert_excel_to_csv(participant_dirname):
     print(participant_id)
 
     unprocessed_data = pd.read_excel(
-        os.path.join(participant_dirpath, f"test.xlsx"),
+        os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
         sheet_name="Inf",
     )
 
@@ -171,9 +210,9 @@ def convert_excel_to_csv(participant_dirname):
 convert_excel_to_csv("0726094551P5_609")
 
 # %%
-inf_data = pd.read_csv("Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
+inf_data = pd.read_csv("Stress Dataset/0720202421P1_608/0720202421P1_inf.csv")
 # %%
-for participant_dirname in participant_dirnames:
+for participant_dirname in participant_dirnames[0:1]:
     print(participant_dirname)
     convert_excel_to_csv(participant_dirname)
 
