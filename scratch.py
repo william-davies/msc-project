@@ -83,7 +83,7 @@ R1, M2, R3, M4, R5 = (
     ("M", "N"),
     ("P",),
 )  # (start, end inclusive)
-treatment_label_col_ranges = [R1, M2, R3, M4, R5]
+TREATMENT_LABEL_COL_RANGES = [R1, M2, R3, M4, R5]
 
 
 def letter_range_to_int_range(range):
@@ -91,17 +91,9 @@ def letter_range_to_int_range(range):
     return tuple(map(string.ascii_lowercase.index, range))
 
 
-treatment_label_col_ranges = list(
-    map(letter_range_to_int_range, treatment_label_col_ranges)
+TREATMENT_LABEL_COL_RANGES = list(
+    map(letter_range_to_int_range, TREATMENT_LABEL_COL_RANGES)
 )
-
-
-frame_cols = np.arange(
-    string.ascii_lowercase.index("c"), string.ascii_lowercase.index("q") + 1, 3
-)  # row/frame column
-data_colss = [
-    np.arange(frame_col, frame_col + 3) for frame_col in frame_cols
-]  # row/frame, bvp, resp.
 
 participant_dirnames = next(os.walk("Stress Dataset"))[1]
 
@@ -149,13 +141,24 @@ def build_new_header(data, treatment_label_col_ranges):
     return new_header
 
 
-# %%
-processed_inf_data = unprocessed_inf_data.iloc[1:, 2:]
-processed_inf_data.columns = new_header
+def process_excel_dataframe(unprocessed_data):
+    new_header = build_new_header(unprocessed_data, TREATMENT_LABEL_COL_RANGES)
+    # ignore first columns about frequency. ignore first row about treatment label.
+    processed_data = unprocessed_data.iloc[1:, 2:]
+    processed_data.columns = new_header
+    return processed_data
+
 
 # %%
-for participant_dirname in participant_dirnames:
-    print(participant_dirname)
+
+
+def convert_excel_to_csv(participant_dirname):
+    """
+    Convert .xlsx to .csv and save.
+
+    :param participant_dirname: name of directory that contains all physiological data on participant
+    :return: None.
+    """
     participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
     participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
     print(participant_id)
@@ -164,6 +167,16 @@ for participant_dirname in participant_dirnames:
         os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
         sheet_name="Inf",
     )
+
+    processed_data = process_excel_dataframe(unprocessed_data)
+
+    csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
+    processed_data.to_csv(csv_filepath)
+
+
+for participant_dirname in participant_dirnames:
+    print(participant_dirname)
+    convert_excel_to_csv(participant_dirname)
 
 
 #%%
