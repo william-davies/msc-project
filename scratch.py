@@ -43,7 +43,7 @@ start_time = time.time()
 #     usecols="C:E",
 # )
 
-P5_first_line = pd.read_excel(
+participant_first_line = pd.read_excel(
     "Stress Dataset/0726094551P5_609/test.xlsx",
     sheet_name="Inf",
     nrows=1,
@@ -53,9 +53,9 @@ end_time = time.time()
 print("time elapsed: {:.2f}s".format(end_time - start_time))
 
 #%%
-with open("treatment_order.txt", "w") as f:
-    for col in P5_first_line.columns:
-        f.write(f"{col}\n")
+with open("Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt", "w") as f:
+    for line in np.arange(50):
+        f.write(f"{line}\n")
 # %%
 frames = P5_real["Row/frame"]
 zeros = frames.index[frames == 0]  # idk why but frames at the end are labelled frame 0
@@ -73,13 +73,32 @@ plt.xlabel("Frame")
 plt.ylabel("BVP")
 plt.show()
 
+
 # %%
-participant_dirs = next(os.walk("Stress Dataset"))[1]
+participant_dirnames = next(os.walk("Stress Dataset"))[1]
 
 participant_id_pattern = "^(\d{10}P\d{1,2})_"
 participant_id_pattern = re.compile(participant_id_pattern)
 
-for participant_dir in participant_dirs:
-    print(participant_dir)
-    participant_id = participant_id_pattern.search(participant_dir).group(1)
+i = 0
+for participant_dirname in participant_dirnames:
+    print(participant_dirname)
+    participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
+    participant_id = participant_id_pattern.search(participant_dirname).group(1)
     print(participant_id)
+
+    participant_first_line = pd.read_excel(
+        os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
+        sheet_name="Inf",
+        nrows=1,
+    )
+
+    with open(
+        os.path.join(participant_dirpath, f"{participant_id}_treatment_order.txt"), "w"
+    ) as f:
+        for col in participant_first_line.columns:
+            f.write(f"{col}\n")
+
+    i += 1
+    if i >= 2:
+        break
