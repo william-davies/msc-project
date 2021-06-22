@@ -45,7 +45,7 @@ start_time = time.time()
 #     usecols="C:E",
 # )
 
-participant_first_line = pd.read_excel(
+unprocessed_data = pd.read_excel(
     "Stress Dataset/0726094551P5_609/test.xlsx",
     sheet_name="Inf",
     nrows=1,
@@ -103,60 +103,68 @@ data_colss = [
     np.arange(frame_col, frame_col + 3) for frame_col in frame_cols
 ]  # row/frame, bvp, resp.
 
+participant_dirnames = next(os.walk("Stress Dataset"))[1]
+
+PARTICIPANT_ID_PATTERN = "^(\d{10}P\d{1,2})_"
+PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
 # %%
-inf_data = pd.read_excel(
+unprocessed_inf_data = pd.read_excel(
     "Stress Dataset/0726094551P5_609/test.xlsx",
     sheet_name="Inf",
 )
 
 
-def get_label_from_range(column_values, range):
-    try:
-        label = " ".join(column_values[range[0] : range[1] + 1])
-    except IndexError:
-        label = column_values[range[0]]
-    label = label.lower()
-    return label.replace(" ", "_")
+def build_new_header(data, treatment_label_col_ranges):
+    """
+    :param data: DataFrame
+    :param treatment_label_col_ranges: [(start, ), (start, end), ...]. If end is not specified,
+    then the column range is only column start.
+    :return:
+    """
 
+    def get_label_from_range(column_values, range):
+        """
 
-new_header = [""] * 3 * len(treatment_label_col_ranges)
+        :param column_values: values of DataFrame columns
+        :param range: (start, end) you want to index with
+        :return:
+        """
+        try:
+            label = " ".join(column_values[range[0] : range[1] + 1])
+        except IndexError:
+            label = column_values[range[0]]
+        label = label.lower()
+        return label.replace(" ", "_")
 
-for idx, treatment_label_col_range in enumerate(treatment_label_col_ranges):
-    column_values = inf_data.columns.values
-    treatment_label = get_label_from_range(column_values, treatment_label_col_range)
-    print(treatment_label)
-    new_header[3 * idx] = f"{treatment_label}_frame"
-    new_header[3 * idx + 1] = f"{treatment_label}_bvp"
-    new_header[3 * idx + 2] = f"{treatment_label}_resp"
+    new_header = [""] * 3 * len(treatment_label_col_ranges)
+
+    for idx, treatment_label_col_range in enumerate(treatment_label_col_ranges):
+        column_values = data.columns.values
+        treatment_label = get_label_from_range(column_values, treatment_label_col_range)
+        print(treatment_label)
+        new_header[3 * idx] = f"{treatment_label}_frame"
+        new_header[3 * idx + 1] = f"{treatment_label}_bvp"
+        new_header[3 * idx + 2] = f"{treatment_label}_resp"
+
+    return new_header
 
 
 # %%
-new_header = inf_data.iloc[0]
-data_row = inf_data.iloc[1:, 2:]
+processed_inf_data = unprocessed_inf_data.iloc[1:, 2:]
+processed_inf_data.columns = new_header
 
 # %%
-participant_dirnames = next(os.walk("Stress Dataset"))[1]
-
-participant_id_pattern = "^(\d{10}P\d{1,2})_"
-participant_id_pattern = re.compile(participant_id_pattern)
-
 for participant_dirname in participant_dirnames:
     print(participant_dirname)
     participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-    participant_id = participant_id_pattern.search(participant_dirname).group(1)
+    participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
     print(participant_id)
 
-    participant_first_line = pd.read_excel(
+    unprocessed_data = pd.read_excel(
         os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
         sheet_name="Inf",
-        nrows=1,
     )
 
-    with open(
-        os.path.join(participant_dirpath, f"{participant_id}_treatment_order.txt"), "w"
-    ) as f:
-        for col in participant_first_line.columns:
-            f.write(f"{col}\n")
 
 #%%
 f1 = "Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt"
