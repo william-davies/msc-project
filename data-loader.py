@@ -219,13 +219,10 @@ for participant_dirname in participant_dirnames[12:]:
     convert_excel_to_csv(participant_dirname)
 
 # %%
+# Exclude P7, P14, P15
 participant_dirnames_with_excel = (
     participant_dirnames[:6] + participant_dirnames[7:10] + participant_dirnames[12:]
 )
-
-for foo in participant_dirnames_with_excel:
-    print(foo)
-    print(type(foo))
 
 # %%
 for participant_dirname in participant_dirnames_with_excel:
