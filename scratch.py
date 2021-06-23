@@ -196,8 +196,8 @@ def convert_excel_to_csv(participant_dirname):
     print(participant_id)
 
     unprocessed_data = pd.read_excel(
+        # os.path.join(participant_dirpath, f"{participant_dirname}.xlsx"),  # annoying just P10 follows this naming scheme
         os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
-        # os.path.join(participant_dirpath, f"test.xlsx"),
         sheet_name="Inf",
     )
 
@@ -213,7 +213,7 @@ def convert_excel_to_csv(participant_dirname):
 # %%
 # inf_data = pd.read_csv("Stress Dataset/0720202421P1_608/0720202421P1_inf.csv")
 # %%
-for participant_dirname in participant_dirnames[1:]:
+for participant_dirname in participant_dirnames[12:]:
     print(participant_dirname)
     convert_excel_to_csv(participant_dirname)
 
