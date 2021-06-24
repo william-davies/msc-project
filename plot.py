@@ -86,20 +86,26 @@ def plot_participant_data(participant_dirname):
 
     participant_number = PARTICIPANT_NUMBER_PATTERN.search(csv_fp).group(1)
 
+    sampling_rate = get_sample_rate(participant_dirname)
+
     for treatment_idx in np.arange(0, len(data.columns), 3):
         treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
         frames = data.iloc[:, treatment_idx]
         bvp = data.iloc[:, treatment_idx + 1]
 
         final_recorded_idx = get_final_recorded_idx(frames, bvp)
+
         frames = frames[: final_recorded_idx + 1]
+        zeroed_frames = frames - frames[0]
+        time = zeroed_frames / sampling_rate
+
         bvp = bvp[: final_recorded_idx + 1]
 
         plt.title(
             f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
         )
-        plt.plot(frames, bvp)
-        plt.xlabel("Frame")
+        plt.plot(time, bvp)
+        plt.xlabel("Time (s)")
         plt.ylabel("BVP")
         plt.show()
 
