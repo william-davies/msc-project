@@ -88,7 +88,13 @@ def plot_participant_data(participant_dirname):
 
     sampling_rate = get_sample_rate(participant_dirname)
 
-    for treatment_idx in np.arange(0, len(data.columns), 3):
+    treatment_idxs = np.arange(0, len(data.columns), 3)
+
+    # fig, axs = plt.subplots(len(treatment_idxs))
+    # fig.set_size_inches(30, 35)
+    # fig.tight_layout(h_pad=6)
+
+    for i, treatment_idx in enumerate(treatment_idxs):
         treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
         frames = data.iloc[:, treatment_idx]
         bvp = data.iloc[:, treatment_idx + 1]
@@ -101,6 +107,21 @@ def plot_participant_data(participant_dirname):
 
         bvp = bvp[: final_recorded_idx + 1]
 
+        # axs[i].title.set_text(
+        #     f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
+        # )
+        # axs[i].plot(time, bvp)
+        # axs[i].set_xlabel("Time (s)")
+        # axs[i].set_ylabel("BVP")
+
+        save_filepath = os.path.join(
+            "Stress Dataset",
+            participant_dirname,
+            "Infinity",
+            f"{participant_id}_{treatment_label}.png",
+        )
+
+        plt.figure(figsize=(120, 20))
         plt.title(
             f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
         )
@@ -108,16 +129,14 @@ def plot_participant_data(participant_dirname):
         plt.xlabel("Time (s)")
         plt.ylabel("BVP")
 
-        save_filepath = os.path.join(
-            "Stress Dataset",
-            participant_dirname,
-            f"{participant_id}_{treatment_label}.png",
-        )
-        print(save_filepath)
         plt.savefig(save_filepath, format="png")
+        # plt.show()
 
-        plt.show()
+    # plt.show()
 
+
+# %%
+plot_participant_data("0729165929P16_natural")
 
 # %%
 plt.title("test")
@@ -125,9 +144,6 @@ plt.plot(np.arange(10), np.arange(10) ** 2)
 plt.show()
 plt.savefig("test.png", format="png")
 
-
-# %%
-plot_participant_data("0729165929P16_natural")
 
 # %%
 vids_info = pd.read_excel(
