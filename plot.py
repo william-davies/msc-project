@@ -90,11 +90,7 @@ def plot_participant_data(participant_dirname):
 
     treatment_idxs = np.arange(0, len(data.columns), 3)
 
-    # fig, axs = plt.subplots(len(treatment_idxs))
-    # fig.set_size_inches(30, 35)
-    # fig.tight_layout(h_pad=6)
-
-    for i, treatment_idx in enumerate(treatment_idxs):
+    for treatment_idx in treatment_idxs:
         treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
         frames = data.iloc[:, treatment_idx]
         bvp = data.iloc[:, treatment_idx + 1]
@@ -106,13 +102,6 @@ def plot_participant_data(participant_dirname):
         time = zeroed_frames / sampling_rate
 
         bvp = bvp[: final_recorded_idx + 1]
-
-        # axs[i].title.set_text(
-        #     f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
-        # )
-        # axs[i].plot(time, bvp)
-        # axs[i].set_xlabel("Time (s)")
-        # axs[i].set_ylabel("BVP")
 
         save_filepath = os.path.join(
             "Stress Dataset",
@@ -131,8 +120,6 @@ def plot_participant_data(participant_dirname):
 
         plt.savefig(save_filepath, format="png")
         # plt.show()
-
-    # plt.show()
 
 
 # %%
