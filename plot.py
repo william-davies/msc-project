@@ -107,7 +107,23 @@ def plot_participant_data(participant_dirname):
         plt.plot(time, bvp)
         plt.xlabel("Time (s)")
         plt.ylabel("BVP")
+
+        save_filepath = os.path.join(
+            "Stress Dataset",
+            participant_dirname,
+            f"{participant_id}_{treatment_label}.png",
+        )
+        print(save_filepath)
+        plt.savefig(save_filepath, format="png")
+
         plt.show()
+
+
+# %%
+plt.title("test")
+plt.plot(np.arange(10), np.arange(10) ** 2)
+plt.show()
+plt.savefig("test.png", format="png")
 
 
 # %%
