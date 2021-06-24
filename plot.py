@@ -1,14 +1,22 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import re
 
+# %%
+
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 
-PARTICIPANT_ID_PATTERN = "\d{10}(P\d{1,2})"
+# participant ID doesn't include lighting setting information
+PARTICIPANT_ID_PATTERN = "(\d{10}P\d{1,2})"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
+
+# integer
+PARTICIPANT_NUMBER_PATTERN = "\d{10}(P\d{1,2})"
+PARTICIPANT_NUMBER_PATTERN = re.compile(PARTICIPANT_NUMBER_PATTERN)
 
 
 def get_final_recorded_idx(frames, measurements_zeros):
@@ -33,15 +41,24 @@ def get_final_recorded_idx(frames, measurements_zeros):
     return final_recorded_idx
 
 
-def plot_participant_data(csv_fp):
+def get_sample_rate(participant_dirname):
+    pass
+
+
+def plot_participant_data(participant_dirname):
     """
     Plot graphs of bvp vs frame for each treatment of a single participant.
-    :param csv_fp:
+
+    :param participant_dirname: directory contains all sensor data on this participant.
     :return:
     """
+    participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+    csv_fp = os.path.join(
+        "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
+    )
     data = pd.read_csv(csv_fp)
 
-    participant_id = PARTICIPANT_ID_PATTERN.search(csv_fp).group(1)
+    participant_number = PARTICIPANT_NUMBER_PATTERN.search(csv_fp).group(1)
 
     for treatment_idx in np.arange(0, len(data.columns), 3):
         treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
@@ -53,7 +70,7 @@ def plot_participant_data(csv_fp):
         bvp = bvp[: final_recorded_idx + 1]
 
         plt.title(
-            f"Participant: {participant_id}\n Treatment: {treatment_label}\n BVP vs frame"
+            f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
         )
         plt.plot(frames, bvp)
         plt.xlabel("Frame")
@@ -61,4 +78,11 @@ def plot_participant_data(csv_fp):
         plt.show()
 
 
-plot_participant_data("Stress Dataset/0729165929P16_natural/0729165929P16_inf.csv")
+# %%
+plot_participant_data("0729165929P16_natural")
+
+# %%
+vids_info = pd.read_excel(
+    os.path.join("Stress Dataset/0720202421P1_608/0720202421P1.xlsx"),
+    sheet_name="Vids_Info",
+)
