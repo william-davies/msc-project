@@ -63,7 +63,7 @@ def get_central_3_minutes(timeseries, framerate):
 list_of_central_3_minutes = list(
     map(
         get_central_3_minutes,
-        list_of_treatment_timeseries,
+        list_of_filtered_treatment_timeseries,
         [framerate] * len(list_of_treatment_timeseries),
     )
 )
@@ -73,8 +73,8 @@ def get_sliding_windows(timeseries, window_size, overlap_size):
     """
 
     :param timeseries: array_like: time series data
-    :param window_size:
-    :param overlap_size:
+    :param window_size: in frames
+    :param overlap_size: in frames
     :return: list of sliding windows
     """
     windows = []
@@ -91,9 +91,12 @@ def get_sliding_windows(timeseries, window_size, overlap_size):
     return windows
 
 
-treatment_windows = [None] * len(list_of_treatment_timeseries)
-# for treatment_timeseries in list_of_treatment_timeseries:
-#     windows = get_sliding_windows(treatment_timeseries,
+treatment_windows = [None] * len(list_of_central_3_minutes)
+window_size = 2 * SECONDS_IN_MINUTE * framerate
+overlap_size = 1 * SECONDS_IN_MINUTE * framerate
 
+for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
+    windows = get_sliding_windows(treatment_timeseries, window_size, overlap_size)
+    treatment_windows[idx] = windows
 
 breakpoint = 1
