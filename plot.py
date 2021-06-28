@@ -3,9 +3,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import re
+from constants import PARTICIPANT_DIRNAMES_WITH_EXCEL
 
 # %%
-
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
@@ -89,6 +89,7 @@ def plot_participant_data(participant_dirname):
     sampling_rate = get_sample_rate(participant_dirname)
 
     treatment_idxs = np.arange(0, len(data.columns), 3)
+    plt.figure(figsize=(120, 20))
 
     for treatment_idx in treatment_idxs:
         treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
@@ -110,7 +111,6 @@ def plot_participant_data(participant_dirname):
             f"{participant_id}_{treatment_label}.png",
         )
 
-        plt.figure(figsize=(120, 20))
         plt.title(
             f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
         )
@@ -119,11 +119,14 @@ def plot_participant_data(participant_dirname):
         plt.ylabel("BVP")
 
         plt.savefig(save_filepath, format="png")
+        plt.clf()
         # plt.show()
 
 
 # %%
-plot_participant_data("0729165929P16_natural")
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+    if participant_dirname != "0729165929P16_natural":
+        plot_participant_data(participant_dirname)
 
 # %%
 plt.title("test")
