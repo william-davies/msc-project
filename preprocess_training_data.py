@@ -19,4 +19,27 @@ data = pd.read_csv(csv_fp)
 
 treatments = split_data_into_treatments(data)
 
+
+def get_sliding_windows(timeseries, window_size, overlap_size):
+    """
+
+    :param timeseries: array_like: time series data
+    :param window_size:
+    :param overlap_size:
+    :return: list of sliding windows
+    """
+    windows = []
+    start = 0
+    shift_size = window_size - overlap_size
+    remaining_length = len(timeseries)
+
+    while remaining_length >= window_size:
+        window = timeseries[start : start + window_size]
+        windows.append(window)
+        start += shift_size
+        remaining_length = len(timeseries) - start
+
+    return windows
+
+
 breakpoint = 1
