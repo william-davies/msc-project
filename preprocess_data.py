@@ -1,6 +1,6 @@
 import os
 import re
-
+import numpy as np
 import pandas as pd
 
 # participant ID doesn't include lighting setting information
@@ -99,4 +99,36 @@ for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
     windows = get_sliding_windows(treatment_timeseries, window_size, overlap_size)
     treatment_windows[idx] = windows
 
+
+def get_total_number_of_windows(list_of_treatment_windows):
+    m = 0
+    for windows in list_of_treatment_windows:
+        m += len(windows)
+    return m
+
+
+def make_dataset(list_of_treatment_windows):
+    """
+    Make dataset ready to pass to model.fit.
+    :param list_of_treatment_windows: list of lists. outer_list[0] is list of sliding windows for a specific treatment.
+    :return: (m, timeseries_length) np.array: dataset
+    """
+    MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
+
+    m = get_total_number_of_windows(list_of_treatment_windows)
+    timeseries_length = len(list_of_treatment_windows[0][0])
+
+    dataset = np.empty((m, timeseries_length))
+    i = 0
+    for windows in list_of_treatment_windows:
+        for window in windows:
+            measurements = window.filter(regex=MEASUREMENT_COLUMN_PATTERN)
+            dataset[i] = measurements.values.squeeze()
+
+    return dataset
+
+
+dataset = make_dataset(treatment_windows)
+
+breakpoint = 1
 breakpoint = 1
