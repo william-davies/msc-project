@@ -4,7 +4,7 @@ import re
 import pandas as pd
 
 # participant ID doesn't include lighting setting information
-from utils import split_data_into_treatments
+from utils import split_data_into_treatments, get_final_recorded_idx
 
 PARTICIPANT_ID_PATTERN = "(\d{10}P\d{1,2})"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
@@ -20,13 +20,21 @@ data = pd.read_csv(csv_fp)
 list_of_treatment_timeseries = split_data_into_treatments(data)
 
 
-def filter_recorded_measurements():
+def filter_recorded_measurements(data):
     """
-    In the original .xlsx files
+    In the original .xlsx files, after all the recorded measurements, there are 0s recorded for both the frame and measurement.
+    These are just dummy/placeholder values and we can remove them.
     :return:
     """
+    frames = data.iloc[:, 0]
+    measurements = data.iloc[:, 1]
+    final_recorded_idx = get_final_recorded_idx(frames, measurements)
+    return data.iloc[: final_recorded_idx + 1]
 
 
+list_of_filtered_treatment_timeseries = list(
+    map(filter_recorded_measurements, list_of_treatment_timeseries)
+)
 SECONDS_IN_MINUTE = 60
 
 
