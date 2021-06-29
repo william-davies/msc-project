@@ -10,7 +10,10 @@ from constants import (
     SECONDS_IN_MINUTE,
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_ID_PATTERN,
+    PARTICIPANT_NUMBER_PATTERN,
 )
+
+MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
 
 # %%
 participant_dirname = "0720202421P1_608"
@@ -24,6 +27,7 @@ def preprocess_data(participant_dirname):
     """
     framerate = get_sample_rate(participant_dirname)
     participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+    participant_number = PARTICIPANT_NUMBER_PATTERN.search(participant_dirname).group(1)
     csv_fp = os.path.join(
         "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
     )
@@ -41,16 +45,21 @@ def preprocess_data(participant_dirname):
         )
     )
 
-    treatment_windows = [None] * len(list_of_central_3_minutes)
+    treatment_windows = {}
     window_size = 2 * SECONDS_IN_MINUTE * framerate
     overlap_size = 1 * SECONDS_IN_MINUTE * framerate
 
     for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
         windows = get_sliding_windows(treatment_timeseries, window_size, overlap_size)
-        treatment_windows[idx] = windows
+        treatment_string = treatment_timeseries.filter(
+            regex=MEASUREMENT_COLUMN_PATTERN
+        ).columns[0]
+        for window_idx, window in enumerate(windows):
+            key = f"P{participant_number}_{treatment_string}_window{window_idx}"
+            treatment_windows[key] = window
 
-    dataset = concatenate_windows(treatment_windows)
-    return dataset
+    # dataset = concatenate_windows(treatment_windows)
+    return treatment_windows
 
 
 def filter_recorded_measurements(data):
@@ -118,7 +127,6 @@ def concatenate_windows(list_of_treatment_windows):
     :param list_of_treatment_windows: list of lists. outer_list[0] is list of sliding windows for a specific treatment.
     :return: (m, timeseries_length) np.array: dataset
     """
-    MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
 
     m = get_total_number_of_windows(list_of_treatment_windows)
     timeseries_length = len(list_of_treatment_windows[0][0])
@@ -134,15 +142,14 @@ def concatenate_windows(list_of_treatment_windows):
 
 
 # %%
-per_participant_preprocessed_data = {}
+all_preprocessed_data = {}
 for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-    per_participant_preprocessed_data[participant_dirname] = preprocess_data(
-        participant_dirname
-    )
+    participant_preprocessed_data = preprocess_data(participant_dirname)
+    all_preprocessed_data.update(participant_preprocessed_data)
 
 # %%
-# p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
-# preprocessed_data = preprocess_data(p1_dirname)
+p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
+preprocessed_data = preprocess_data(p1_dirname)
 
 # %%
 # for participant, timeseriess in per_participant_preprocessed_data.items():
@@ -157,6 +164,15 @@ all_participants_preprocessed_data = np.concatenate(
 
 # %%
 # plt.figure(figsize=(120, 20))
+
+
+def get_label(idx, windows_per_treatment=2, num_treatments=5):
+    windows_per_participant = windows_per_treatment * num_treatments
+    partcipant_number = idx // windows_per_participant + 1
+
+    TREATMENTS = [""]
+    treatment = idx % windows_per_participant
+
 
 for idx, timeseries in enumerate(all_participants_preprocessed_data):
     print(timeseries.shape)
