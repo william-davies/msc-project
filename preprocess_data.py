@@ -183,20 +183,47 @@ for label, df in all_preprocessed_data.items():
         plt.clf()
 
 # %%
-p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
-preprocessed_data = preprocess_data(p1_dirname)
+just_bvp_no_frames = {}
+for key, dataframe in all_preprocessed_data.items():
+    just_bvp_no_frames[key] = dataframe.filter(regex=MEASUREMENT_COLUMN_PATTERN)
 
 # %%
-# for participant, timeseriess in per_participant_preprocessed_data.items():
-#     print(participant)
-#     for timeseries in timeseriess:
-#         print(timeseries.sum())
+label_to_array = {}
+for key, dataframe in just_bvp_no_frames.items():
+    label_to_array[key] = dataframe.values.squeeze()
+
+# %%
+# arbitrary_timeseries = label_to_array[list(label_to_array.keys())[0]]
+# timeseries_length = len(arbitrary_timeseries)
+
+data_as_dataframe = pd.DataFrame(data=label_to_array)
+
+# data_as_dataframe = pd.DataFrame(data=label_to_array, index=pd.RangeIndex(start=0, stop=timeseries_length))
+# data_as_dataframe = pd.DataFrame(data=label_to_array, columns=label_to_array.keys())
 
 # %%
 all_participants_preprocessed_data = np.concatenate(
-    list(per_participant_preprocessed_data.values())
+    list(just_bvp_no_frames.values()), axis=1
 )
+all_participants_preprocessed_data = all_participants_preprocessed_data.T
 
+# %%
+for idx, timeseries in enumerate(all_participants_preprocessed_data):
+    plt.title(f"{idx}\n BVP vs frame")
+    plt.plot(timeseries)
+    plt.xlabel("Frames")
+    plt.ylabel("BVP")
+
+    save_filepath = f"two_min_window_plots_numpy/{idx}.png"
+    plt.savefig(save_filepath, format="png")
+
+    # plt.show()
+    plt.clf()
+
+
+# %%
+p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
+preprocessed_data = preprocess_data(p1_dirname)
 
 # %%
 # dummy_data = np.arange(10 * 15).reshape((10, 15))
