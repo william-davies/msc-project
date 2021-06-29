@@ -145,10 +145,10 @@ for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
 # preprocessed_data = preprocess_data(p1_dirname)
 
 # %%
-for participant, timeseriess in per_participant_preprocessed_data.items():
-    print(participant)
-    for timeseries in timeseriess:
-        print(timeseries.sum())
+# for participant, timeseriess in per_participant_preprocessed_data.items():
+#     print(participant)
+#     for timeseries in timeseriess:
+#         print(timeseries.sum())
 
 # %%
 all_participants_preprocessed_data = np.concatenate(
@@ -158,15 +158,23 @@ all_participants_preprocessed_data = np.concatenate(
 # %%
 # plt.figure(figsize=(120, 20))
 
-for idx, timeseries in enumerate(all_participants_preprocessed_data[:5]):
+for idx, timeseries in enumerate(all_participants_preprocessed_data):
     print(timeseries.shape)
     plt.title(f"Idx: {idx}\n BVP vs frame")
     plt.plot(timeseries)
     plt.xlabel("Frames")
     plt.ylabel("BVP")
-    plt.show()
-    # plt.clf()
+
+    save_filepath = f"two_min_window_plots/idx_{idx}.png"
+    plt.savefig(save_filepath, format="png")
+
+    # plt.show()
+    plt.clf()
 
 # %%
-dummy_data = np.arange(10 * 15).reshape((10, 15))
-dataset = tf.data.Dataset.from_tensor_slices(dummy_data)
+# dummy_data = np.arange(10 * 15).reshape((10, 15))
+dataset = tf.data.Dataset.from_tensor_slices(all_participants_preprocessed_data)
+
+# %%
+save_filepath = "Stress Dataset/dataset_two_min_window"
+np.save(save_filepath, all_participants_preprocessed_data)
