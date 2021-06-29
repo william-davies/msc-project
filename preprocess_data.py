@@ -205,3 +205,16 @@ dataset = tf.data.Dataset.from_tensor_slices(all_participants_preprocessed_data)
 # %%
 save_filepath = "Stress Dataset/dataset_two_min_window"
 np.save(save_filepath, all_participants_preprocessed_data)
+
+# %%
+# check labels
+p5 = pd.read_csv("Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
+bvp = p5["infinity_m4_hard_bvp"]
+frames = p5["infinity_m4_hard_frame"]
+
+ONE_MINUTE = 60 * 256
+FOUR_MINUTE = 4 * 60 * 256
+
+# bvp_zeros = bvp.index[bvp==0]
+plt.plot(frames[ONE_MINUTE:FOUR_MINUTE], bvp[ONE_MINUTE:FOUR_MINUTE])
+plt.show()
