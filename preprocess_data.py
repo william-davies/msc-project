@@ -1,7 +1,8 @@
 import os
-import re
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import tensorflow as tf
 
 from utils import split_data_into_treatments, get_final_recorded_idx, get_sample_rate
 
@@ -11,6 +12,7 @@ from constants import (
     PARTICIPANT_ID_PATTERN,
 )
 
+# %%
 participant_dirname = "0720202421P1_608"
 
 
@@ -121,13 +123,13 @@ def concatenate_windows(list_of_treatment_windows):
     m = get_total_number_of_windows(list_of_treatment_windows)
     timeseries_length = len(list_of_treatment_windows[0][0])
 
-    dataset = np.empty((m, timeseries_length))
+    dataset = np.zeros((m, timeseries_length))
     i = 0
     for windows in list_of_treatment_windows:
         for window in windows:
             measurements = window.filter(regex=MEASUREMENT_COLUMN_PATTERN)
             dataset[i] = measurements.values.squeeze()
-
+            i += 1
     return dataset
 
 
@@ -139,6 +141,32 @@ for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
     )
 
 # %%
+# p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
+# preprocessed_data = preprocess_data(p1_dirname)
+
+# %%
+for participant, timeseriess in per_participant_preprocessed_data.items():
+    print(participant)
+    for timeseries in timeseriess:
+        print(timeseries.sum())
+
+# %%
 all_participants_preprocessed_data = np.concatenate(
     list(per_participant_preprocessed_data.values())
 )
+
+# %%
+# plt.figure(figsize=(120, 20))
+
+for idx, timeseries in enumerate(all_participants_preprocessed_data[:5]):
+    print(timeseries.shape)
+    plt.title(f"Idx: {idx}\n BVP vs frame")
+    plt.plot(timeseries)
+    plt.xlabel("Frames")
+    plt.ylabel("BVP")
+    plt.show()
+    # plt.clf()
+
+# %%
+dummy_data = np.arange(10 * 15).reshape((10, 15))
+dataset = tf.data.Dataset.from_tensor_slices(dummy_data)
