@@ -1,4 +1,6 @@
 import os
+import re
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -148,6 +150,39 @@ for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
     all_preprocessed_data.update(participant_preprocessed_data)
 
 # %%
+# plt.figure(figsize=(120, 20))
+
+
+for label, df in all_preprocessed_data.items():
+    plt.title(f"{label}\n BVP vs frame")
+    plt.plot(df.iloc[:, 1])
+    plt.xlabel("Frames")
+    plt.ylabel("BVP")
+
+    save_filepath = f"two_min_window_plots/{label}.png"
+    plt.savefig(save_filepath, format="png")
+
+    # plt.show()
+    plt.clf()
+
+
+# %%
+for label, df in all_preprocessed_data.items():
+    HARD_MATHS_PATTERN = "infinity_m[24]_hard_bvp"
+    HARD_MATHS_PATTERN = re.compile(HARD_MATHS_PATTERN)
+    if HARD_MATHS_PATTERN.search(label):
+        plt.title(f"{label}\n BVP vs frame")
+        plt.plot(df.iloc[:, 1])
+        plt.xlabel("Frames")
+        plt.ylabel("BVP")
+
+        save_filepath = f"two_min_window_hard_maths_plots/{label}.png"
+        plt.savefig(save_filepath, format="png")
+
+        # plt.show()
+        plt.clf()
+
+# %%
 p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
 preprocessed_data = preprocess_data(p1_dirname)
 
@@ -162,30 +197,6 @@ all_participants_preprocessed_data = np.concatenate(
     list(per_participant_preprocessed_data.values())
 )
 
-# %%
-# plt.figure(figsize=(120, 20))
-
-
-def get_label(idx, windows_per_treatment=2, num_treatments=5):
-    windows_per_participant = windows_per_treatment * num_treatments
-    partcipant_number = idx // windows_per_participant + 1
-
-    TREATMENTS = [""]
-    treatment = idx % windows_per_participant
-
-
-for idx, timeseries in enumerate(all_participants_preprocessed_data):
-    print(timeseries.shape)
-    plt.title(f"Idx: {idx}\n BVP vs frame")
-    plt.plot(timeseries)
-    plt.xlabel("Frames")
-    plt.ylabel("BVP")
-
-    save_filepath = f"two_min_window_plots/idx_{idx}.png"
-    plt.savefig(save_filepath, format="png")
-
-    # plt.show()
-    plt.clf()
 
 # %%
 # dummy_data = np.arange(10 * 15).reshape((10, 15))
