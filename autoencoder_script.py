@@ -59,6 +59,10 @@ min_val = tf.reduce_min(data)
 max_val = tf.reduce_max(data)
 
 # %%
+normalised_data = (data - float(min_val)) / (float(max_val) - float(min_val))
+normalised_data = normalised_data.values.T
+
+# %%
 normalised_train_data = (train_data.values - min_val) / (max_val - min_val)
 normalised_train_data = tf.transpose(normalised_train_data)
 normalised_train_data = normalised_train_data.numpy()
@@ -160,3 +164,32 @@ plt.show()
 
 # %%
 delta = normalised_train_data[10] - decoded_examples[10]
+
+# %%
+decoded_all_examples = tf.stop_gradient(autoencoder.call(normalised_data))
+
+# %%
+plt.figure(figsize=(120, 20))
+# plt.figure(figsize=(8, 6))
+
+plt.plot(normalised_data[80], "b")
+plt.plot(decoded_all_examples[80], "r")
+plt.show()
+
+# %%
+plt.figure(figsize=(8, 6))
+save_filepath = "autoencoder_plots/{}.png"
+
+# for idx in range(len(normalised_data)):
+for idx in range(10):
+    title = data.columns[idx]
+    plt.title(title)
+
+    plt.plot(normalised_data[idx], "b")
+    # plt.plot(decoded_all_examples[idx], "r")
+
+    plt.xlabel("Frames")
+    plt.ylabel("BVP")
+
+    plt.savefig(save_filepath.format(title), format="png")
+    plt.clf()
