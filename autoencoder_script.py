@@ -1,3 +1,5 @@
+import datetime
+import os
 import re
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -35,8 +37,6 @@ validation_participants = random_state.choice(
     a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
 )
 validation_participants = set(validation_participants)
-
-print(validation_participants)
 
 # %%
 train_columns = []
@@ -120,6 +120,19 @@ history = autoencoder.fit(
 )
 
 # %%
+
+model_save_fp = os.path.join(
+    "models", "checkpoints", datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+)
+# model_save_fp = os.path.join('models', 'checkpoints')
+autoencoder.save_weights(model_save_fp)
+
+# %%
+loaded_autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
+loaded_autoencoder.compile(optimizer="adam", loss="mae")
+loaded_autoencoder.load_weights(model_save_fp)
+# %%
+plt.figure(figsize=(8, 6))
 plt.plot(history.history["loss"], label="Training Loss")
 plt.plot(history.history["val_loss"], label="Validation Loss")
 plt.legend()
@@ -129,11 +142,20 @@ plt.show()
 example = train_data.T.iloc[0].values
 
 # %%
-decoded_examples = tf.stop_gradient(autoencoder.call(normalised_train_data))
+decoded_train_examples = tf.stop_gradient(autoencoder.call(normalised_train_data))
 
 # %%
 plt.plot(normalised_train_data[16], "b")
-plt.plot(decoded_examples[16], "r")
+plt.plot(decoded_train_examples[16], "r")
+plt.show()
+
+# %%
+decoded_val_examples = tf.stop_gradient(autoencoder.call(normalised_val_data))
+
+# %%
+plt.figure(figsize=(120, 20))
+plt.plot(normalised_val_data[16], "b")
+plt.plot(decoded_val_examples[16], "r")
 plt.show()
 
 # %%
