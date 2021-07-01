@@ -60,7 +60,12 @@ max_val = tf.reduce_max(data)
 
 # %%
 normalised_train_data = (train_data.values - min_val) / (max_val - min_val)
+normalised_train_data = tf.transpose(normalised_train_data)
+normalised_train_data = normalised_train_data.numpy()
+
 normalised_val_data = (val_data.values - min_val) / (max_val - min_val)
+normalised_val_data = tf.transpose(normalised_val_data)
+normalised_val_data = normalised_val_data.numpy()
 
 # %%
 plt.plot(tf.transpose(normalised_train_data)[10])
@@ -94,12 +99,22 @@ early_stop = tf.keras.callbacks.EarlyStopping(
 #           shuffle=True)
 num_epochs = 20
 
+# history = autoencoder.fit(
+#     train_data.T,
+#     train_data.T,
+#     epochs=num_epochs,
+#     batch_size=16,
+#     validation_data=(val_data.T, val_data.T),
+#     # callbacks=[early_stop],
+#     shuffle=True,
+# )
+
 history = autoencoder.fit(
-    train_data.T,
-    train_data.T,
+    normalised_train_data,
+    normalised_train_data,
     epochs=num_epochs,
     batch_size=16,
-    validation_data=(val_data.T, val_data.T),
+    validation_data=(normalised_val_data, normalised_val_data),
     # callbacks=[early_stop],
     shuffle=True,
 )
@@ -114,9 +129,12 @@ plt.show()
 example = train_data.T.iloc[0].values
 
 # %%
-decoded_examples = tf.stop_gradient(autoencoder.call(train_data.T.values))
+decoded_examples = tf.stop_gradient(autoencoder.call(normalised_train_data))
 
 # %%
-plt.plot(train_data.T.iloc[0], "b")
-plt.plot(decoded_examples[0], "r")
+plt.plot(normalised_train_data[16], "b")
+plt.plot(decoded_examples[16], "r")
 plt.show()
+
+# %%
+delta = normalised_train_data[10] - decoded_examples[10]
