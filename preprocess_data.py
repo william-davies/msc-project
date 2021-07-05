@@ -104,7 +104,18 @@ class DatasetWrapper:
         self.dataset_dictionary = self.remove_frames()
         self.dataset_dictionary = self.convert_dataframe_to_array()
         self.dataset = pd.DataFrame(data=self.dataset_dictionary)
+        self.dataset = self.convert_index_to_timedelta()
         return self.dataset
+
+    def convert_index_to_timedelta(self):
+        """
+        Input index: RangeIndex: 0, 1, 2, 3, ... . These are frames.
+        Output index: TimedeltaIndex: 0s, 1s, 2s, .... . Concomitant with sample frequency (1Hz in this example).
+        :return:
+        """
+        seconds_index = self.dataset.index / INFINITY_SAMPLE_RATE
+        timedelta_index = pd.to_timedelta(seconds_index, unit="second")
+        return self.dataset.set_index(timedelta_index)
 
     def remove_frames(self):
         """
@@ -184,10 +195,13 @@ window_size = 10
 overlap_size = window_size * 0.5
 wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
 dataset = wrapper.build_dataset()
+
+# %%
 save_filepath = (
     f"Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
 )
 wrapper.save_dataset(save_filepath)
+
 
 # %%
 # test sliding window worked
@@ -201,6 +215,11 @@ assert np.array_equal(window0_overlap, window1_overlap)
 
 # %%
 def normalize(data):
+    """
+    Normalize data to [0,1]
+    :param data: pd.DataFrame:
+    :return:
+    """
     max_val = data.values.max()
     min_val = data.values.min()
     normalized_data = (data - min_val) / (max_val - min_val)
@@ -220,6 +239,9 @@ def downsample(data, downsampled_rate):
     downsampled_data = downsampled_data.mean(axis=2)
     return downsampled_data
 
+
+# %%
+normalized_data = normalize(dataset)
 
 # %%
 
