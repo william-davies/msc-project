@@ -203,10 +203,7 @@ assert np.array_equal(window0_overlap, window1_overlap)
 def normalize(data):
     max_val = data.values.max()
     min_val = data.values.min()
-    normalized_data = dataset.copy()
-    normalized_data = normalized_data.applymap(
-        lambda x: (x - min_val) / (max_val - min_val)
-    )
+    normalized_data = (data - min_val) / (max_val - min_val)
     return normalized_data
 
 
