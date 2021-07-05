@@ -242,14 +242,13 @@ def downsample(data, downsampled_rate):
     """
     Downsample signal. Using mean.
 
-    :param data:
-    :param downsampled_rate: Hz
+    :param data: pd.DataFrame:
+    :param downsampled_rate: scalar: Hz
     :return:
     """
-    downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
-    downsampled_data = data.reshape((data.shape[0], -1, downsampling_ratio))
-    downsampled_data = downsampled_data.mean(axis=2)
-    return downsampled_data
+    downsample_delta = pd.Timedelta(value=1 / downsampled_rate, unit="second")
+    data = data.resample(rule=downsample_delta).mean()
+    return data
 
 
 # %%
@@ -257,40 +256,14 @@ dataset = normalize(dataset)
 
 # %%
 downsampled_rate = 16
-downsample_delta = pd.Timedelta(value=1 / downsampled_rate, unit="second")
-downsampled_dataset = dataset.resample(rule=downsample_delta).mean()
+downsampled_dataset = downsample(data=dataset, downsampled_rate=downsampled_rate)
 
 # %%
-plt.plot(dataset.iloc[:, 0], "b")
+example_idx = 2
+plt.plot(dataset.iloc[:, example_idx], "b")
+plt.plot(downsampled_dataset.iloc[:, example_idx], "r")
 plt.show()
 
-plt.plot(downsampled_dataset.iloc[:, 0], "r")
-plt.show()
-
-# %%
-plt.plot(dataset.iloc[:, 0], "b")
-plt.plot(downsampled_dataset.iloc[:, 0], "r")
-plt.show()
-
-# %%
-# manual test
-timeseries_length = len(dataset)
-downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
-downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
-
-manual_downsampled_data = dataset.values.reshape(
-    (-1, downsampling_ratio, dataset.values.shape[1])
-)
-manual_downsampled_data = manual_downsampled_data.mean(axis=1)
-
-plt.plot(downsampled_frames, manual_downsampled_data[:, 0], "r")
-plt.plot(downsampled_frames, downsampled_dataset.values[:, 0], "r")
-plt.plot(dataset.values[:, 0], "b")
-
-plt.show()
-
-# %%
-assert np.allclose(manual_downsampled_data, downsampled_dataset.values)
 # %%
 
 for label, df in all_preprocessed_data.items():
