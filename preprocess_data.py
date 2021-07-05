@@ -81,11 +81,18 @@ def get_central_3_minutes(timeseries, framerate):
 
 
 class DatasetWrapper:
-    def __init__(self):
+    def __init__(self, window_size, overlap_size):
+        """
+
+        :param window_size: in seconds
+        :param overlap_size: in seconds
+        """
         self.dataset_dictionary = (
             {}
         )  # map from label (e.g. P1_infinity_r1_bvp_window0) to pd.DataFrame/np.array
         self.dataset = pd.DataFrame()
+        self.window_size = window_size
+        self.overlap_size = overlap_size
 
     def build_dataset(self):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
@@ -154,8 +161,8 @@ class DatasetWrapper:
         )
 
         treatment_windows = {}
-        window_size = 2 * SECONDS_IN_MINUTE * framerate
-        overlap_size = 1 * SECONDS_IN_MINUTE * framerate
+        window_size = int(self.window_size * framerate)
+        overlap_size = int(self.overlap_size * framerate)
 
         for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
             windows = get_sliding_windows(
@@ -170,35 +177,16 @@ class DatasetWrapper:
 
         return treatment_windows
 
-    def concatenate_windows(self, list_of_treatment_windows):
-        """
-        Make dataset ready to pass to model.fit.
-        :param list_of_treatment_windows: list of lists. outer_list[0] is list of sliding windows for a specific treatment.
-        :return: (m, timeseries_length) np.array: dataset
-        """
-
-        m = get_total_number_of_windows(list_of_treatment_windows)
-        timeseries_length = len(list_of_treatment_windows[0][0])
-
-        dataset = np.zeros((m, timeseries_length))
-        i = 0
-        for windows in list_of_treatment_windows:
-            for window in windows:
-                measurements = window.filter(regex=MEASUREMENT_COLUMN_PATTERN)
-                dataset[i] = measurements.values.squeeze()
-                i += 1
-        return dataset
-
 
 # %%
-wrapper = DatasetWrapper()
+window_size = 10
+overlap_size = window_size * 0.5
+wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
 dataset = wrapper.build_dataset()
-save_filepath = "Stress Dataset/dataset_two_min_window2.csv"
+save_filepath = "Stress Dataset/dataset_two_min_window.csv"
 wrapper.save_dataset(save_filepath)
 
 # %%
-# plt.figure(figsize=(120, 20))
-
 
 for label, df in all_preprocessed_data.items():
     plt.title(f"{label}\n BVP vs frame")
