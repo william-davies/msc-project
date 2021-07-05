@@ -189,6 +189,14 @@ save_filepath = (
 wrapper.save_dataset(save_filepath)
 
 # %%
+# test sliding window worked
+window0 = dataset.iloc[:, 1]
+window1 = dataset.iloc[:, 2]
+assert len(window0) == len(window1)
+halfway = int(len(window0) * 0.5)
+window0_overlap = window0.values[halfway:]
+window1_overlap = window1.values[:halfway]
+assert np.array_equal(window0_overlap, window1_overlap)
 
 # %%
 
