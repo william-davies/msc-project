@@ -194,7 +194,7 @@ class DatasetWrapper:
 window_size = 10
 overlap_size = window_size * 0.5
 wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
-dataset = wrapper.build_dataset()
+normalized_dataset = wrapper.build_dataset()
 
 # %%
 save_filepath = (
@@ -205,20 +205,31 @@ save_filepath = (
 wrapper.save_dataset(save_filepath)
 
 # %%
-dataset.to_csv(save_filepath, index_label="timedelta", index=True)
+normalized_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
 # %%
+def read_dataset_csv(csv_filepath):
+    """
+    Helper function that handles the TimedeltaIndex.
+    :param csv_filepath:
+    :return:
+    """
+    loaded_dataset = pd.read_csv(csv_filepath, parse_dates=True, index_col="timedelta")
+    loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
+    return loaded_dataset
+
+
 # not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
-loaded_dataset = pd.read_csv(save_filepath, parse_dates=True, index_col="timedelta")
-loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
+loaded_dataset = read_dataset_csv(save_filepath)
+
 
 # %%
-dataset = loaded_dataset
+normalized_dataset = loaded_dataset
 
 # %%
 # test sliding window worked
-window0 = dataset.iloc[:, 1]
-window1 = dataset.iloc[:, 2]
+window0 = normalized_dataset.iloc[:, 1]
+window1 = normalized_dataset.iloc[:, 2]
 assert len(window0) == len(window1)
 halfway = int(len(window0) * 0.5)
 window0_overlap = window0.values[halfway:]
@@ -252,15 +263,18 @@ def downsample(data, downsampled_rate):
 
 
 # %%
-dataset = normalize(dataset)
+normalized_dataset = normalize(normalized_dataset)
+downsampled_rate = 16
+downsampled_dataset = downsample(
+    data=normalized_dataset, downsampled_rate=downsampled_rate
+)
 
 # %%
-downsampled_rate = 16
-downsampled_dataset = downsample(data=dataset, downsampled_rate=downsampled_rate)
-
+save_filepath = f"Stress Dataset/preprocessed_data/downsampled{downsampled_rate}Hz_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
+downsampled_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 # %%
 example_idx = 2
-plt.plot(dataset.iloc[:, example_idx], "b")
+plt.plot(normalized_dataset.iloc[:, example_idx], "b")
 plt.plot(downsampled_dataset.iloc[:, example_idx], "r")
 plt.show()
 
@@ -316,7 +330,9 @@ preprocessed_data = preprocess_data(p1_dirname)
 
 # %%
 # dummy_data = np.arange(10 * 15).reshape((10, 15))
-dataset = tf.data.Dataset.from_tensor_slices(all_participants_preprocessed_data)
+normalized_dataset = tf.data.Dataset.from_tensor_slices(
+    all_participants_preprocessed_data
+)
 
 # %%
 save_filepath = "Stress Dataset/dataset_two_min_window"
