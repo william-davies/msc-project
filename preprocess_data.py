@@ -183,8 +183,12 @@ window_size = 10
 overlap_size = window_size * 0.5
 wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
 dataset = wrapper.build_dataset()
-save_filepath = "Stress Dataset/dataset_two_min_window.csv"
+save_filepath = (
+    f"Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
+)
 wrapper.save_dataset(save_filepath)
+
+# %%
 
 # %%
 
