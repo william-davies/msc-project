@@ -138,7 +138,7 @@ class DatasetWrapper:
         return label_to_array
 
     def save_dataset(self, filepath):
-        self.dataset.to_csv(filepath, index=False)
+        self.dataset.to_csv(filepath, index_label="timedelta", index=True)
 
     def preprocess_participant_data(self, participant_dirname):
         """
@@ -200,8 +200,15 @@ dataset = wrapper.build_dataset()
 save_filepath = (
     f"Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
 )
+
+# %%
 wrapper.save_dataset(save_filepath)
 
+# %%
+dataset.to_csv(save_filepath, index_label="timedelta", index=True)
+
+# %%
+loaded_dataset = pd.read_csv(save_filepath, index_col="timedelta")
 
 # %%
 # test sliding window worked
@@ -241,8 +248,27 @@ def downsample(data, downsampled_rate):
 
 
 # %%
-normalized_data = normalize(dataset)
+dataset = normalize(dataset)
 
+# %%
+downsampled_rate = 16
+downsample_delta = pd.Timedelta(value=1 / downsampled_rate, unit="second")
+downsampled_dataset = dataset.resample(rule=downsample_delta).mean()
+
+# %%
+plt.plot(dataset.iloc[:, 0], "b")
+plt.show()
+timeseries_length = len(dataset)
+downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
+downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
+plt.plot(downsampled_frames, downsampled_dataset.iloc[:, 0], "r")
+plt.show()
+# %%
+# manual test
+manual_downsampled_data = dataset.values.reshape(
+    (-1, dataset.values.shape[1], downsampling_ratio)
+)
+manual_downsampled_data = manual_downsampled_data.mean(axis=2)
 # %%
 
 for label, df in all_preprocessed_data.items():
