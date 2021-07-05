@@ -4,10 +4,16 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 
-from constants import PARTICIPANT_DIRNAMES_WITH_EXCEL, PARTICIPANT_NUMBER_PATTERN
+from constants import (
+    PARTICIPANT_DIRNAMES_WITH_EXCEL,
+    PARTICIPANT_NUMBER_PATTERN,
+    INFINITY_SAMPLE_RATE,
+)
 from models.denoising_autoencoder import MLPDenoisingAutoEncoder
+
+# %%
+import tensorflow as tf
 
 # %%
 
@@ -61,7 +67,22 @@ max_val = tf.reduce_max(data)
 # %%
 normalised_data = (data - float(min_val)) / (float(max_val) - float(min_val))
 normalised_data = normalised_data.values.T
+timeseries_length = normalised_data.shape[1]
 
+# %%
+downsampled_rate = 16
+downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
+downsampled_data = normalised_data.reshape(
+    (normalised_data.shape[0], -1, downsampling_ratio)
+)
+downsampled_data = downsampled_data.mean(axis=2)
+
+# %%
+plt.plot(normalised_data[0], "b")
+plt.show()
+downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
+plt.plot(downsampled_frames, downsampled_data[0], "r")
+plt.show()
 # %%
 normalised_train_data = (train_data.values - min_val) / (max_val - min_val)
 normalised_train_data = tf.transpose(normalised_train_data)
@@ -79,7 +100,6 @@ plt.show()
 plt.plot(train_data.iloc[:, 10])
 plt.show()
 # %%
-timeseries_length = len(data)
 autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
 autoencoder.compile(optimizer="adam", loss="mae")
 
@@ -101,7 +121,7 @@ early_stop = tf.keras.callbacks.EarlyStopping(
 #           validation_data=(val_data.T, val_data.T),
 #           callbacks=[early_stop],
 #           shuffle=True)
-num_epochs = 20
+num_epochs = 1
 
 # history = autoencoder.fit(
 #     train_data.T,
@@ -166,7 +186,7 @@ plt.show()
 delta = normalised_train_data[10] - decoded_examples[10]
 
 # %%
-decoded_all_examples = tf.stop_gradient(autoencoder.call(normalised_data))
+decoded_all_examples = tf.stop_gradient(autoencoder(normalised_data))
 
 # %%
 plt.figure(figsize=(120, 20))
@@ -177,19 +197,30 @@ plt.plot(decoded_all_examples[80], "r")
 plt.show()
 
 # %%
-plt.figure(figsize=(8, 6))
+plt.figure(figsize=(120, 20))
 save_filepath = "autoencoder_plots/{}.png"
 
-# for idx in range(len(normalised_data)):
-for idx in range(10):
+for idx in range(len(normalised_data)):
     title = data.columns[idx]
     plt.title(title)
 
     plt.plot(normalised_data[idx], "b")
-    # plt.plot(decoded_all_examples[idx], "r")
+    plt.plot(decoded_all_examples[idx], "r")
 
     plt.xlabel("Frames")
     plt.ylabel("BVP")
 
     plt.savefig(save_filepath.format(title), format="png")
     plt.clf()
+
+# %%
+
+plt.figure(figsize=(120, 20))
+plt.plot(decoded_all_examples[0], "b")
+plt.plot(decoded_all_examples[1], "r")
+plt.show()
+
+# %%
+timeseries_length = len(data)
+untrained_autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
+untrained_autoencoder.compile(optimizer="adam", loss="mae")
