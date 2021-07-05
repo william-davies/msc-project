@@ -13,6 +13,7 @@ from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_ID_PATTERN,
     PARTICIPANT_NUMBER_PATTERN,
+    INFINITY_SAMPLE_RATE,
 )
 
 MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
@@ -197,6 +198,25 @@ halfway = int(len(window0) * 0.5)
 window0_overlap = window0.values[halfway:]
 window1_overlap = window1.values[:halfway]
 assert np.array_equal(window0_overlap, window1_overlap)
+
+# %%
+def normalize(data):
+    pass
+
+
+def downsample(data, downsampled_rate):
+    """
+    Downsample signal. Using mean.
+
+    :param data:
+    :param downsampled_rate: Hz
+    :return:
+    """
+    downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
+    downsampled_data = data.reshape((data.shape[0], -1, downsampling_ratio))
+    downsampled_data = downsampled_data.mean(axis=2)
+    return downsampled_data
+
 
 # %%
 
