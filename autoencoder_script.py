@@ -66,12 +66,18 @@ def get_train_val_columns(data, validation_participants):
 
 train_columns, val_columns = get_train_val_columns(data, validation_participants)
 # %%
-train_data = data.filter(items=train_columns)
-val_data = data.filter(items=val_columns)
+train_data = data.filter(items=train_columns).T
+val_data = data.filter(items=val_columns).T
 
 # %%
+timeseries_length = len(data)
 autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
 autoencoder.compile(optimizer="adam", loss="mae")
+
+# %%
+autoencoder.build(train_data.shape)
+autoencoder.summary()
+
 
 # %%
 early_stop = tf.keras.callbacks.EarlyStopping(
@@ -104,11 +110,11 @@ num_epochs = 1
 # )
 
 history = autoencoder.fit(
-    normalised_train_data,
-    normalised_train_data,
+    train_data,
+    train_data,
     epochs=num_epochs,
     batch_size=16,
-    validation_data=(normalised_val_data, normalised_val_data),
+    validation_data=(val_data, val_data),
     # callbacks=[early_stop],
     shuffle=True,
 )
