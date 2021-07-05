@@ -274,10 +274,23 @@ plt.show()
 
 # %%
 # manual test
+timeseries_length = len(dataset)
+downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
+downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
+
 manual_downsampled_data = dataset.values.reshape(
-    (-1, dataset.values.shape[1], downsampling_ratio)
+    (-1, downsampling_ratio, dataset.values.shape[1])
 )
-manual_downsampled_data = manual_downsampled_data.mean(axis=2)
+manual_downsampled_data = manual_downsampled_data.mean(axis=1)
+
+plt.plot(downsampled_frames, manual_downsampled_data[:, 0], "r")
+plt.plot(downsampled_frames, downsampled_dataset.values[:, 0], "r")
+plt.plot(dataset.values[:, 0], "b")
+
+plt.show()
+
+# %%
+assert np.allclose(manual_downsampled_data, downsampled_dataset.values)
 # %%
 
 for label, df in all_preprocessed_data.items():
