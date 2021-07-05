@@ -6,7 +6,12 @@ import numpy as np
 import pandas as pd
 import tensorflow as tf
 
-from utils import split_data_into_treatments, get_final_recorded_idx, get_sample_rate
+from utils import (
+    split_data_into_treatments,
+    get_final_recorded_idx,
+    get_sample_rate,
+    read_dataset_csv,
+)
 
 from constants import (
     SECONDS_IN_MINUTE,
@@ -208,15 +213,6 @@ wrapper.save_dataset(save_filepath)
 normalized_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
 # %%
-def read_dataset_csv(csv_filepath):
-    """
-    Helper function that handles the TimedeltaIndex.
-    :param csv_filepath:
-    :return:
-    """
-    loaded_dataset = pd.read_csv(csv_filepath, parse_dates=True, index_col="timedelta")
-    loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
-    return loaded_dataset
 
 
 # not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.

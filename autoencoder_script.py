@@ -8,9 +8,9 @@ import numpy as np
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_NUMBER_PATTERN,
-    INFINITY_SAMPLE_RATE,
 )
 from models.denoising_autoencoder import MLPDenoisingAutoEncoder
+from utils import read_dataset_csv
 
 # %%
 import tensorflow as tf
@@ -18,13 +18,13 @@ import tensorflow as tf
 # %%
 
 random_state = np.random.RandomState(42)
-
-data = pd.read_csv("Stress Dataset/dataset_two_min_window.csv")
-
 NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
-
 validation_size = round(NUM_PARTICIPANTS * 0.3)
 
+# %%
+data = read_dataset_csv(
+    "Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
+)
 
 # %%
 
@@ -45,60 +45,30 @@ validation_participants = random_state.choice(
 validation_participants = set(validation_participants)
 
 # %%
-train_columns = []
-val_columns = []
-for participant_column in data.columns:
+def get_train_val_columns(data, validation_participants):
+    """
+    Get DataFrame columns that correspond to participants in training set and validation set.
+    :param data: pd.DataFrame:
+    :return:
+    """
     number_pattern = re.compile("^P(\d{1,2})_")
-    participant_number = number_pattern.match(participant_column).group(1)
-    if participant_number in validation_participants:
-        val_columns.append(participant_column)
-    else:
-        train_columns.append(participant_column)
+
+    train_columns = []
+    val_columns = []
+    for participant_column in data.columns:
+        participant_number = number_pattern.match(participant_column).group(1)
+        if participant_number in validation_participants:
+            val_columns.append(participant_column)
+        else:
+            train_columns.append(participant_column)
+    return train_columns, val_columns
+
+
+train_columns, val_columns = get_train_val_columns(data, validation_participants)
 # %%
 train_data = data.filter(items=train_columns)
 val_data = data.filter(items=val_columns)
 
-# %%
-# Normalize the data to [0, 1]
-
-min_val = tf.reduce_min(data)
-max_val = tf.reduce_max(data)
-
-# %%
-normalised_data = (data - float(min_val)) / (float(max_val) - float(min_val))
-normalised_data = normalised_data.values.T
-timeseries_length = normalised_data.shape[1]
-
-# %%
-downsampled_rate = 16
-downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
-downsampled_data = normalised_data.reshape(
-    (normalised_data.shape[0], -1, downsampling_ratio)
-)
-downsampled_data = downsampled_data.mean(axis=2)
-
-# %%
-plt.plot(normalised_data[0], "b")
-plt.show()
-downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
-plt.plot(downsampled_frames, downsampled_data[0], "r")
-plt.show()
-# %%
-normalised_train_data = (train_data.values - min_val) / (max_val - min_val)
-normalised_train_data = tf.transpose(normalised_train_data)
-normalised_train_data = normalised_train_data.numpy()
-
-normalised_val_data = (val_data.values - min_val) / (max_val - min_val)
-normalised_val_data = tf.transpose(normalised_val_data)
-normalised_val_data = normalised_val_data.numpy()
-
-# %%
-plt.plot(tf.transpose(normalised_train_data)[10])
-plt.show()
-
-# %%
-plt.plot(train_data.iloc[:, 10])
-plt.show()
 # %%
 autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
 autoencoder.compile(optimizer="adam", loss="mae")

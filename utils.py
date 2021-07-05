@@ -1,6 +1,6 @@
 import os
 import re
-
+import pandas as pd
 import numpy as np
 
 from constants import PARTICIPANT_NUMBER_PATTERN
@@ -64,3 +64,14 @@ def get_sample_rate(participant_dirname):
         sampling_rate = int(sampling_rate)
 
     return sampling_rate
+
+
+def read_dataset_csv(csv_filepath):
+    """
+    Helper function that handles the TimedeltaIndex.
+    :param csv_filepath:
+    :return:
+    """
+    loaded_dataset = pd.read_csv(csv_filepath, parse_dates=True, index_col="timedelta")
+    loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
+    return loaded_dataset
