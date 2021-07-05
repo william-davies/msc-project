@@ -1,9 +1,11 @@
+import csv
 import datetime
 import os
 import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from tensorflow import keras
 
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
@@ -83,7 +85,7 @@ autoencoder.summary()
 early_stop = tf.keras.callbacks.EarlyStopping(
     monitor="val_loss",
     min_delta=1e-2,
-    patience=5,
+    patience=200,
     verbose=0,
     mode="auto",
     baseline=None,
@@ -91,50 +93,92 @@ early_stop = tf.keras.callbacks.EarlyStopping(
 )
 
 # %%
-# history = autoencoder.fit(train_data.T, train_data.T,
-#           epochs=1,
-#           batch_size=16,
-#           validation_data=(val_data.T, val_data.T),
-#           callbacks=[early_stop],
-#           shuffle=True)
-num_epochs = 1
+model_directory = "models"
 
-# history = autoencoder.fit(
-#     train_data.T,
-#     train_data.T,
-#     epochs=num_epochs,
-#     batch_size=16,
-#     validation_data=(val_data.T, val_data.T),
-#     # callbacks=[early_stop],
-#     shuffle=True,
-# )
+
+class StoreModelHistory(keras.callbacks.Callback):
+    def on_epoch_end(self, batch, logs=None):
+        if not ("model_history.csv" in os.listdir(model_directory)):
+            with open(os.path.join(model_directory, "model_history.csv"), "a") as f:
+                y = csv.DictWriter(f, logs.keys())
+                y.writeheader()
+
+        with open(model_directory + "model_history.csv", "a") as f:
+            y = csv.DictWriter(f, logs.keys())
+            y.writerow(logs)
+
+
+# %%
+
+num_epochs = 10000
+batch_size = 32
+
+# Start a run, tracking hyperparameters
+wandb.init(
+    project="keras-intro",
+    # Set entity to specify your username or team name
+    # ex: entity="carey",
+    config={
+        "layer_1": 512,
+        "activation_1": "relu",
+        "layer_2": 10,
+        "activation_2": "softmax",
+        "optimizer": "sgd",
+        "loss": "sparse_categorical_crossentropy",
+        "metric": "accuracy",
+        "epoch": 6,
+        "batch_size": 32,
+    },
+)
+config = wandb.config
 
 history = autoencoder.fit(
     train_data,
     train_data,
     epochs=num_epochs,
-    batch_size=16,
+    batch_size=batch_size,
     validation_data=(val_data, val_data),
     # callbacks=[early_stop],
     shuffle=True,
 )
 
 # %%
-
-model_save_fp = os.path.join(
-    "models", "checkpoints", datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-)
+datestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+model_save_fp = os.path.join("models", "checkpoints", datestring)
 # model_save_fp = os.path.join('models', 'checkpoints')
 autoencoder.save_weights(model_save_fp)
 
+# %%
+loss_save_fp = os.path.join("models", f"{datestring}_loss.txt")
+with open(loss_save_fp, "w") as f:
+    for loss in history.history["loss"]:
+        f.write(str(loss) + "\n")
+
+# %%
+val_loss_save_fp = os.path.join("models", f"{datestring}_val_loss.txt")
+with open(val_loss_save_fp, "w") as f:
+    for loss in history.history["val_loss"]:
+        f.write(str(loss) + "\n")
+
+# %%
+epoch_save_fp = os.path.join("models", f"{datestring}_epoch.txt")
+with open(epoch_save_fp, "w") as f:
+    for epoch in history.epoch:
+        f.write(str(epoch) + "\n")
+
+# %%
+loss = []
+with open(loss_save_fp, "r") as f:
+    for line in f:
+        loss.append(float(line.strip()))
 # %%
 loaded_autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
 loaded_autoencoder.compile(optimizer="adam", loss="mae")
 loaded_autoencoder.load_weights(model_save_fp)
 # %%
 plt.figure(figsize=(8, 6))
-plt.plot(history.history["loss"], label="Training Loss")
-plt.plot(history.history["val_loss"], label="Validation Loss")
+plt.plot(history.history["loss"][1:], label="Training Loss")
+plt.plot(history.history["val_loss"][1:], label="Validation Loss")
 plt.legend()
 plt.show()
 
@@ -142,7 +186,7 @@ plt.show()
 example = train_data.T.iloc[0].values
 
 # %%
-decoded_train_examples = tf.stop_gradient(autoencoder.call(normalised_train_data))
+decoded_train_examples = tf.stop_gradient(autoencoder.call(train_data))
 
 # %%
 plt.plot(normalised_train_data[16], "b")
@@ -162,14 +206,32 @@ plt.show()
 delta = normalised_train_data[10] - decoded_examples[10]
 
 # %%
-decoded_all_examples = tf.stop_gradient(autoencoder(normalised_data))
+decoded_all_examples = tf.stop_gradient(autoencoder(data.values.T))
+decoded_train_examples = tf.stop_gradient(autoencoder(train_data.values))
+decoded_val_examples = tf.stop_gradient(autoencoder(val_data.values))
 
 # %%
-plt.figure(figsize=(120, 20))
-# plt.figure(figsize=(8, 6))
+example_idx = 300
+plt.figure(figsize=(8, 6))
+plt.title("Train example")
+plt.plot(train_data.values[example_idx], "b")
+plt.plot(decoded_train_examples[example_idx], "r")
+plt.show()
 
-plt.plot(normalised_data[80], "b")
-plt.plot(decoded_all_examples[80], "r")
+# %%
+example_idx = 200
+plt.figure(figsize=(8, 6))
+plt.title("Validation example")
+plt.plot(val_data.values[example_idx], "b")
+plt.plot(decoded_val_examples[example_idx], "r")
+plt.show()
+
+# %%
+# plt.figure(figsize=(120, 20))
+example_idx = 1000
+plt.figure(figsize=(8, 6))
+plt.plot(data.values.T[example_idx], "b")
+plt.plot(decoded_all_examples[example_idx], "r")
 plt.show()
 
 # %%
