@@ -208,7 +208,12 @@ wrapper.save_dataset(save_filepath)
 dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
 # %%
-loaded_dataset = pd.read_csv(save_filepath, index_col="timedelta")
+# not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
+loaded_dataset = pd.read_csv(save_filepath, parse_dates=True, index_col="timedelta")
+loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
+
+# %%
+dataset = loaded_dataset
 
 # %%
 # test sliding window worked
@@ -258,11 +263,15 @@ downsampled_dataset = dataset.resample(rule=downsample_delta).mean()
 # %%
 plt.plot(dataset.iloc[:, 0], "b")
 plt.show()
-timeseries_length = len(dataset)
-downsampling_ratio = int(INFINITY_SAMPLE_RATE / downsampled_rate)
-downsampled_frames = np.arange(0, timeseries_length, downsampling_ratio)
-plt.plot(downsampled_frames, downsampled_dataset.iloc[:, 0], "r")
+
+plt.plot(downsampled_dataset.iloc[:, 0], "r")
 plt.show()
+
+# %%
+plt.plot(dataset.iloc[:, 0], "b")
+plt.plot(downsampled_dataset.iloc[:, 0], "r")
+plt.show()
+
 # %%
 # manual test
 manual_downsampled_data = dataset.values.reshape(
