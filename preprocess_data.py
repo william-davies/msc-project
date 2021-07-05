@@ -21,47 +21,33 @@ MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
 participant_dirname = "0720202421P1_608"
 
 
-def preprocess_data(participant_dirname):
+def get_total_number_of_windows(list_of_treatment_windows):
+    m = 0
+    for windows in list_of_treatment_windows:
+        m += len(windows)
+    return m
+
+
+def get_sliding_windows(timeseries, window_size, overlap_size):
     """
 
-    :param raw_data: dp.DataFrame: data pulled directly from .xlsx
-    :return:
+    :param timeseries: array_like: time series data
+    :param window_size: in frames
+    :param overlap_size: in frames
+    :return: list of sliding windows
     """
-    framerate = get_sample_rate(participant_dirname)
-    participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
-    participant_number = PARTICIPANT_NUMBER_PATTERN.search(participant_dirname).group(1)
-    csv_fp = os.path.join(
-        "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
-    )
-    unprocessed_data = pd.read_csv(csv_fp)
+    windows = []
+    start = 0
+    shift_size = window_size - overlap_size
+    remaining_length = len(timeseries)
 
-    list_of_treatment_timeseries = split_data_into_treatments(unprocessed_data)
-    list_of_filtered_treatment_timeseries = list(
-        map(filter_recorded_measurements, list_of_treatment_timeseries)
-    )
-    list_of_central_3_minutes = list(
-        map(
-            get_central_3_minutes,
-            list_of_filtered_treatment_timeseries,
-            [framerate] * len(list_of_treatment_timeseries),
-        )
-    )
+    while remaining_length >= window_size:
+        window = timeseries[start : start + window_size]
+        windows.append(window)
+        start += shift_size
+        remaining_length = len(timeseries) - start
 
-    treatment_windows = {}
-    window_size = 2 * SECONDS_IN_MINUTE * framerate
-    overlap_size = 1 * SECONDS_IN_MINUTE * framerate
-
-    for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
-        windows = get_sliding_windows(treatment_timeseries, window_size, overlap_size)
-        treatment_string = treatment_timeseries.filter(
-            regex=MEASUREMENT_COLUMN_PATTERN
-        ).columns[0]
-        for window_idx, window in enumerate(windows):
-            key = f"P{participant_number}_{treatment_string}_window{window_idx}"
-            treatment_windows[key] = window
-
-    # dataset = concatenate_windows(treatment_windows)
-    return treatment_windows
+    return windows
 
 
 def filter_recorded_measurements(data):
@@ -94,60 +80,121 @@ def get_central_3_minutes(timeseries, framerate):
     return timeseries[start_in_frames:end_in_frames]
 
 
-def get_sliding_windows(timeseries, window_size, overlap_size):
-    """
+class DatasetWrapper:
+    def __init__(self):
+        self.dataset_dictionary = (
+            {}
+        )  # map from label (e.g. P1_infinity_r1_bvp_window0) to pd.DataFrame/np.array
+        self.dataset = pd.DataFrame()
 
-    :param timeseries: array_like: time series data
-    :param window_size: in frames
-    :param overlap_size: in frames
-    :return: list of sliding windows
-    """
-    windows = []
-    start = 0
-    shift_size = window_size - overlap_size
-    remaining_length = len(timeseries)
+    def build_dataset(self):
+        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+            participant_preprocessed_data = self.preprocess_participant_data(
+                participant_dirname
+            )
+            self.dataset_dictionary.update(participant_preprocessed_data)
+        self.dataset_dictionary = self.remove_frames()
+        self.dataset_dictionary = self.convert_dataframe_to_array()
+        self.dataset = pd.DataFrame(data=self.dataset_dictionary)
+        return self.dataset
 
-    while remaining_length >= window_size:
-        window = timeseries[start : start + window_size]
-        windows.append(window)
-        start += shift_size
-        remaining_length = len(timeseries) - start
+    def remove_frames(self):
+        """
+        Remove frames column.
+        :return:
+        """
+        just_bvp_no_frames = {}
+        for key, dataframe in self.dataset_dictionary.items():
+            just_bvp_no_frames[key] = dataframe.filter(regex=MEASUREMENT_COLUMN_PATTERN)
+        return just_bvp_no_frames
 
-    return windows
+    def convert_dataframe_to_array(self):
+        """
+        Convert pd.DataFrame to np.array.
+        :return:
+        """
+        label_to_array = {}
+        for key, dataframe in self.dataset_dictionary.items():
+            label_to_array[key] = dataframe.values.squeeze()
+        return label_to_array
 
+    def save_dataset(self, filepath):
+        self.dataset.to_csv(filepath, index=False)
 
-def get_total_number_of_windows(list_of_treatment_windows):
-    m = 0
-    for windows in list_of_treatment_windows:
-        m += len(windows)
-    return m
+    def preprocess_participant_data(self, participant_dirname):
+        """
+        Convert original .xlsx data for ONE participant into format appropriate for model training.
+        - remove 0 measurements
+        - use central 3 minutes
+        - sliding window
 
+        :param raw_data: dp.DataFrame: data pulled directly from .xlsx
+        :return:
+        """
+        framerate = get_sample_rate(participant_dirname)
+        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+        participant_number = PARTICIPANT_NUMBER_PATTERN.search(
+            participant_dirname
+        ).group(1)
+        csv_fp = os.path.join(
+            "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
+        )
+        unprocessed_data = pd.read_csv(csv_fp)
 
-def concatenate_windows(list_of_treatment_windows):
-    """
-    Make dataset ready to pass to model.fit.
-    :param list_of_treatment_windows: list of lists. outer_list[0] is list of sliding windows for a specific treatment.
-    :return: (m, timeseries_length) np.array: dataset
-    """
+        list_of_treatment_timeseries = split_data_into_treatments(unprocessed_data)
+        list_of_filtered_treatment_timeseries = list(
+            map(filter_recorded_measurements, list_of_treatment_timeseries)
+        )
+        list_of_central_3_minutes = list(
+            map(
+                get_central_3_minutes,
+                list_of_filtered_treatment_timeseries,
+                [framerate] * len(list_of_treatment_timeseries),
+            )
+        )
 
-    m = get_total_number_of_windows(list_of_treatment_windows)
-    timeseries_length = len(list_of_treatment_windows[0][0])
+        treatment_windows = {}
+        window_size = 2 * SECONDS_IN_MINUTE * framerate
+        overlap_size = 1 * SECONDS_IN_MINUTE * framerate
 
-    dataset = np.zeros((m, timeseries_length))
-    i = 0
-    for windows in list_of_treatment_windows:
-        for window in windows:
-            measurements = window.filter(regex=MEASUREMENT_COLUMN_PATTERN)
-            dataset[i] = measurements.values.squeeze()
-            i += 1
-    return dataset
+        for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
+            windows = get_sliding_windows(
+                treatment_timeseries, window_size, overlap_size
+            )
+            treatment_string = treatment_timeseries.filter(
+                regex=MEASUREMENT_COLUMN_PATTERN
+            ).columns[0]
+            for window_idx, window in enumerate(windows):
+                key = f"P{participant_number}_{treatment_string}_window{window_idx}"
+                treatment_windows[key] = window
+
+        return treatment_windows
+
+    def concatenate_windows(self, list_of_treatment_windows):
+        """
+        Make dataset ready to pass to model.fit.
+        :param list_of_treatment_windows: list of lists. outer_list[0] is list of sliding windows for a specific treatment.
+        :return: (m, timeseries_length) np.array: dataset
+        """
+
+        m = get_total_number_of_windows(list_of_treatment_windows)
+        timeseries_length = len(list_of_treatment_windows[0][0])
+
+        dataset = np.zeros((m, timeseries_length))
+        i = 0
+        for windows in list_of_treatment_windows:
+            for window in windows:
+                measurements = window.filter(regex=MEASUREMENT_COLUMN_PATTERN)
+                dataset[i] = measurements.values.squeeze()
+                i += 1
+        return dataset
 
 
 # %%
-all_preprocessed_data = {}
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-    participant_preprocessed_data = preprocess_data(participant_dirname)
-    all_preprocessed_data.update(participant_preprocessed_data)
+wrapper = DatasetWrapper()
+dataset = wrapper.build_dataset()
+save_filepath = "Stress Dataset/dataset_two_min_window2.csv"
+wrapper.save_dataset(save_filepath)
 
 # %%
 # plt.figure(figsize=(120, 20))
@@ -182,30 +229,6 @@ for label, df in all_preprocessed_data.items():
         # plt.show()
         plt.clf()
 
-# %%
-just_bvp_no_frames = {}
-for key, dataframe in all_preprocessed_data.items():
-    just_bvp_no_frames[key] = dataframe.filter(regex=MEASUREMENT_COLUMN_PATTERN)
-
-# %%
-label_to_array = {}
-for key, dataframe in just_bvp_no_frames.items():
-    label_to_array[key] = dataframe.values.squeeze()
-
-# %%
-# arbitrary_timeseries = label_to_array[list(label_to_array.keys())[0]]
-# timeseries_length = len(arbitrary_timeseries)
-
-data_as_dataframe = pd.DataFrame(data=label_to_array)
-
-# data_as_dataframe = pd.DataFrame(data=label_to_array, index=pd.RangeIndex(start=0, stop=timeseries_length))
-# data_as_dataframe = pd.DataFrame(data=label_to_array, columns=label_to_array.keys())
-
-# %%
-all_participants_preprocessed_data = np.concatenate(
-    list(just_bvp_no_frames.values()), axis=1
-)
-all_participants_preprocessed_data = all_participants_preprocessed_data.T
 
 # %%
 for idx, timeseries in enumerate(all_participants_preprocessed_data):
