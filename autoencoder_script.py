@@ -118,8 +118,8 @@ wandb.init(
         "decoder_activation_3": "sigmoid",
         "optimizer": "adam",
         "loss": "mae",
-        "metric": "accuracy",
-        "epoch": 6,
+        "metric": [None],
+        "epoch": 3000,
         "batch_size": 32,
         "timeseries_length": timeseries_length,
     },
@@ -129,7 +129,7 @@ config = wandb.config
 autoencoder = create_autoencoder(config)
 
 # %%
-wandbcallback = WandbCallback(save_weights_only=False)
+wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
 history = autoencoder.fit(
     train_data,
     train_data,
@@ -143,21 +143,19 @@ history = autoencoder.fit(
 wandb.finish()
 
 # %%
-api = wandb.Api()
-
-# run is specified by <entity>/<project>/<run id>
-run = api.run("william-davies/denoising-autoencoder/2c7vl5qp")
-
-# save the metrics for the run to a csv file
-metrics_dataframe = run.history()
-metrics_dataframe.to_csv("metrics.csv")
-
-# %%
 loaded_autoencoder = tf.keras.models.load_model(
-    "/Users/williamdavies/Downloads/model-best (1).h5"
+    "/Users/williamdavies/Downloads/model-best.h5"
 )
 loaded_autoencoder.summary()
 
+# %%
+original_weights = autoencoder.get_weights()
+loaded_weights = loaded_autoencoder.get_weights()
+
+for idx in range(len(original_weights)):
+    original_weight = original_weights[idx]
+    loaded_weight = loaded_weights[idx]
+    assert np.array_equal(original_weight, loaded_weight)
 # %%
 tf.keras.utils.plot_model(loaded_autoencoder, "model_plot1.png", show_shapes=True)
 
@@ -172,25 +170,6 @@ plt.show()
 # %%
 example = train_data.T.iloc[0].values
 
-# %%
-decoded_train_examples = tf.stop_gradient(autoencoder.call(train_data))
-
-# %%
-plt.plot(normalised_train_data[16], "b")
-plt.plot(decoded_train_examples[16], "r")
-plt.show()
-
-# %%
-decoded_val_examples = tf.stop_gradient(autoencoder.call(normalised_val_data))
-
-# %%
-plt.figure(figsize=(120, 20))
-plt.plot(normalised_val_data[16], "b")
-plt.plot(decoded_val_examples[16], "r")
-plt.show()
-
-# %%
-delta = normalised_train_data[10] - decoded_examples[10]
 
 # %%
 decoded_all_examples = tf.stop_gradient(autoencoder(data.values.T))
