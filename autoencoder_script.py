@@ -149,15 +149,7 @@ loaded_autoencoder = tf.keras.models.load_model(
 loaded_autoencoder.summary()
 
 # %%
-original_weights = autoencoder.get_weights()
-loaded_weights = loaded_autoencoder.get_weights()
-
-for idx in range(len(original_weights)):
-    original_weight = original_weights[idx]
-    loaded_weight = loaded_weights[idx]
-    assert np.array_equal(original_weight, loaded_weight)
-# %%
-tf.keras.utils.plot_model(loaded_autoencoder, "model_plot1.png", show_shapes=True)
+tf.keras.utils.plot_model(loaded_autoencoder, "model_plot.png", show_shapes=True)
 
 
 # %%
@@ -170,6 +162,8 @@ plt.show()
 # %%
 example = train_data.T.iloc[0].values
 
+# %%
+autoencoder = loaded_autoencoder
 
 # %%
 decoded_all_examples = tf.stop_gradient(autoencoder(data.values.T))
@@ -185,12 +179,16 @@ plt.plot(decoded_train_examples[example_idx], "r")
 plt.show()
 
 # %%
-example_idx = 200
-plt.figure(figsize=(8, 6))
-plt.title("Validation example")
-plt.plot(val_data.values[example_idx], "b")
-plt.plot(decoded_val_examples[example_idx], "r")
-plt.show()
+num_examples = 5
+example_idxs = random_state.choice(a=len(val_data), size=num_examples, replace=False)
+for example_idx in example_idxs:
+    plt.figure(figsize=(8, 6))
+    window_label = val_data.iloc[example_idx].name
+    plt.title(f"Validation example\n{window_label}\nExample index: {example_idx}")
+    plt.plot(val_data.values[example_idx], "b", label="original")
+    plt.plot(decoded_val_examples[example_idx], "r", label="denoised")
+    plt.legend()
+    plt.show()
 
 # %%
 # plt.figure(figsize=(120, 20))
