@@ -5,6 +5,7 @@ import re
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+import wandb
 from tensorflow import keras
 
 from constants import (
@@ -13,6 +14,7 @@ from constants import (
 )
 from models.denoising_autoencoder import MLPDenoisingAutoEncoder
 from utils import read_dataset_csv
+from wandb.keras import WandbCallback
 
 # %%
 import tensorflow as tf
@@ -40,13 +42,12 @@ PARTICPANT_NUMBERS_WITH_EXCEL = list(
     map(get_participant_number, PARTICIPANT_DIRNAMES_WITH_EXCEL)
 )
 
-# %%
 validation_participants = random_state.choice(
     a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
 )
 validation_participants = set(validation_participants)
 
-# %%
+
 def get_train_val_columns(data, validation_participants):
     """
     Get DataFrame columns that correspond to participants in training set and validation set.
@@ -67,18 +68,16 @@ def get_train_val_columns(data, validation_participants):
 
 
 train_columns, val_columns = get_train_val_columns(data, validation_participants)
-# %%
+
 train_data = data.filter(items=train_columns).T
 val_data = data.filter(items=val_columns).T
 
-# %%
 timeseries_length = len(data)
-autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
-autoencoder.compile(optimizer="adam", loss="mae")
+
 
 # %%
-autoencoder.build(train_data.shape)
-autoencoder.summary()
+# autoencoder.build(train_data.shape)
+# autoencoder.summary()
 
 
 # %%
@@ -110,37 +109,53 @@ class StoreModelHistory(keras.callbacks.Callback):
 
 # %%
 
-num_epochs = 10000
-batch_size = 32
-
+bottleneck_size = 8
 # Start a run, tracking hyperparameters
 wandb.init(
-    project="keras-intro",
+    project="denoising-autoencoder",
     # Set entity to specify your username or team name
     # ex: entity="carey",
     config={
-        "layer_1": 512,
-        "activation_1": "relu",
-        "layer_2": 10,
-        "activation_2": "softmax",
-        "optimizer": "sgd",
-        "loss": "sparse_categorical_crossentropy",
+        "encoder_1": bottleneck_size * 2 * 2,
+        "encoder_activation_1": "relu",
+        "encoder_2": bottleneck_size * 2,
+        "encoder_activation_2": "relu",
+        "encoder_3": bottleneck_size,
+        "encoder_activation_3": "relu",
+        "decoder_1": bottleneck_size * 2,
+        "decoder_activation_1": "relu",
+        "decoder_2": bottleneck_size * 2 * 2,
+        "decoder_activation_2": "relu",
+        "decoder_3": timeseries_length,
+        "decoder_activation_3": "sigmoid",
+        "optimizer": "adam",
+        "loss": "mae",
         "metric": "accuracy",
         "epoch": 6,
         "batch_size": 32,
+        "timeseries_length": timeseries_length,
     },
 )
 config = wandb.config
 
+autoencoder = MLPDenoisingAutoEncoder(config=config)
+autoencoder.compile(
+    optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
+)
+
+# %%
+wandbcallback = WandbCallback(save_weights_only=False)
 history = autoencoder.fit(
     train_data,
     train_data,
-    epochs=num_epochs,
-    batch_size=batch_size,
+    epochs=config.epoch,
+    batch_size=config.batch_size,
     validation_data=(val_data, val_data),
-    # callbacks=[early_stop],
+    callbacks=[wandbcallback],
     shuffle=True,
 )
+
+wandb.finish()
 
 # %%
 datestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
