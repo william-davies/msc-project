@@ -4,21 +4,29 @@ from tensorflow.keras import layers
 
 
 class MLPDenoisingAutoEncoder(Model):
-    def __init__(self, timeseries_length):
+    def __init__(self, config):
         super(MLPDenoisingAutoEncoder, self).__init__()
         self.encoder = tf.keras.Sequential(
             [
-                layers.Dense(8192, activation="relu", input_shape=(timeseries_length,)),
-                layers.Dense(4096, activation="relu"),
-                layers.Dense(2048, activation="relu"),
+                layers.Dense(
+                    config.encoder_1,
+                    activation=config.encoder_activation_1,
+                    input_shape=(config.timeseries_length,),
+                ),
+                layers.Dense(config.encoder_2, activation=config.encoder_activation_2),
+                layers.Dense(config.encoder_3, activation=config.encoder_activation_3),
             ]
         )
 
         self.decoder = tf.keras.Sequential(
             [
-                layers.Dense(4096, activation="relu"),
-                layers.Dense(8192, activation="relu"),
-                layers.Dense(timeseries_length, activation="sigmoid"),
+                layers.Dense(
+                    config.decoder_1,
+                    activation=config.decoder_activation_1,
+                    input_shape=(config.encoder_3,),
+                ),
+                layers.Dense(config.decoder_2, activation=config.decoder_activation_2),
+                layers.Dense(config.decoder_3, activation=config.decoder_activation_3),
             ]
         )
 
