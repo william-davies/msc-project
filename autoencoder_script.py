@@ -15,6 +15,8 @@ from constants import (
 from models.denoising_autoencoder import MLPDenoisingAutoEncoder
 from utils import read_dataset_csv
 from wandb.keras import WandbCallback
+from tensorflow.keras.models import Model
+from tensorflow.keras import layers
 
 # %%
 import tensorflow as tf
@@ -91,21 +93,6 @@ early_stop = tf.keras.callbacks.EarlyStopping(
     restore_best_weights=True,
 )
 
-# %%
-model_directory = "models"
-
-
-class StoreModelHistory(keras.callbacks.Callback):
-    def on_epoch_end(self, batch, logs=None):
-        if not ("model_history.csv" in os.listdir(model_directory)):
-            with open(os.path.join(model_directory, "model_history.csv"), "a") as f:
-                y = csv.DictWriter(f, logs.keys())
-                y.writeheader()
-
-        with open(model_directory + "model_history.csv", "a") as f:
-            y = csv.DictWriter(f, logs.keys())
-            y.writerow(logs)
-
 
 # %%
 
@@ -156,6 +143,51 @@ history = autoencoder.fit(
 )
 
 wandb.finish()
+
+# %%
+class MLPDenoisingAutoEncoder(Model):
+    def __init__(self, config):
+        super(MLPDenoisingAutoEncoder, self).__init__()
+        self.encoder = tf.keras.Sequential(
+            [
+                layers.Dense(
+                    config.encoder_1,
+                    activation=config.encoder_activation_1,
+                    input_shape=(config.timeseries_length,),
+                ),
+                layers.Dense(config.encoder_2, activation=config.encoder_activation_2),
+                layers.Dense(config.encoder_3, activation=config.encoder_activation_3),
+            ]
+        )
+
+        self.decoder = tf.keras.Sequential(
+            [
+                layers.Dense(
+                    config.decoder_1,
+                    activation=config.decoder_activation_1,
+                    input_shape=(config.encoder_3,),
+                ),
+                layers.Dense(config.decoder_2, activation=config.decoder_activation_2),
+                layers.Dense(config.decoder_3, activation=config.decoder_activation_3),
+            ]
+        )
+
+    def call(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
+
+autoencoder = MLPDenoisingAutoEncoder(config=config)
+autoencoder.compile(
+    optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
+)
+
+# %%
+autoencoder(train_data.values)
+
+# %%
+autoencoder.load_weights("/Users/williamdavies/Downloads/model-best.h5")
 
 # %%
 datestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
