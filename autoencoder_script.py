@@ -207,22 +207,28 @@ decoded_val_examples = tf.stop_gradient(autoencoder(val_data.values))
 
 # %%
 def plot_examples(
-    original_data, reconstructed_data, example_type, save_dir=None, num_examples=5
+    original_data,
+    reconstructed_data,
+    example_type,
+    epoch,
+    save_dir=None,
+    num_examples=5,
 ):
     """
 
     :param original_data: pd.DataFrame:
     :param reconstructed_data: pd.DataFrame:
     :param example_type: str: Train/Validation
-    :param num_examples:
+    :param epoch: int:
+    :param save_dir: str:
+    :param num_examples: int:
     :return:
-
     """
     example_idxs = random_state.choice(
         a=len(original_data), size=num_examples, replace=False
     )
+    plt.figure(figsize=(8, 6))
     for example_idx in example_idxs:
-        plt.figure(figsize=(8, 6))
         window_label = original_data.iloc[example_idx].name
         plt.title(
             f"{example_type} example\n{window_label}\nExample index: {example_idx}"
@@ -231,9 +237,8 @@ def plot_examples(
         plt.plot(reconstructed_data[example_idx], "r", label="denoised")
         plt.legend()
 
-        save_filepath = os.path.join(save_dir, window_label)
-
         if save_dir:
+            save_filepath = os.path.join(save_dir, f"epoch-{epoch}_{window_label}.png")
             plt.savefig(save_filepath, format="png")
             plt.clf()
         else:
@@ -241,7 +246,22 @@ def plot_examples(
 
 
 # %%
-plot_examples(val_data, decoded_val_examples, example_type="Validation")
+plot_examples(
+    val_data,
+    decoded_val_examples,
+    example_type="Validation",
+    save_dir="3000-epochs",
+    epoch=3000,
+)
+
+# %%
+plot_examples(
+    train_data,
+    decoded_train_examples,
+    example_type="Train",
+    save_dir="3000-epochs",
+    epoch=3000,
+)
 
 # %%
 example_idx = 0
@@ -268,8 +288,7 @@ wandb.save(os.path.join(wandb.run.dir, "*epoch*"))
 # plt.show()
 
 wandb.log({"chart": plt}, step=2999)
-# %%
-plot_examples(train_data, decoded_train_examples, example_type="Train")
+
 
 # %%
 plt.figure(figsize=(120, 20))
