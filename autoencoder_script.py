@@ -12,13 +12,12 @@ from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_NUMBER_PATTERN,
 )
-from models.denoising_autoencoder import MLPDenoisingAutoEncoder
+from models.denoising_autoencoder import MLPDenoisingAutoEncoder, create_autoencoder
 from utils import read_dataset_csv
 from wandb.keras import WandbCallback
 from tensorflow.keras.models import Model
 from tensorflow.keras import layers
 
-# %%
 import tensorflow as tf
 
 # %%
@@ -27,12 +26,9 @@ random_state = np.random.RandomState(42)
 NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
 validation_size = round(NUM_PARTICIPANTS * 0.3)
 
-# %%
 data = read_dataset_csv(
     "Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
 )
-
-# %%
 
 
 def get_participant_number(string):
@@ -125,10 +121,12 @@ wandb.init(
 )
 config = wandb.config
 
-autoencoder = MLPDenoisingAutoEncoder(config=config)
-autoencoder.compile(
-    optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
-)
+# autoencoder = MLPDenoisingAutoEncoder(config=config)
+# autoencoder.compile(
+#     optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
+# )
+
+autoencoder = create_autoencoder(config)
 
 # %%
 wandbcallback = WandbCallback(save_weights_only=False)
@@ -144,6 +142,14 @@ history = autoencoder.fit(
 
 wandb.finish()
 
+# %%
+loaded_autoencoder = tf.keras.models.load_model(
+    "/Users/williamdavies/Downloads/model-best (1).h5"
+)
+loaded_autoencoder.summary()
+
+# %%
+tf.keras.utils.plot_model(loaded_autoencoder, "model_plot1.png", show_shapes=True)
 # %%
 class MLPDenoisingAutoEncoder(Model):
     def __init__(self, config):
@@ -184,6 +190,7 @@ autoencoder.compile(
 )
 
 # %%
+# need to call it on a batch before load_weights
 autoencoder(train_data.values)
 
 # %%
