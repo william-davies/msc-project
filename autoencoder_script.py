@@ -99,8 +99,38 @@ early_stop = tf.keras.callbacks.EarlyStopping(
 
 bottleneck_size = 8
 # Start a run, tracking hyperparameters
+# wandb.init(
+#     project="denoising-autoencoder",
+#     # Set entity to specify your username or team name
+#     # ex: entity="carey",
+#     config={
+#         "encoder_1": bottleneck_size * 2 * 2,
+#         "encoder_activation_1": "relu",
+#         "encoder_2": bottleneck_size * 2,
+#         "encoder_activation_2": "relu",
+#         "encoder_3": bottleneck_size,
+#         "encoder_activation_3": "relu",
+#         "decoder_1": bottleneck_size * 2,
+#         "decoder_activation_1": "relu",
+#         "decoder_2": bottleneck_size * 2 * 2,
+#         "decoder_activation_2": "relu",
+#         "decoder_3": timeseries_length,
+#         "decoder_activation_3": "sigmoid",
+#         "optimizer": "adam",
+#         "loss": "mae",
+#         "metric": [None],
+#         "epoch": 3000,
+#         "batch_size": 32,
+#         "timeseries_length": timeseries_length,
+#     },
+#     force=True,
+#     allow_val_change=False
+# )
+
 wandb.init(
+    id="ytenhze8",
     project="denoising-autoencoder",
+    resume="must",
     # Set entity to specify your username or team name
     # ex: entity="carey",
     config={
@@ -123,8 +153,13 @@ wandb.init(
         "batch_size": 32,
         "timeseries_length": timeseries_length,
     },
+    force=True,
+    allow_val_change=False,
 )
+
 config = wandb.config
+
+# %%
 
 autoencoder = create_autoencoder(config)
 
@@ -171,7 +206,9 @@ decoded_train_examples = tf.stop_gradient(autoencoder(train_data.values))
 decoded_val_examples = tf.stop_gradient(autoencoder(val_data.values))
 
 # %%
-def plot_examples(original_data, reconstructed_data, example_type, num_examples=5):
+def plot_examples(
+    original_data, reconstructed_data, example_type, save_dir=None, num_examples=5
+):
     """
 
     :param original_data: pd.DataFrame:
@@ -193,12 +230,44 @@ def plot_examples(original_data, reconstructed_data, example_type, num_examples=
         plt.plot(original_data.values[example_idx], "b", label="original")
         plt.plot(reconstructed_data[example_idx], "r", label="denoised")
         plt.legend()
-        plt.show()
+
+        save_filepath = os.path.join(save_dir, window_label)
+
+        if save_dir:
+            plt.savefig(save_filepath, format="png")
+            plt.clf()
+        else:
+            plt.show()
 
 
 # %%
 plot_examples(val_data, decoded_val_examples, example_type="Validation")
 
+# %%
+example_idx = 0
+original_data = val_data
+reconstructed_data = decoded_val_examples
+example_type = "Validation"
+plt.figure(figsize=(8, 6))
+window_label = original_data.iloc[example_idx].name
+plt.title(f"{example_type} example\n{window_label}\nExample index: {example_idx}")
+plt.plot(original_data.values[example_idx], "b", label="original")
+plt.plot(reconstructed_data[example_idx], "r", label="denoised")
+plt.legend()
+
+save_filepath = os.path.join(
+    wandb.run.dir, f"epoch-{wandb.run.step-1}_{window_label}.png"
+)
+plt.savefig(save_filepath, format="png")
+plt.clf()
+
+# %%
+wandb.save(os.path.join(wandb.run.dir, "*epoch*"))
+
+# %%
+# plt.show()
+
+wandb.log({"chart": plt}, step=2999)
 # %%
 plot_examples(train_data, decoded_train_examples, example_type="Train")
 
