@@ -171,32 +171,36 @@ decoded_train_examples = tf.stop_gradient(autoencoder(train_data.values))
 decoded_val_examples = tf.stop_gradient(autoencoder(val_data.values))
 
 # %%
-example_idx = 300
-plt.figure(figsize=(8, 6))
-plt.title("Train example")
-plt.plot(train_data.values[example_idx], "b")
-plt.plot(decoded_train_examples[example_idx], "r")
-plt.show()
+def plot_examples(original_data, reconstructed_data, example_type, num_examples=5):
+    """
+
+    :param original_data: pd.DataFrame:
+    :param reconstructed_data: pd.DataFrame:
+    :param example_type: str: Train/Validation
+    :param num_examples:
+    :return:
+
+    """
+    example_idxs = random_state.choice(
+        a=len(original_data), size=num_examples, replace=False
+    )
+    for example_idx in example_idxs:
+        plt.figure(figsize=(8, 6))
+        window_label = original_data.iloc[example_idx].name
+        plt.title(
+            f"{example_type} example\n{window_label}\nExample index: {example_idx}"
+        )
+        plt.plot(original_data.values[example_idx], "b", label="original")
+        plt.plot(reconstructed_data[example_idx], "r", label="denoised")
+        plt.legend()
+        plt.show()
+
 
 # %%
-num_examples = 5
-example_idxs = random_state.choice(a=len(val_data), size=num_examples, replace=False)
-for example_idx in example_idxs:
-    plt.figure(figsize=(8, 6))
-    window_label = val_data.iloc[example_idx].name
-    plt.title(f"Validation example\n{window_label}\nExample index: {example_idx}")
-    plt.plot(val_data.values[example_idx], "b", label="original")
-    plt.plot(decoded_val_examples[example_idx], "r", label="denoised")
-    plt.legend()
-    plt.show()
+plot_examples(val_data, decoded_val_examples, example_type="Validation")
 
 # %%
-# plt.figure(figsize=(120, 20))
-example_idx = 1000
-plt.figure(figsize=(8, 6))
-plt.plot(data.values.T[example_idx], "b")
-plt.plot(decoded_all_examples[example_idx], "r")
-plt.show()
+plot_examples(train_data, decoded_train_examples, example_type="Train")
 
 # %%
 plt.figure(figsize=(120, 20))
@@ -214,10 +218,3 @@ for idx in range(len(normalised_data)):
 
     plt.savefig(save_filepath.format(title), format="png")
     plt.clf()
-
-# %%
-
-plt.figure(figsize=(120, 20))
-plt.plot(decoded_all_examples[0], "b")
-plt.plot(decoded_all_examples[1], "r")
-plt.show()
