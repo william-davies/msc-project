@@ -12,7 +12,7 @@ from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_NUMBER_PATTERN,
 )
-from models.denoising_autoencoder import MLPDenoisingAutoEncoder, create_autoencoder
+from models.denoising_autoencoder import create_autoencoder
 from utils import read_dataset_csv
 from wandb.keras import WandbCallback
 from tensorflow.keras.models import Model
@@ -32,6 +32,11 @@ data = read_dataset_csv(
 
 
 def get_participant_number(string):
+    """
+
+    :param string:
+    :return: int:
+    """
     participant_number = PARTICIPANT_NUMBER_PATTERN.search(string).group(1)
     return participant_number
 
@@ -121,11 +126,6 @@ wandb.init(
 )
 config = wandb.config
 
-# autoencoder = MLPDenoisingAutoEncoder(config=config)
-# autoencoder.compile(
-#     optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
-# )
-
 autoencoder = create_autoencoder(config)
 
 # %%
@@ -143,6 +143,16 @@ history = autoencoder.fit(
 wandb.finish()
 
 # %%
+api = wandb.Api()
+
+# run is specified by <entity>/<project>/<run id>
+run = api.run("william-davies/denoising-autoencoder/2c7vl5qp")
+
+# save the metrics for the run to a csv file
+metrics_dataframe = run.history()
+metrics_dataframe.to_csv("metrics.csv")
+
+# %%
 loaded_autoencoder = tf.keras.models.load_model(
     "/Users/williamdavies/Downloads/model-best (1).h5"
 )
@@ -150,85 +160,8 @@ loaded_autoencoder.summary()
 
 # %%
 tf.keras.utils.plot_model(loaded_autoencoder, "model_plot1.png", show_shapes=True)
-# %%
-class MLPDenoisingAutoEncoder(Model):
-    def __init__(self, config):
-        super(MLPDenoisingAutoEncoder, self).__init__()
-        self.encoder = tf.keras.Sequential(
-            [
-                layers.Dense(
-                    config.encoder_1,
-                    activation=config.encoder_activation_1,
-                    input_shape=(config.timeseries_length,),
-                ),
-                layers.Dense(config.encoder_2, activation=config.encoder_activation_2),
-                layers.Dense(config.encoder_3, activation=config.encoder_activation_3),
-            ]
-        )
-
-        self.decoder = tf.keras.Sequential(
-            [
-                layers.Dense(
-                    config.decoder_1,
-                    activation=config.decoder_activation_1,
-                    input_shape=(config.encoder_3,),
-                ),
-                layers.Dense(config.decoder_2, activation=config.decoder_activation_2),
-                layers.Dense(config.decoder_3, activation=config.decoder_activation_3),
-            ]
-        )
-
-    def call(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        return decoded
 
 
-autoencoder = MLPDenoisingAutoEncoder(config=config)
-autoencoder.compile(
-    optimizer=config.optimizer, loss=config.loss, metrics=[config.metric]
-)
-
-# %%
-# need to call it on a batch before load_weights
-autoencoder(train_data.values)
-
-# %%
-autoencoder.load_weights("/Users/williamdavies/Downloads/model-best.h5")
-
-# %%
-datestring = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-model_save_fp = os.path.join("models", "checkpoints", datestring)
-# model_save_fp = os.path.join('models', 'checkpoints')
-autoencoder.save_weights(model_save_fp)
-
-# %%
-loss_save_fp = os.path.join("models", f"{datestring}_loss.txt")
-with open(loss_save_fp, "w") as f:
-    for loss in history.history["loss"]:
-        f.write(str(loss) + "\n")
-
-# %%
-val_loss_save_fp = os.path.join("models", f"{datestring}_val_loss.txt")
-with open(val_loss_save_fp, "w") as f:
-    for loss in history.history["val_loss"]:
-        f.write(str(loss) + "\n")
-
-# %%
-epoch_save_fp = os.path.join("models", f"{datestring}_epoch.txt")
-with open(epoch_save_fp, "w") as f:
-    for epoch in history.epoch:
-        f.write(str(epoch) + "\n")
-
-# %%
-loss = []
-with open(loss_save_fp, "r") as f:
-    for line in f:
-        loss.append(float(line.strip()))
-# %%
-loaded_autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
-loaded_autoencoder.compile(optimizer="adam", loss="mae")
-loaded_autoencoder.load_weights(model_save_fp)
 # %%
 plt.figure(figsize=(8, 6))
 plt.plot(history.history["loss"][1:], label="Training Loss")
@@ -311,8 +244,3 @@ plt.figure(figsize=(120, 20))
 plt.plot(decoded_all_examples[0], "b")
 plt.plot(decoded_all_examples[1], "r")
 plt.show()
-
-# %%
-timeseries_length = len(data)
-untrained_autoencoder = MLPDenoisingAutoEncoder(timeseries_length=timeseries_length)
-untrained_autoencoder.compile(optimizer="adam", loss="mae")
