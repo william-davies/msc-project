@@ -126,6 +126,97 @@ def convert_excel_to_csv(participant_dirname):
     processed_data.to_csv(csv_filepath, index=False)
 
 
+# %%
+def remove_unnamed_columns(columns):
+    """
+    e.g.
+    input: ['Infinity R5', 'Unnamed: 15', 'Unnamed: 16']
+    output: ['Infinity R5']
+    :param columns:
+    :return:
+    """
+    filtered_columns = []
+    UNNAMED_COL_PATTERN = "^Unnamed: \d{1,2}$"
+    UNNAMED_COL_PATTERN = re.compile(UNNAMED_COL_PATTERN)
+
+    for col in columns:
+        if not UNNAMED_COL_PATTERN.search(col):
+            filtered_columns.append(col)
+    return filtered_columns
+
+
+class ExcelToCSVConverter:
+    SHEET_NAMES = ["Inf", "EmRBVP"]
+
+    def read_excel(self, participant_dirname):
+        """
+        :param participant_dirname:
+        :return: dict: dict['sheet_name'] = pd.DataFrame:
+        """
+        participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
+        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+
+        # annoying just P10 follows this naming scheme
+        if participant_dirname == "0727094525P9_lamp":
+            excel_filepath = os.path.join(
+                participant_dirpath, f"{participant_dirname}.xlsx"
+            )
+        else:
+            excel_filepath = os.path.join(participant_dirpath, f"{participant_id}.xlsx")
+
+        read_excel = pd.read_excel(
+            excel_filepath,
+            sheet_name=self.SHEET_NAMES,
+        )
+
+        return read_excel
+
+    def convert_excel_to_csv(self, participant_dirname):
+        """
+        Convert .xlsx to .csv and save.
+
+        :param participant_dirname: name of directory that contains all physiological data on participant
+        :return: None.
+        """
+        excel_sheets = self.read_excel(participant_dirname)
+
+        processed_data = process_excel_dataframe(excel_sheets)
+
+        csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
+        processed_data.to_csv(csv_filepath, index=False)
+
+    def build_new_header(self, data, data_col_ranges):
+        """
+        :param data: DataFrame
+        :param data_col_ranges:
+        :return:
+        """
+
+        def get_label_from_range(all_column_values, range):
+            """
+            Get treatment label from int range.
+            :param all_column_values: np.array: DataFrame columns
+            :param range: np.array: columns indices
+            :return:
+            """
+            columns_in_range = all_column_values[range]
+            named_columns = remove_unnamed_columns(columns_in_range)
+            label = " ".join(named_columns)
+            label = label.lower()
+            return label.replace(" ", "_")
+
+        new_header = [""] * 3 * len(data_col_ranges)
+
+        column_values = data.columns.values
+        for idx, data_col_range in enumerate(data_col_ranges):
+            treatment_label = get_label_from_range(column_values, data_col_range)
+            new_header[3 * idx] = f"{treatment_label}_frame"
+            new_header[3 * idx + 1] = f"{treatment_label}_bvp"
+            new_header[3 * idx + 2] = f"{treatment_label}_resp"
+
+        return new_header
+
+
 #%%
 # convert_excel_to_csv("0726094551P5_609")
 
@@ -187,5 +278,10 @@ correct_frame_cols = np.arange(
     cols_per_treatment,
 )
 assert np.array_equal(frame_cols, correct_frame_cols)
+
+# %%
+data_col_ranges = [
+    np.arange(frame_col, frame_col + cols_per_treatment) for frame_col in frame_cols
+]  # row/frame, bvp, resp.
 # %%
 inf_csv = pd.read_csv("Stress Dataset/0725114340P3_608/0725114340P3_inf.csv")
