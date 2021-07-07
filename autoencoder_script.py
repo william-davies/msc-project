@@ -160,6 +160,9 @@ wandb.init(
 config = wandb.config
 
 # %%
+best_model = wandb.restore("model-best.h5")
+autoencoder = tf.keras.models.load_model(best_model.name)
+# %%
 
 autoencoder = create_autoencoder(config)
 
