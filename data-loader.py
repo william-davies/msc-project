@@ -164,8 +164,8 @@ def build_new_header(data, data_col_ranges):
 
     new_header = [""] * 3 * len(data_col_ranges)
 
+    column_values = data.columns.values
     for idx, data_col_range in enumerate(data_col_ranges):
-        column_values = data.columns.values
         treatment_label = get_label_from_range(column_values, data_col_range)
         new_header[3 * idx] = f"{treatment_label}_frame"
         new_header[3 * idx + 1] = f"{treatment_label}_bvp"
@@ -242,3 +242,32 @@ f1 = "Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt"
 f2 = "Stress Dataset/0730133959P19_lamp/0730133959P19_treatment_order.txt"
 result = filecmp.cmp(f1, f2, shallow=False)
 print(result)
+
+# %%
+# sheets = pd.read_excel('Stress Dataset/0725114340P3_608/0725114340P3.xlsx', sheet_name=['Inf', 'EmRBVP'])
+small_sheets = pd.read_excel(
+    "Stress Dataset/0726094551P5_609/test.xlsx",
+    sheet_name=["Inf", "EmRBVP"],
+    header=None,
+)
+
+# %%
+Inf_sheet = small_sheets["Inf"]
+EmRBVP_sheet = small_sheets["EmRBVP"]
+
+# %%
+frame_cols = EmRBVP_sheet.iloc[1].values == "Row/frame"
+frame_cols = frame_cols.nonzero()[0]
+
+# %%
+NUM_TREATMENTS = 5
+assert len(frame_cols) == NUM_TREATMENTS
+cols_per_treatment = frame_cols[1] - frame_cols[0]
+correct_frame_cols = np.arange(
+    frame_cols[0],
+    frame_cols[0] + cols_per_treatment * NUM_TREATMENTS,
+    cols_per_treatment,
+)
+assert np.array_equal(frame_cols, correct_frame_cols)
+# %%
+inf_csv = pd.read_csv("Stress Dataset/0725114340P3_608/0725114340P3_inf.csv")
