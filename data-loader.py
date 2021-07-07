@@ -120,21 +120,6 @@ DATA_COL_RANGES = [
 
 
 # %%
-def remove_nans(columns):
-    """
-    e.g.
-    input: ['Infinity R5', 'Unnamed: 15', 'Unnamed: 16']
-    output: ['Infinity R5']
-    :param columns:
-    :return:
-    """
-    filtered_columns = []
-    for col in columns:
-        if not math.isnan(col):
-            filtered_columns.append(col)
-    return filtered_columns
-
-
 class ExcelToCSVConverter:
     SHEET_NAMES = ["Inf", "EmRBVP"]
     NUM_TREATMENTS = 5
@@ -206,7 +191,7 @@ class ExcelToCSVConverter:
             relevant_columns = sheet.iloc[
                 0, frame_cols[treatment_idx] : frame_cols[treatment_idx + 1]
             ]
-            named_columns = remove_nans(relevant_columns)
+            named_columns = relevant_columns.dropna()
             label = " ".join(named_columns)
             label = label.lower()
             return label.replace(" ", "_")
