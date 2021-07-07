@@ -8,74 +8,6 @@ import time
 import string
 
 # %%
-# filepath = os.path.join('Stress Dataset/0720202421P1_608/Myo/emg-1532114720.csv')
-# filepath = os.path.join("Stress Dataset/0720202421P1_608/Empatica_Right_P1/BVP.csv")
-#
-# data = pd.read_csv(filepath)
-#
-# data.iloc[1:].plot()
-# plt.show()
-
-# %%
-# df = pd.DataFrame(np.arange(20 * 4).reshape((20, 4)), columns=list("ABCD"))
-
-# %%
-# start_time = time.time()
-# P5 = pd.read_excel('Stress Dataset/0726094551P5_609/test.xlsx', sheet_name='Inf', skiprows=1, usecols='C:E')
-# P5_real = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/0726094551P5.xlsx",
-#     sheet_name="Inf",
-#     skiprows=1,
-#     usecols="C:E",
-# )
-
-# P5_first_line = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/0726094551P5.xlsx",
-#     sheet_name="Inf",
-#     skiprows=lambda x: x > 5,
-#     usecols="C:E",
-# )
-# workbook_filename = "Stress Dataset/0726094551P5_609/0726094551P5.xlsx"
-#
-# workbook = pd.ExcelFile(workbook_filename)
-# P5_first_line = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/0726094551P5.xlsx",
-#     sheet_name="Inf",
-#     nrows=5,
-#     usecols="C:E",
-# )
-
-# unprocessed_data = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/test.xlsx",
-#     sheet_name="Inf",
-#     nrows=1,
-# )
-#
-# end_time = time.time()
-# print("time elapsed: {:.2f}s".format(end_time - start_time))
-
-#%%
-# with open("Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt", "w") as f:
-#     for line in np.arange(50):
-#         f.write(f"{line}\n")
-# %%
-# frames = P5_real["Row/frame"]
-# zeros = frames.index[frames == 0]  # idk why but frames at the end are labelled frame 0
-# zeros_array = np.array(zeros)
-# assert (zeros_array == np.arange(zeros_array[0], zeros_array[-1] + 1)).all()
-#
-# final_valid_idx = zeros[0]
-# frames = frames[:final_valid_idx]
-# bvp = P5_real["BVP"][:final_valid_idx]
-
-# %%
-# plt.title("BVP vs frame")
-# plt.plot(frames, bvp)
-# plt.xlabel("Frame")
-# plt.ylabel("BVP")
-# plt.show()
-
-# %%
 R1, M2, R3, M4, R5 = (
     ("D",),
     ("G", "H"),
@@ -107,20 +39,6 @@ FRAME_COLS = np.arange(
 DATA_COL_RANGES = [
     np.arange(frame_col, frame_col + 3) for frame_col in FRAME_COLS
 ]  # row/frame, bvp, resp.
-
-# %%
-
-# unprocessed_p1_data = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/test.xlsx",
-#     sheet_name="InfP1",
-#     # usecols="C:E,G:H,J,M:N,P"
-# )
-#
-# unprocessed_p5_data = pd.read_excel(
-#     "Stress Dataset/0726094551P5_609/test.xlsx",
-#     sheet_name="InfP5",
-#     # usecols="C:E,G:H,J,M:N,P"
-# )
 
 # %%
 
