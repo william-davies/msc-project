@@ -149,12 +149,12 @@ wandb.init(
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
-        "epoch": 3000,
+        "epoch": 6000,
         "batch_size": 32,
         "timeseries_length": timeseries_length,
     },
     force=True,
-    allow_val_change=False,
+    allow_val_change=True,
 )
 
 config = wandb.config
@@ -162,12 +162,15 @@ config = wandb.config
 # %%
 best_model = wandb.restore("model-best.h5")
 autoencoder = tf.keras.models.load_model(best_model.name)
+
 # %%
 
 autoencoder = create_autoencoder(config)
 
 # %%
 wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
+
+# %%
 history = autoencoder.fit(
     train_data,
     train_data,
@@ -178,6 +181,35 @@ history = autoencoder.fit(
     shuffle=True,
 )
 
+# %%
+# RESUMING TRAINING
+if wandb.run.resumed:
+    history = autoencoder.fit(
+        train_data,
+        train_data,
+        epochs=config.epoch,
+        batch_size=config.batch_size,
+        validation_data=(val_data, val_data),
+        callbacks=[wandbcallback],
+        shuffle=True,
+        initial_epoch=wandb.run.step,
+    )
+else:
+    raise ValueError
+
+# %%
+api = wandb.Api()
+
+# run is specified by <entity>/<project>/<run id>
+run = api.run("william-davies/denoising-autoencoder/ytenhze8")
+
+# save the metrics for the run to a csv file
+metrics_dataframe = run.history()
+# metrics_dataframe.to_csv("metrics.csv")
+
+# %%
+val_loss = metrics_dataframe["val_loss"]
+# %%
 wandb.finish()
 
 # %%
@@ -216,6 +248,7 @@ def plot_examples(
     epoch,
     save_dir=None,
     num_examples=5,
+    example_idxs=None,
 ):
     """
 
@@ -225,11 +258,14 @@ def plot_examples(
     :param epoch: int:
     :param save_dir: str:
     :param num_examples: int:
+    :param example_idxs: List[int]:
     :return:
     """
-    example_idxs = random_state.choice(
-        a=len(original_data), size=num_examples, replace=False
-    )
+    if not example_idxs:
+        example_idxs = random_state.choice(
+            a=len(original_data), size=num_examples, replace=False
+        )
+
     plt.figure(figsize=(8, 6))
     for example_idx in example_idxs:
         window_label = original_data.iloc[example_idx].name
@@ -241,7 +277,9 @@ def plot_examples(
         plt.legend()
 
         if save_dir:
-            save_filepath = os.path.join(save_dir, f"epoch-{epoch}_{window_label}.png")
+            save_filepath = os.path.join(
+                save_dir, example_type.lower(), f"epoch-{epoch}_{window_label}.png"
+            )
             plt.savefig(save_filepath, format="png")
             plt.clf()
         else:
@@ -253,8 +291,9 @@ plot_examples(
     val_data,
     decoded_val_examples,
     example_type="Validation",
-    save_dir="3000-epochs",
-    epoch=3000,
+    save_dir=f"{wandb.run.step}-epochs",
+    epoch=wandb.run.step,
+    example_idxs=[372, 377, 434, 688, 863],
 )
 
 # %%
@@ -262,8 +301,8 @@ plot_examples(
     train_data,
     decoded_train_examples,
     example_type="Train",
-    save_dir="3000-epochs",
-    epoch=3000,
+    # save_dir=f"{wandb.run.step}-epochs",
+    epoch=wandb.run.step,
 )
 
 # %%
