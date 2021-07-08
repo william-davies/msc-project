@@ -9,37 +9,8 @@ import string
 import math
 
 # %%
-R1, M2, R3, M4, R5 = (
-    ("D",),
-    ("G", "H"),
-    ("J",),
-    ("M", "N"),
-    ("P",),
-)  # (start, end inclusive)
-TREATMENT_LABEL_COL_RANGES = [R1, M2, R3, M4, R5]
-
-
-def letter_range_to_int_range(range):
-    range = map(str.lower, range)
-    return tuple(map(string.ascii_lowercase.index, range))
-
-
-TREATMENT_LABEL_COL_RANGES = list(
-    map(letter_range_to_int_range, TREATMENT_LABEL_COL_RANGES)
-)
-
-participant_dirnames = next(os.walk("Stress Dataset"))[1]
-participant_dirnames = sorted(participant_dirnames)
-
 PARTICIPANT_ID_PATTERN = "^(\d{10}P\d{1,2})_"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
-
-FRAME_COLS = np.arange(
-    string.ascii_lowercase.index("c"), string.ascii_lowercase.index("q") + 1, 3
-)  # row/frame column
-DATA_COL_RANGES = [
-    np.arange(frame_col, frame_col + 3) for frame_col in FRAME_COLS
-]  # row/frame, bvp, resp.
 
 # %%
 def safe_mkdir(dir_path):
@@ -55,12 +26,18 @@ def safe_mkdir(dir_path):
 
 
 class ExcelToCSVConverter:
-    SHEET_NAMES = ["Inf", "EmRBVP"]
+    """
+    Reads in .xlsx of a single participant. Creates a separate .csv for each measurement (e.g. Inf, Myo, EmRBVP).
+    This .csv has been preprocessed, handling the nested column structure of the .xlsx and any empty columns.
+    Saves the .csv's.
+    """
+
+    SHEET_NAMES = ["Inf", "EmRBVP", "EmLBVP"]
     NUM_TREATMENTS = 5
 
     def read_excel(self, participant_dirname):
         """
-        Read .xslx for a particular participant and return DataFrame.
+        Read .xlsx for a particular participant and return DataFrame.
         :param participant_dirname: str:
         :return: dict: dict['sheet_name'] = pd.DataFrame:
         """
@@ -78,7 +55,7 @@ class ExcelToCSVConverter:
         read_excel = pd.read_excel(
             excel_filepath,
             sheet_name=self.SHEET_NAMES,
-            header=None,  # the header in the .xslx is nested and spans two rows. Actually cleaner to do header=None
+            header=None,  # the header in the .xlsx is nested and spans two rows. Actually cleaner to do header=None
         )
 
         return read_excel
@@ -141,7 +118,7 @@ class ExcelToCSVConverter:
 
     def build_new_header(self, sheet):
         """
-        Convert the nested header structure of the .xslx into a flattened header.
+        Convert the nested header structure of the .xlsx into a flattened header.
         :param sheet: pd.DataFrame
         :return:
         """
