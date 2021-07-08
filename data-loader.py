@@ -66,6 +66,7 @@ class ExcelToCSVConverter:
         read_excel = pd.read_excel(
             excel_filepath,
             sheet_name=self.SHEET_NAMES,
+            header=None,  # the header in the .xslx is nested and spans two rows. Actually cleaner to do header=None
         )
 
         return read_excel
@@ -112,8 +113,9 @@ class ExcelToCSVConverter:
         :return: pd.DataFrame:
         """
         new_header = self.build_new_header(sheet)
-        # ignore first columns about frequency. ignore first row about treatment label.
-        processed_data = sheet.iloc[1:, 2:]
+        # first two columns: sample rate, empty column
+        # first two rows: column labels
+        processed_data = sheet.iloc[2:, 2:]
         sample_rate = sheet.iloc[1, 0]
         processed_data.insert(
             loc=processed_data.shape[1],
@@ -160,7 +162,7 @@ class ExcelToCSVConverter:
             :return:
             """
             series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
-            series_label = series_label.replace("/", "_").lower()
+            series_label = series_label.replace("/", "_").replace(".", "").lower()
             return series_label
 
         def get_frame_cols(sheet):
@@ -206,24 +208,26 @@ class ExcelToCSVConverter:
 
 
 # %%
-small_sheets = pd.read_excel(
-    "Stress Dataset/0726094551P5_609/test.xlsx",
-    sheet_name=["Inf", "EmRBVP"],
-    header=None,
-)
-EmRBVP_sheet = small_sheets["EmRBVP"]
-
-excel_to_csv_converter = ExcelToCSVConverter()
-excel_to_csv_converter.process_excel_sheet(EmRBVP_sheet)
+# small_sheets = pd.read_excel(
+#     "Stress Dataset/0726094551P5_609/test.xlsx",
+#     sheet_name=["Inf", "EmRBVP"],
+#     header=None,
+# )
+# EmRBVP_sheet = small_sheets["EmRBVP"]
+#
+# excel_to_csv_converter = ExcelToCSVConverter()
+# excel_to_csv_converter.process_excel_sheet(EmRBVP_sheet)
 #%%
 # convert_excel_to_csv("0726094551P5_609")
 
 # %%
 # inf_data = pd.read_csv("Stress Dataset/0720202421P1_608/0720202421P1_inf.csv")
 # %%
-for participant_dirname in participant_dirnames[12:]:
+excel_to_csv_converter = ExcelToCSVConverter()
+for participant_dirname in participant_dirnames[2:3]:
     print(participant_dirname)
-    convert_excel_to_csv(participant_dirname)
+    participant_dirname = "0123456789P00_DUMMY"
+    excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
 
 # %%
 # Exclude P7, P14, P15
