@@ -168,43 +168,66 @@ class ExcelToCSVConverter:
             processed_sheet.to_csv(csv_filepath, index=False)
 
     def process_excel_sheet(self, sheet):
-        new_header = self.build_new_header(sheet, DATA_COL_RANGES)
+        new_header = self.build_new_header(sheet)
         # ignore first columns about frequency. ignore first row about treatment label.
         processed_data = sheet.iloc[1:, 2:]
         processed_data.columns = new_header
         return processed_data
 
-    def build_new_header(self, sheet, data_col_ranges):
+    def build_new_header(self, sheet):
         """
+        Convert the nested header structure of the .xslx into a flattened header.
         :param sheet: pd.DataFrame
-        :param data_col_ranges:
         :return:
         """
 
         def get_treatment_label(sheet, frame_cols, treatment_idx):
             """
-            Get treatment label from int range.
-            :param sheet: np.array: DataFrame columns
-            :param range: np.array: columns indices
+            Treatment examples: "Emp R BVP R1", "Infinity R1"
+            :param sheet:
+            :param frame_cols:
+            :param treatment_idx:
             :return:
             """
+            cols_per_treatment = frame_cols[1] - frame_cols[0]
+
             relevant_columns = sheet.iloc[
-                0, frame_cols[treatment_idx] : frame_cols[treatment_idx + 1]
+                0,
+                frame_cols[treatment_idx] : frame_cols[treatment_idx]
+                + cols_per_treatment,
             ]
             named_columns = relevant_columns.dropna()
             label = " ".join(named_columns)
             label = label.lower()
             return label.replace(" ", "_")
 
+        def get_series_label(sheet, frame_cols, treatment_idx, series_idx):
+            """
+            Series examples: "Row/frame", "BVP"
+            :param sheet:
+            :param treatment_idx:
+            :param series_idx:
+            :return:
+            """
+            series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
+            series_label = series_label.replace("/", "_").lower()
+            return series_label
+
         def get_frame_cols(sheet):
+            """
+            Get the indices of the {{NUM_TREATMENTS}} "Row/frame" columns.
+            :param sheet:
+            :return:
+            """
             frame_cols = sheet.iloc[1].values == "Row/frame"
             frame_cols = frame_cols.nonzero()[0]
 
+            # Validation
             assert len(frame_cols) == self.NUM_TREATMENTS
             cols_per_treatment = frame_cols[1] - frame_cols[0]
             correct_frame_cols = np.arange(
                 frame_cols[0],
-                frame_cols[0] + cols_per_treatment * NUM_TREATMENTS,
+                frame_cols[0] + cols_per_treatment * self.NUM_TREATMENTS,
                 cols_per_treatment,
             )
             assert np.array_equal(frame_cols, correct_frame_cols)
@@ -212,19 +235,34 @@ class ExcelToCSVConverter:
             return frame_cols
 
         frame_cols = get_frame_cols(sheet)
+        cols_per_treatment = frame_cols[1] - frame_cols[0]
 
-        new_header = [""] * 3 * len(data_col_ranges)
+        new_header = [""] * cols_per_treatment * self.NUM_TREATMENTS
 
-        column_values = sheet.columns.values
-        for idx, data_col_range in enumerate(data_col_ranges):
-            treatment_label = get_treatment_label(column_values, data_col_range)
-            new_header[3 * idx] = f"{treatment_label}_frame"
-            new_header[3 * idx + 1] = f"{treatment_label}_bvp"
-            new_header[3 * idx + 2] = f"{treatment_label}_resp"
+        for treatment_idx in range(self.NUM_TREATMENTS):
+            treatment_label = get_treatment_label(sheet, frame_cols, treatment_idx)
+            for series_idx in range(cols_per_treatment):
+                series_label = get_series_label(
+                    sheet, frame_cols, treatment_idx, series_idx
+                )
+                header_label = f"{treatment_label}_{series_label}"
+                new_header[
+                    cols_per_treatment * treatment_idx + series_idx
+                ] = header_label
 
         return new_header
 
 
+# %%
+small_sheets = pd.read_excel(
+    "Stress Dataset/0726094551P5_609/test.xlsx",
+    sheet_name=["Inf", "EmRBVP"],
+    header=None,
+)
+EmRBVP_sheet = small_sheets["EmRBVP"]
+
+excel_to_csv_converter = ExcelToCSVConverter()
+excel_to_csv_converter.process_excel_sheet(EmRBVP_sheet)
 #%%
 # convert_excel_to_csv("0726094551P5_609")
 
@@ -293,5 +331,23 @@ labels = EmRBVP_sheet.iloc[0, frame_cols[0] : frame_cols[1]].values
 data_col_ranges = [
     np.arange(frame_col, frame_col + cols_per_treatment) for frame_col in frame_cols
 ]  # row/frame, bvp, resp.
+
+# %%
+sheet = EmRBVP_sheet
+new_header = [""] * cols_per_treatment * NUM_TREATMENTS
+treatment_idx = 0
+treatment_label = "emp_r_bvp_r1"
+
+for series_idx in range(cols_per_treatment):
+    series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
+    new_header[
+        cols_per_treatment * treatment_idx + series_idx
+    ] = f"{treatment_label}_{series_label}".lower()
+
+# %%
+new_header[cols_per_treatment * treatment_idx] = f"{treatment_label}_frame"
+new_header[cols_per_treatment * treatment_idx + 1] = f"{treatment_label}_bvp"
+new_header[cols_per_treatment * treatment_idx + 2] = f"{treatment_label}_resp"
+
 # %%
 inf_csv = pd.read_csv("Stress Dataset/0725114340P3_608/0725114340P3_inf.csv")
