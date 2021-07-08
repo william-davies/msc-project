@@ -7,10 +7,8 @@ import re
 import time
 import string
 import math
+from constants import PARTICIPANT_DIRNAMES_WITH_EXCEL, PARTICIPANT_ID_PATTERN
 
-# %%
-PARTICIPANT_ID_PATTERN = "^(\d{10}P\d{1,2})_"
-PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
 
 # %%
 def safe_mkdir(dir_path):
@@ -214,18 +212,17 @@ class ExcelToCSVConverter:
 # inf_data = pd.read_csv("Stress Dataset/0720202421P1_608/0720202421P1_inf.csv")
 # %%
 excel_to_csv_converter = ExcelToCSVConverter()
-participant_dirname = "0123456789P00_DUMMY"
-excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
+# participant_dirname = "0123456789P00_DUMMY"
+# excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
 
 # %%
-breakpoint = 1
 
-for participant_dirname in participant_dirnames[2:3]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[1:]:
     print(participant_dirname)
-    participant_dirname = "0123456789P00_DUMMY"
     excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
 
 # %%
+breakpoint = 1
 # Exclude P7, P14, P15
 participant_dirnames_with_excel = (
     participant_dirnames[:6] + participant_dirnames[7:10] + participant_dirnames[12:]
