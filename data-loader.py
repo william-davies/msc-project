@@ -42,6 +42,18 @@ DATA_COL_RANGES = [
 ]  # row/frame, bvp, resp.
 
 # %%
+def safe_mkdir(dir_path):
+    """
+    If directory already exists, don't raise error.
+    :param dir_path:
+    :return:
+    """
+    try:
+        os.mkdir(dir_path)
+    except FileExistsError:
+        pass
+
+
 class ExcelToCSVConverter:
     SHEET_NAMES = ["Inf", "EmRBVP"]
     NUM_TREATMENTS = 5
@@ -98,10 +110,11 @@ class ExcelToCSVConverter:
         """
         participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+        csvs_dirpath = os.path.join(participant_dirpath, "preprocessed_csvs")
+        safe_mkdir(csvs_dirpath)
 
         csv_filepath = os.path.join(
-            participant_dirpath,
-            "preprocessed_csvs",
+            csvs_dirpath,
             f"{participant_id}_{sheet_name}.csv",
         )
         sheet.to_csv(csv_filepath, index=False)
@@ -224,6 +237,12 @@ class ExcelToCSVConverter:
 # inf_data = pd.read_csv("Stress Dataset/0720202421P1_608/0720202421P1_inf.csv")
 # %%
 excel_to_csv_converter = ExcelToCSVConverter()
+participant_dirname = "0123456789P00_DUMMY"
+excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
+
+# %%
+breakpoint = 1
+
 for participant_dirname in participant_dirnames[2:3]:
     print(participant_dirname)
     participant_dirname = "0123456789P00_DUMMY"
