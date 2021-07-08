@@ -99,6 +99,13 @@ class ExcelToCSVConverter:
         new_header = self.build_new_header(sheet)
         # ignore first columns about frequency. ignore first row about treatment label.
         processed_data = sheet.iloc[1:, 2:]
+        sample_rate = sheet.iloc[1, 0]
+        processed_data.insert(
+            loc=processed_data.shape[1],
+            column="sample_rate_Hz",
+            value=sample_rate,
+            allow_duplicates=False,
+        )
         processed_data.columns = new_header
         return processed_data
 
@@ -177,6 +184,8 @@ class ExcelToCSVConverter:
                 new_header[
                     cols_per_treatment * treatment_idx + series_idx
                 ] = header_label
+
+        new_header.append("sample_rate_Hz")
 
         return new_header
 
