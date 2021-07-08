@@ -42,91 +42,14 @@ DATA_COL_RANGES = [
 ]  # row/frame, bvp, resp.
 
 # %%
-
-
-# def build_new_header(data, data_col_ranges):
-#     """
-#     :param data: DataFrame
-#     :param data_col_ranges:
-#     :return:
-#     """
-#
-#     def get_label_from_range(all_column_values, range):
-#         """
-#         Get treatment label from int range.
-#         :param all_column_values: np.array: DataFrame columns
-#         :param range: np.array: columns indices
-#         :return:
-#         """
-#         columns_in_range = all_column_values[range]
-#         named_columns = remove_unnamed_columns(columns_in_range)
-#         label = " ".join(named_columns)
-#         label = label.lower()
-#         return label.replace(" ", "_")
-#
-#     def remove_unnamed_columns(columns):
-#         """
-#         e.g.
-#         input: ['Infinity R5', 'Unnamed: 15', 'Unnamed: 16']
-#         output: ['Infinity R5']
-#         :param columns:
-#         :return:
-#         """
-#         filtered_columns = []
-#         UNNAMED_COL_PATTERN = "^Unnamed: \d{1,2}$"
-#         UNNAMED_COL_PATTERN = re.compile(UNNAMED_COL_PATTERN)
-#
-#         for col in columns:
-#             if not UNNAMED_COL_PATTERN.search(col):
-#                 filtered_columns.append(col)
-#         return filtered_columns
-#
-#     new_header = [""] * 3 * len(data_col_ranges)
-#
-#     column_values = data.columns.values
-#     for idx, data_col_range in enumerate(data_col_ranges):
-#         treatment_label = get_label_from_range(column_values, data_col_range)
-#         new_header[3 * idx] = f"{treatment_label}_frame"
-#         new_header[3 * idx + 1] = f"{treatment_label}_bvp"
-#         new_header[3 * idx + 2] = f"{treatment_label}_resp"
-#
-#     return new_header
-
-
-# %%
-
-
-# def convert_excel_to_csv(participant_dirname):
-#     """
-#     Convert .xlsx to .csv and save.
-#
-#     :param participant_dirname: name of directory that contains all physiological data on participant
-#     :return: None.
-#     """
-#     participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-#     participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
-#     print(participant_id)
-#
-#     unprocessed_data = pd.read_excel(
-#         # os.path.join(participant_dirpath, f"{participant_dirname}.xlsx"),  # annoying just P10 follows this naming scheme
-#         os.path.join(participant_dirpath, f"{participant_id}.xlsx"),
-#         sheet_name="Inf",
-#     )
-#
-#     processed_data = process_excel_dataframe(unprocessed_data)
-#
-#     csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
-#     processed_data.to_csv(csv_filepath, index=False)
-
-
-# %%
 class ExcelToCSVConverter:
     SHEET_NAMES = ["Inf", "EmRBVP"]
     NUM_TREATMENTS = 5
 
     def read_excel(self, participant_dirname):
         """
-        :param participant_dirname:
+        Read .xslx for a particular participant and return DataFrame.
+        :param participant_dirname: str:
         :return: dict: dict['sheet_name'] = pd.DataFrame:
         """
         participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
@@ -168,6 +91,11 @@ class ExcelToCSVConverter:
             processed_sheet.to_csv(csv_filepath, index=False)
 
     def process_excel_sheet(self, sheet):
+        """
+        Convert .xlsx DataFrame into a DataFrame that's structured more conveniently.
+        :param sheet: pd.DataFrame:
+        :return:
+        """
         new_header = self.build_new_header(sheet)
         # ignore first columns about frequency. ignore first row about treatment label.
         processed_data = sheet.iloc[1:, 2:]
