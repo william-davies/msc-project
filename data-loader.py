@@ -78,23 +78,38 @@ class ExcelToCSVConverter:
         :return: None.
         """
         excel_sheets = self.read_excel(participant_dirname)
+
+        for sheet_name, sheet_dataframe in excel_sheets.items():
+            processed_sheet = self.process_excel_sheet(sheet_dataframe)
+
+            self.save_csv(
+                sheet_name=sheet_name,
+                sheet=processed_sheet,
+                participant_dirname=participant_dirname,
+            )
+
+    def save_csv(self, sheet_name, sheet, participant_dirname):
+        """
+
+        :param sheet_name:
+        :param sheet:
+        :return:
+        """
+        participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
 
-        for sheet_name, sheet_data in excel_sheets.items():
-            processed_sheet = self.process_excel_sheet(sheet_data)
-
-            csv_filepath = os.path.join(
-                participant_dirpath,
-                "preprocessed_csvs",
-                f"{participant_id}_{sheet_name}.csv",
-            )
-            processed_sheet.to_csv(csv_filepath, index=False)
+        csv_filepath = os.path.join(
+            participant_dirpath,
+            "preprocessed_csvs",
+            f"{participant_id}_{sheet_name}.csv",
+        )
+        sheet.to_csv(csv_filepath, index=False)
 
     def process_excel_sheet(self, sheet):
         """
         Convert .xlsx DataFrame into a DataFrame that's structured more conveniently.
         :param sheet: pd.DataFrame:
-        :return:
+        :return: pd.DataFrame:
         """
         new_header = self.build_new_header(sheet)
         # ignore first columns about frequency. ignore first row about treatment label.
