@@ -101,8 +101,10 @@ class PhysiologicalTimeseriesPlotter:
 
         for treatment in treatments:
             for signal in signals:
-                frames = data.filter(regex=f"_{treatment}_row_frame$")
-                signal_timeseries = data.filter(regex=f"_{treatment}_{signal}$")
+                frames_regex = f"^[a-z]*_{treatment}_row_frame$|^[a-z]*_{treatment}_[a-z]{{4}}_row_frame$"
+                frames = data.filter(regex=frames_regex)
+                signal_regex = f"^[a-z]*_{treatment}_{signal}$|^[a-z]*_{treatment}_[a-z]{{4}}_{signal}$"
+                signal_timeseries = data.filter(regex=signal_regex)
 
                 # there should only be 1 signal
                 assert frames.shape[1] == 1
@@ -172,7 +174,7 @@ data = plotter.plot_multiple_timeseries(
     participant_dirname,
     sheet_name=sheet_name,
     signals=["bvp", "resp"],
-    treatments=["r1", "m2", "r4"],
+    treatments=["r1", "m2", "r3", "m4", "r5"],
     save=False,
 )
 
