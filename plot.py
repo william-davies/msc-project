@@ -81,7 +81,9 @@ def plot_participant_data(participant_dirname):
 
 # %%
 class PhysiologicalTimeseriesPlotter:
-    def plot_timeseries(self, participant_dirname, treatment, sheet_name):
+    def plot_multiple_timeseries(
+        self, participant_dirname, treatments, sheet_name, signals
+    ):
         """
         Plot graphs of bvp vs frame for each treatment of a single participant.
 
@@ -91,6 +93,8 @@ class PhysiologicalTimeseriesPlotter:
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
 
         data = self.read_csv(participant_dirname, sheet_name)
+        treatment_regex = "_" + "_|_".join(treatments) + "_"
+        treatment_data = data.filter(regex=treatment_regex)
 
         participant_number = PARTICIPANT_NUMBER_PATTERN.search(
             participant_dirname
@@ -98,41 +102,51 @@ class PhysiologicalTimeseriesPlotter:
 
         sampling_rate = data["sample_rate_Hz"][0]
 
-        treatment_idxs = np.arange(0, len(data.columns), 3)
         plt.figure(figsize=(120, 20))
 
-        for treatment_idx in treatment_idxs:
-            treatment_label = TREATMENT_PATTERN.search(
-                data.columns[treatment_idx]
-            ).group(1)
-            frames = data.iloc[:, treatment_idx]
-            bvp = data.iloc[:, treatment_idx + 1]
+        for treatment in treatments:
+            for signal in signals:
+                frames = data.filter(regex=f"_{treatment}_row_frame$")
+                signal_timeseries = data.filter(regex=f"_{treatment}_{signal}")
 
-            final_recorded_idx = get_final_recorded_idx(frames, bvp)
+                self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
 
-            frames = frames[: final_recorded_idx + 1]
-            zeroed_frames = frames - frames[0]
-            time = zeroed_frames / sampling_rate
+                save_filepath = os.path.join(
+                    "Stress Dataset",
+                    participant_dirname,
+                    signal,
+                    f"{participant_id}_{treatment}.png",
+                )
 
-            bvp = bvp[: final_recorded_idx + 1]
+                plt.title(
+                    f"Participant: {participant_number}\n Treatment: {treatment}\n {signal}"
+                )
+                plt.plot(time, bvp)
+                plt.xlabel("Time (s)")
+                plt.ylabel(signal)
 
-            save_filepath = os.path.join(
-                "Stress Dataset",
-                participant_dirname,
-                "Infinity",
-                f"{participant_id}_{treatment_label}.png",
-            )
+                plt.savefig(save_filepath, format="png")
+                plt.clf()
+                # plt.show()
 
-            plt.title(
-                f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
-            )
-            plt.plot(time, bvp)
-            plt.xlabel("Time (s)")
-            plt.ylabel("BVP")
+    def plot_single_timeseries(self, frames, signal_timeseries, sampling_rate):
+        """
+        Just plots data. Doesn't know what the treatment/signal is called.
+        :param frames:
+        :param signal_timeseries:
+        :param sampling_rate:
+        :return:
+        """
+        final_recorded_idx = get_final_recorded_idx(frames, signal_timeseries)
 
-            plt.savefig(save_filepath, format="png")
-            plt.clf()
-            # plt.show()
+        frames = frames[: final_recorded_idx + 1]
+        zeroed_frames = frames - frames[0]
+        time = zeroed_frames / sampling_rate
+
+        signal_timeseries = signal_timeseries[: final_recorded_idx + 1]
+
+        plt.plot(time, signal_timeseries)
+        plt.xlabel("Time (s)")
 
     def read_csv(self, participant_dirname, sheet_name):
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
