@@ -19,11 +19,6 @@ TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 PARTICIPANT_ID_PATTERN = "(\d{10}P\d{1,2})"
 PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
 
-
-# %%
-participant_dirname = "0720202421P1_608"
-rate = get_sample_rate(participant_dirname)
-print(rate)
 # %%
 
 
@@ -82,52 +77,59 @@ def plot_participant_data(participant_dirname):
 # %%
 class PhysiologicalTimeseriesPlotter:
     def plot_multiple_timeseries(
-        self, participant_dirname, treatments, sheet_name, signals
+        self, participant_dirname, sheet_name, signals, treatments, save
     ):
         """
-        Plot graphs of bvp vs frame for each treatment of a single participant.
+        Plot graphs of {signals} vs time for each {treatments} of a single participant.
 
         :param participant_dirname: directory contains all sensor data on this participant.
+        :param treatments: list:
+        :param sheet_name: str:
+        :param signals: list:
+        :param save: bool:
         :return:
         """
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
-
-        data = self.read_csv(participant_dirname, sheet_name)
-        treatment_regex = "_" + "_|_".join(treatments) + "_"
-        treatment_data = data.filter(regex=treatment_regex)
-
         participant_number = PARTICIPANT_NUMBER_PATTERN.search(
             participant_dirname
         ).group(1)
 
+        data = self.read_csv(participant_dirname, sheet_name)
         sampling_rate = data["sample_rate_Hz"][0]
 
-        plt.figure(figsize=(120, 20))
+        # plt.figure(figsize=(120, 20))
 
         for treatment in treatments:
             for signal in signals:
                 frames = data.filter(regex=f"_{treatment}_row_frame$")
-                signal_timeseries = data.filter(regex=f"_{treatment}_{signal}")
+                signal_timeseries = data.filter(regex=f"_{treatment}_{signal}$")
 
-                self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
-
-                save_filepath = os.path.join(
-                    "Stress Dataset",
-                    participant_dirname,
-                    signal,
-                    f"{participant_id}_{treatment}.png",
-                )
+                # there should only be 1 signal
+                assert frames.shape[1] == 1
+                frames = frames.iloc[:, 0]
+                assert signal_timeseries.shape[1] == 1
+                signal_timeseries = signal_timeseries.iloc[:, 0]
 
                 plt.title(
                     f"Participant: {participant_number}\n Treatment: {treatment}\n {signal}"
                 )
-                plt.plot(time, bvp)
                 plt.xlabel("Time (s)")
                 plt.ylabel(signal)
 
-                plt.savefig(save_filepath, format="png")
-                plt.clf()
-                # plt.show()
+                self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
+
+                if save:
+                    save_filepath = os.path.join(
+                        "Stress Dataset",
+                        participant_dirname,
+                        signal,
+                        f"{participant_id}_{treatment}.png",
+                    )
+
+                    plt.savefig(save_filepath, format="png")
+                    plt.clf()
+                else:
+                    plt.show()
 
     def plot_single_timeseries(self, frames, signal_timeseries, sampling_rate):
         """
@@ -146,7 +148,6 @@ class PhysiologicalTimeseriesPlotter:
         signal_timeseries = signal_timeseries[: final_recorded_idx + 1]
 
         plt.plot(time, signal_timeseries)
-        plt.xlabel("Time (s)")
 
     def read_csv(self, participant_dirname, sheet_name):
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
@@ -167,9 +168,16 @@ class PhysiologicalTimeseriesPlotter:
 plotter = PhysiologicalTimeseriesPlotter()
 participant_dirname = "0725114340P3_608"
 sheet_name = "Inf"
-data = plotter.read_csv(participant_dirname, sheet_name)
+data = plotter.plot_multiple_timeseries(
+    participant_dirname,
+    sheet_name=sheet_name,
+    signals=["bvp", "resp"],
+    treatments=["r1", "m2", "r4"],
+    save=False,
+)
 
 # %%
+breakpoint = 1
 for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
     if participant_dirname != "0729165929P16_natural":
         plot_participant_data(participant_dirname)
