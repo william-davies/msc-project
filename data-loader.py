@@ -11,16 +11,7 @@ from constants import PARTICIPANT_DIRNAMES_WITH_EXCEL, PARTICIPANT_ID_PATTERN
 
 
 # %%
-def safe_mkdir(dir_path):
-    """
-    If directory already exists, don't raise error.
-    :param dir_path:
-    :return:
-    """
-    try:
-        os.mkdir(dir_path)
-    except FileExistsError:
-        pass
+from utils import safe_mkdir
 
 
 class ExcelToCSVConverter:
@@ -43,7 +34,7 @@ class ExcelToCSVConverter:
         participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
 
         # annoying just P10 follows this naming scheme
-        if participant_dirname == "0727094525P9_lamp":
+        if participant_dirname == "0727120212P10_lamp":
             excel_filepath = os.path.join(
                 participant_dirpath, f"{participant_dirname}.xlsx"
             )
@@ -217,7 +208,7 @@ excel_to_csv_converter = ExcelToCSVConverter()
 
 # %%
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[1:]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[7:]:
     print(participant_dirname)
     excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
 

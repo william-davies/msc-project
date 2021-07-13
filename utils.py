@@ -35,9 +35,9 @@ def get_final_recorded_idx(frames, measurements):
     # check the last zero is followed by just zeros
     assert (frames_zeros == np.arange(frames_zeros[0], frames_zeros[-1] + 1)).all()
 
-    measurements_zeros = measurements.index[measurements == 0]
-    measurements_zeros = np.array(measurements_zeros)
-    assert np.array_equal(frames_zeros, measurements_zeros)
+    measurements_zeros = measurements[frames_zeros]
+    # for the "0" frames, there should not be any recorded signal measurements
+    assert (measurements_zeros == 0).all()
 
     final_recorded_idx = frames_zeros[0] - 1
     return final_recorded_idx
@@ -75,3 +75,15 @@ def read_dataset_csv(csv_filepath):
     loaded_dataset = pd.read_csv(csv_filepath, parse_dates=True, index_col="timedelta")
     loaded_dataset = loaded_dataset.set_index(pd.to_timedelta(loaded_dataset.index))
     return loaded_dataset
+
+
+def safe_mkdir(dir_path):
+    """
+    If directory already exists, don't raise error.
+    :param dir_path:
+    :return:
+    """
+    try:
+        os.mkdir(dir_path)
+    except FileExistsError:
+        pass

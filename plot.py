@@ -10,7 +10,7 @@ from constants import (
 )
 
 # %%
-from utils import get_final_recorded_idx, get_sample_rate
+from utils import get_final_recorded_idx, get_sample_rate, safe_mkdir
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
@@ -101,9 +101,9 @@ class PhysiologicalTimeseriesPlotter:
 
         for treatment in treatments:
             for signal in signals:
-                frames_regex = f"^[a-z_]*_{treatment}_row_frame$|^[a-z]*_{treatment}_[a-z]{{4}}_row_frame$"
+                frames_regex = f"^[a-z_]*_{treatment}_row_frame$|^[a-z_]*_{treatment}_[a-z]{{4}}_row_frame$"
                 frames = data.filter(regex=frames_regex)
-                signal_regex = f"^[a-z_]*_{treatment}_{signal}$|^[a-z]*_{treatment}_[a-z]{{4}}_{signal}$"
+                signal_regex = f"^[a-z_]*_{treatment}_{signal}$|^[a-z_]*_{treatment}_[a-z]{{4}}_{signal}$"
                 signal_timeseries = data.filter(regex=signal_regex)
 
                 # there should only be 1 signal
@@ -116,7 +116,7 @@ class PhysiologicalTimeseriesPlotter:
                     signal_timeseries.name
                 ).group(1)
                 plt.title(
-                    f"Participant: {participant_number}\n Treatment: {treatment_label}\n {signal}"
+                    f"Participant: {participant_number}\n {signal_timeseries.name}"
                 )
                 plt.xlabel("Time (s)")
                 plt.ylabel(signal)
@@ -124,11 +124,17 @@ class PhysiologicalTimeseriesPlotter:
                 self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
 
                 if save:
-                    save_filepath = os.path.join(
+                    dirpath = os.path.join(
                         "Stress Dataset",
                         participant_dirname,
+                        "plots",
+                        sheet_name,
                         signal,
-                        f"{participant_id}_{treatment}.png",
+                    )
+                    safe_mkdir(dirpath)
+                    save_filepath = os.path.join(
+                        dirpath,
+                        f"{participant_id}_{signal_timeseries.name}.png",
                     )
 
                     plt.savefig(save_filepath, format="png")
