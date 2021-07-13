@@ -112,8 +112,11 @@ class PhysiologicalTimeseriesPlotter:
                 assert signal_timeseries.shape[1] == 1
                 signal_timeseries = signal_timeseries.iloc[:, 0]
 
+                treatment_label = TREATMENT_PATTERN.search(
+                    signal_timeseries.name
+                ).group(1)
                 plt.title(
-                    f"Participant: {participant_number}\n Treatment: {treatment}\n {signal}"
+                    f"Participant: {participant_number}\n Treatment: {treatment_label}\n {signal}"
                 )
                 plt.xlabel("Time (s)")
                 plt.ylabel(signal)
@@ -180,26 +183,26 @@ data = plotter.plot_multiple_timeseries(
 
 # %%
 breakpoint = 1
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-    if participant_dirname != "0729165929P16_natural":
-        plot_participant_data(participant_dirname)
-
-# %%
-plt.title("test")
-plt.plot(np.arange(10), np.arange(10) ** 2)
-plt.show()
-plt.savefig("test.png", format="png")
-
-
-# %%
-vids_info = pd.read_excel(
-    os.path.join("Stress Dataset/0720202421P1_608/0720202421P1.xlsx"),
-    sheet_name="Vids_Info",
-)
-
-# %%
-EmRBVP = pd.read_csv(
-    "Stress Dataset/0720202421P1_608/preprocessed_csvs/0720202421P1_EmRBVP.csv"
-)
-plt.plot(EmRBVP["emp_r_bvp_r1_row_frame"], EmRBVP["emp_r_bvp_r1_bvp"])
-plt.show()
+# for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+#     if participant_dirname != "0729165929P16_natural":
+#         plot_participant_data(participant_dirname)
+#
+# # %%
+# plt.title("test")
+# plt.plot(np.arange(10), np.arange(10) ** 2)
+# plt.show()
+# plt.savefig("test.png", format="png")
+#
+#
+# # %%
+# vids_info = pd.read_excel(
+#     os.path.join("Stress Dataset/0720202421P1_608/0720202421P1.xlsx"),
+#     sheet_name="Vids_Info",
+# )
+#
+# # %%
+# EmRBVP = pd.read_csv(
+#     "Stress Dataset/0720202421P1_608/preprocessed_csvs/0720202421P1_EmRBVP.csv"
+# )
+# plt.plot(EmRBVP["emp_r_bvp_r1_row_frame"], EmRBVP["emp_r_bvp_r1_bvp"])
+# plt.show()
