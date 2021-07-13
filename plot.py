@@ -10,7 +10,7 @@ from constants import (
 )
 
 # %%
-from utils import get_final_recorded_idx, get_sample_rate, safe_mkdir
+from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
@@ -131,7 +131,7 @@ class PhysiologicalTimeseriesPlotter:
                         sheet_name,
                         signal,
                     )
-                    safe_mkdir(dirpath)
+                    safe_makedirs(dirpath)
                     save_filepath = os.path.join(
                         dirpath,
                         f"{participant_id}_{signal_timeseries.name}.png",
@@ -184,7 +184,7 @@ data = plotter.plot_multiple_timeseries(
     sheet_name=sheet_name,
     signals=["bvp"],
     treatments=["r1", "m2", "r3", "m4", "r5"],
-    save=False,
+    save=True,
 )
 
 # %%

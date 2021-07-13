@@ -87,3 +87,15 @@ def safe_mkdir(dir_path):
         os.mkdir(dir_path)
     except FileExistsError:
         pass
+
+
+def safe_makedirs(dir_path):
+    """
+    If directory already exists, don't raise error.
+    :param dir_path:
+    :return:
+    """
+    try:
+        os.makedirs(dir_path)
+    except FileExistsError:
+        pass
