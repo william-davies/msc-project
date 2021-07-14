@@ -1,5 +1,6 @@
 # %%
 import os
+import pandas as pd
 
 from IPython.display import display
 import matplotlib.pyplot as plt
@@ -49,7 +50,7 @@ continugous_bvp_signals = split_into_contiguous_segments(bvp_signal)
 
 # %%
 signal0 = continugous_bvp_signals[0]
-plt.plot(signal0[1000:3000])
+plt.plot(signal0)
 plt.show()
 
 # %%
@@ -62,3 +63,21 @@ for window in view[:20]:
     plt.show()
 # %%
 np.array_equal(view[10], signal0[10:1010])
+
+# %%
+short_bvp_signal = bvp_signal[:2000]
+
+# %%
+start_time = record.base_time
+
+# %%
+pd_datetime = pd.to_datetime(arg=1, origin=start_time, unit="s")
+
+# %%
+import datetime
+
+# %%
+dummy_date = datetime.date(year=1, month=1, day=1)
+start_datetime = datetime.datetime.combine(date=dummy_date, time=start_time)
+# %%
+pd.Timestamp(ts_input=start_datetime)
