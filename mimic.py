@@ -4,6 +4,7 @@ import os
 from IPython.display import display
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy.lib.stride_tricks import sliding_window_view
 
 import wfdb
 
@@ -12,7 +13,7 @@ import wfdb
 # cwd = os.getcwd()
 # dl_dir = os.path.join(cwd, "mimic3wdb")
 #
-# # Download record
+# Download record
 # record_id = str(3141595)
 # wfdb.dl_database(
 #     "mimic3wdb", dl_dir=dl_dir, records=[f"{record_id[:2]}/{record_id}/{record_id}"]
@@ -50,3 +51,14 @@ continugous_bvp_signals = split_into_contiguous_segments(bvp_signal)
 signal0 = continugous_bvp_signals[0]
 plt.plot(signal0[1000:3000])
 plt.show()
+
+# %%
+step = 500
+view = sliding_window_view(signal0, 1000)[::step]
+
+# %%
+for window in view[:20]:
+    plt.plot(window)
+    plt.show()
+# %%
+np.array_equal(view[10], signal0[10:1010])
