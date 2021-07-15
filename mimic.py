@@ -10,22 +10,91 @@ from numpy.lib.stride_tricks import sliding_window_view
 import wfdb
 
 # %%
-# # Make a download directory in your current working directory
-# cwd = os.getcwd()
-# dl_dir = os.path.join(cwd, "mimic3wdb")
-#
+
+try:
+    from google.colab import drive
+
+    drive.mount("/content/drive")
+    base_directory = "/content/drive/My Drive/MSc Machine Learning/MSc Project"
+    os.chdir(base_directory)
+except ModuleNotFoundError:
+    base_directory = ""
+
+# %%
+# Make a download directory in your current working directory
+cwd = os.getcwd()
+dl_dir = os.path.join(cwd, "mimic3wdb")
+
 # Download record
-# record_id = str(3141595)
-# wfdb.dl_database(
-#     "mimic3wdb", dl_dir=dl_dir, records=[f"{record_id[:2]}/{record_id}/{record_id}"]
-# )
-#
-# # Display the downloaded content in the folder
-# display(os.listdir(dl_dir))
+record_id = str(3141595)
+wfdb.dl_database(
+    "mimic3wdb", dl_dir=dl_dir, records=[f"{record_id[:2]}/{record_id}/{record_id}n"]
+)
+
+# Display the downloaded content in the folder
+display(os.listdir(dl_dir))
 
 # %%
 record_id = str(3141595)
 record = wfdb.rdrecord(f"mimic3wdb/{record_id[:2]}/{record_id}/{record_id}")
+
+# %%
+
+
+def get_start_datetime(record):
+    start_time = record.base_time
+    dummy_date = datetime.date(
+        year=1970, month=1, day=1
+    )  # I don't think the date was recorded originally
+    start_datetime = datetime.datetime.combine(date=dummy_date, time=start_time)
+    return start_datetime
+
+
+def get_DatetimeIndex(record, periods, start_datetime):
+    timestep_second = 1 / record.fs
+    timestep_microsecond = int(timestep_second * 1e6)
+
+    freq = DateOffset(microseconds=timestep_microsecond)
+    index = pd.date_range(start=start_datetime, periods=periods, freq=freq, name="time")
+
+    return index
+
+
+def get_signal(record, signal_name):
+    signal_index = record.sig_name.index(signal_name)
+    signal = record.p_signal[:, signal_index]
+    start_datetime = get_start_datetime(record)
+    datetime_index = get_DatetimeIndex(
+        record, periods=len(signal), start_datetime=start_datetime
+    )
+
+    df = pd.DataFrame(index=datetime_index, data=signal, columns=["physical_signal"])
+    return df
+
+
+# %%
+record_n = wfdb.rdrecord(f"mimic3wdb/{record_id[:2]}/{record_id}/{record_id}n")
+hr_index = record_n.sig_name.index("HR")
+pulse_index = record_n.sig_name.index("PULSE")
+
+hr_signal = record_n.p_signal[:, hr_index]
+pulse_signal = record_n.p_signal[:, pulse_index]
+
+# %%
+hr = get_signal(record=record_n, signal_name="HR")
+# %%
+end = 100
+# %%
+plt.figure(1)
+plt.title("HR")
+plt.plot(hr_signal[:end])
+plt.show()
+
+# %%
+plt.figure(2)
+plt.title("PULSE")
+plt.plot(pulse_signal[:end])
+plt.show()
 
 # %%
 bvp_index = record.sig_name.index("PLETH")
@@ -65,13 +134,11 @@ for window in view[:20]:
 np.array_equal(view[10], signal0[10:1010])
 
 # %%
-short_bvp_signal = bvp_signal[:2000]
+short_bvp_signal = bvp_signal[:100000]
 
 # %%
 start_time = record.base_time
 
-# %%
-pd_datetime = pd.to_datetime(arg=1, origin=start_time, unit="s")
 
 # %%
 import datetime
@@ -89,11 +156,20 @@ timestep_microsecond = int(timestep_second * 1e6)
 
 freq = DateOffset(microseconds=timestep_microsecond)
 
-index = pd.date_range(
+# %%
+short_index = pd.date_range(
     start=start_datetime, periods=len(short_bvp_signal), freq=freq, name="time"
+)
+short_bvp_signal_df = pd.DataFrame(
+    index=short_index, data=short_bvp_signal, columns=["physical_signal"]
 )
 
 # %%
-short_bvp_signal_df = pd.DataFrame(
-    index=index, data=short_bvp_signal, columns=["physical_signal"]
+plt.plot(short_bvp_signal_df)
+plt.ylim(0, 1)
+plt.show()
+# %%
+index = pd.date_range(
+    start=start_datetime, periods=len(bvp_signal), freq=freq, name="time"
 )
+bvp_signal_df = pd.DataFrame(index=index, data=bvp_signal, columns=["physical_signal"])
