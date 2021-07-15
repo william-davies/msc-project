@@ -8,6 +8,8 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
 import wfdb
+import datetime
+from pandas.tseries.offsets import DateOffset
 
 # %%
 
@@ -82,6 +84,12 @@ pulse_signal = record_n.p_signal[:, pulse_index]
 
 # %%
 hr = get_signal(record=record_n, signal_name="HR")
+
+# %%
+plt.figure(3)
+plt.title("HR")
+plt.plot(hr.physical_signal)
+plt.show()
 # %%
 end = 100
 # %%
@@ -118,6 +126,43 @@ def split_into_contiguous_segments(signal):
 continugous_bvp_signals = split_into_contiguous_segments(bvp_signal)
 
 # %%
+masked_signal = np.ma.masked_invalid(bvp_signal)
+slices = np.ma.clump_unmasked(masked_signal)
+
+# %%
+start_time = record.base_time
+dummy_date = datetime.date(
+    year=1970, month=1, day=1
+)  # I don't think the date was recorded originally
+start_datetime = datetime.datetime.combine(date=dummy_date, time=start_time)
+# %%
+# def add_time_to_datetime(datetime, samples_since_datetime)
+def slices_overview(slices):
+    for i, slice in enumerate(slices):
+
+        samples_since_start = slice.start
+        seconds_since_start = samples_since_start / record.fs
+        time_since_start = datetime.timedelta(seconds=seconds_since_start)
+        slice_start = start_datetime + time_since_start
+
+        if i:
+            not_recorded_time = slice_start - slice_stop
+            print(f"not recorded: {not_recorded_time}")
+
+        samples_since_start = slice.stop
+        seconds_since_start = samples_since_start / record.fs
+        time_since_start = datetime.timedelta(seconds=seconds_since_start)
+        slice_stop = start_datetime + time_since_start
+
+        # print(f'start: {slice_start}')
+        # print(f'end: {slice_stop}')
+
+        recorded_time = slice_stop - slice_start
+        print(f"recorded: {recorded_time}")
+
+
+slices_overview(slices)
+# %%
 signal0 = continugous_bvp_signals[0]
 plt.plot(signal0)
 plt.show()
@@ -136,19 +181,6 @@ np.array_equal(view[10], signal0[10:1010])
 # %%
 short_bvp_signal = bvp_signal[:100000]
 
-# %%
-start_time = record.base_time
-
-
-# %%
-import datetime
-from pandas.tseries.offsets import DateOffset
-
-# %%
-dummy_date = datetime.date(
-    year=1970, month=1, day=1
-)  # I don't think the date was recorded originally
-start_datetime = datetime.datetime.combine(date=dummy_date, time=start_time)
 
 # %%
 timestep_second = 1 / record.fs
@@ -165,6 +197,7 @@ short_bvp_signal_df = pd.DataFrame(
 )
 
 # %%
+plt.figure(5)
 plt.plot(short_bvp_signal_df)
 plt.ylim(0, 1)
 plt.show()
