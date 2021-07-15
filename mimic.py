@@ -75,9 +75,25 @@ pd_datetime = pd.to_datetime(arg=1, origin=start_time, unit="s")
 
 # %%
 import datetime
+from pandas.tseries.offsets import DateOffset
 
 # %%
-dummy_date = datetime.date(year=1, month=1, day=1)
+dummy_date = datetime.date(
+    year=1970, month=1, day=1
+)  # I don't think the date was recorded originally
 start_datetime = datetime.datetime.combine(date=dummy_date, time=start_time)
+
 # %%
-pd.Timestamp(ts_input=start_datetime)
+timestep_second = 1 / record.fs
+timestep_microsecond = int(timestep_second * 1e6)
+
+freq = DateOffset(microseconds=timestep_microsecond)
+
+index = pd.date_range(
+    start=start_datetime, periods=len(short_bvp_signal), freq=freq, name="time"
+)
+
+# %%
+short_bvp_signal_df = pd.DataFrame(
+    index=index, data=short_bvp_signal, columns=["physical_signal"]
+)
