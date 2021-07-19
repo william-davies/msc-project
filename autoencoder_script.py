@@ -10,7 +10,8 @@ from tensorflow import keras
 
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_NUMBER_PATTERN,
+    PARTICIPANT_INFO_PATTERN,
+    PARTICIPANT_NUMBER_GROUP_IDX,
 )
 from models.denoising_autoencoder import create_autoencoder
 from utils import read_dataset_csv
@@ -37,7 +38,9 @@ def get_participant_number(string):
     :param string:
     :return: int:
     """
-    participant_number = PARTICIPANT_NUMBER_PATTERN.search(string).group(1)
+    participant_number = PARTICIPANT_INFO_PATTERN.search(string).group(
+        PARTICIPANT_NUMBER_GROUP_IDX
+    )
     return participant_number
 
 
@@ -261,7 +264,7 @@ def plot_examples(
     :param example_idxs: List[int]:
     :return:
     """
-    if not example_idxs:
+    if example_idxs is None:
         example_idxs = random_state.choice(
             a=len(original_data), size=num_examples, replace=False
         )
@@ -293,7 +296,8 @@ plot_examples(
     example_type="Validation",
     save_dir=f"{wandb.run.step}-epochs",
     epoch=wandb.run.step,
-    example_idxs=[372, 377, 434, 688, 863],
+    # example_idxs=[372, 377, 434, 688, 863]
+    example_idxs=np.arange(0, len(val_data)),
 )
 
 # %%

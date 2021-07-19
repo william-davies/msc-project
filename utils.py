@@ -3,7 +3,7 @@ import re
 import pandas as pd
 import numpy as np
 
-from constants import PARTICIPANT_NUMBER_PATTERN
+from constants import PARTICIPANT_INFO_PATTERN, PARTICIPANT_NUMBER_GROUP_IDX
 
 
 def split_data_into_treatments(data):
@@ -50,7 +50,9 @@ def get_sample_rate(participant_dirname):
     :param participant_dirname: contains all sensor data for this participant
     :return: int: sampling rate
     """
-    participant_number = PARTICIPANT_NUMBER_PATTERN.search(participant_dirname).group(1)
+    participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+        PARTICIPANT_NUMBER_GROUP_IDX
+    )
 
     inf_dir = os.path.join("Stress Dataset", participant_dirname, "Infinity")
     txt_filepath = os.path.join(inf_dir, f"P{participant_number}_inf.txt")

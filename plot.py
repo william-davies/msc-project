@@ -5,19 +5,18 @@ import pandas as pd
 import re
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_NUMBER_PATTERN,
+    PARTICIPANT_INFO_PATTERN,
     PREPROCESSED_CSVS_DIRNAME,
+    PARTICIPANT_NUMBER_GROUP_IDX,
+    PARTICIPANT_ID_GROUP_IDX,
 )
+from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 # %%
 from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
-
-# participant ID doesn't include lighting setting information
-PARTICIPANT_ID_PATTERN = "(\d{10}P\d{1,2})"
-PARTICIPANT_ID_PATTERN = re.compile(PARTICIPANT_ID_PATTERN)
 
 # %%
 
@@ -29,13 +28,17 @@ def plot_participant_data(participant_dirname):
     :param participant_dirname: directory contains all sensor data on this participant.
     :return:
     """
-    participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+    participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+        PARTICIPANT_ID_GROUP_IDX
+    )
     csv_fp = os.path.join(
         "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
     )
     data = pd.read_csv(csv_fp)
 
-    participant_number = PARTICIPANT_NUMBER_PATTERN.search(csv_fp).group(1)
+    participant_number = PARTICIPANT_INFO_PATTERN.search(csv_fp).group(
+        PARTICIPANT_NUMBER_GROUP_IDX
+    )
 
     sampling_rate = get_sample_rate(participant_dirname)
 
@@ -89,10 +92,12 @@ class PhysiologicalTimeseriesPlotter:
         :param save: bool:
         :return:
         """
-        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
-        participant_number = PARTICIPANT_NUMBER_PATTERN.search(
-            participant_dirname
-        ).group(1)
+        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_ID_GROUP_IDX
+        )
+        participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_NUMBER_GROUP_IDX
+        )
 
         data = self.read_csv(participant_dirname, sheet_name)
         sampling_rate = data["sample_rate_Hz"][0]
@@ -112,15 +117,21 @@ class PhysiologicalTimeseriesPlotter:
                 assert signal_timeseries.shape[1] == 1
                 signal_timeseries = signal_timeseries.iloc[:, 0]
 
-                treatment_label = TREATMENT_PATTERN.search(
-                    signal_timeseries.name
-                ).group(1)
+                plt.figure()
+
+                ax = plt.gca()
+                ax.xaxis.set_major_locator(MultipleLocator(1))
+                ax.xaxis.set_major_formatter("{x:.0f}")
+
+                # For the minor ticks, use no labels; default NullFormatter.
+                ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+
                 plt.title(
                     f"Participant: {participant_number}\n {signal_timeseries.name}"
                 )
                 plt.xlabel("Time (s)")
                 plt.ylabel(signal)
-
+                plt.xticks(np.arange(0, 300, 1))
                 self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
 
                 if save:
@@ -161,7 +172,9 @@ class PhysiologicalTimeseriesPlotter:
         plt.plot(time, signal_timeseries)
 
     def read_csv(self, participant_dirname, sheet_name):
-        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_ID_GROUP_IDX
+        )
 
         csv_filename = f"{participant_id}_{sheet_name}.csv"
         csv_filepath = os.path.join(
@@ -177,15 +190,16 @@ class PhysiologicalTimeseriesPlotter:
 
 # %%
 plotter = PhysiologicalTimeseriesPlotter()
-participant_dirname = "0725114340P3_608"
-sheet_name = "EmRBVP"
-data = plotter.plot_multiple_timeseries(
-    participant_dirname,
-    sheet_name=sheet_name,
-    signals=["bvp"],
-    treatments=["r1", "m2", "r3", "m4", "r5"],
-    save=True,
-)
+sheet_name = "Inf"
+
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[13:14]:
+    plotter.plot_multiple_timeseries(
+        participant_dirname,
+        sheet_name=sheet_name,
+        signals=["bvp"],
+        treatments=["r3"],
+        save=False,
+    )
 
 # %%
 breakpoint = 1

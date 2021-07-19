@@ -16,9 +16,10 @@ from utils import (
 from constants import (
     SECONDS_IN_MINUTE,
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_ID_PATTERN,
-    PARTICIPANT_NUMBER_PATTERN,
+    PARTICIPANT_INFO_PATTERN,
     INFINITY_SAMPLE_RATE,
+    PARTICIPANT_NUMBER_GROUP_IDX,
+    PARTICIPANT_ID_GROUP_IDX,
 )
 
 MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
@@ -156,10 +157,12 @@ class DatasetWrapper:
         :return:
         """
         framerate = get_sample_rate(participant_dirname)
-        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
-        participant_number = PARTICIPANT_NUMBER_PATTERN.search(
-            participant_dirname
-        ).group(1)
+        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_ID_GROUP_IDX
+        )
+        participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_NUMBER_GROUP_IDX
+        )
         csv_fp = os.path.join(
             "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
         )

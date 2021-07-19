@@ -7,8 +7,11 @@ import re
 import time
 import string
 import math
-from constants import PARTICIPANT_DIRNAMES_WITH_EXCEL, PARTICIPANT_ID_PATTERN
-
+from constants import (
+    PARTICIPANT_DIRNAMES_WITH_EXCEL,
+    PARTICIPANT_INFO_PATTERN,
+    PARTICIPANT_ID_GROUP_IDX,
+)
 
 # %%
 from utils import safe_mkdir
@@ -31,7 +34,9 @@ class ExcelToCSVConverter:
         :return: dict: dict['sheet_name'] = pd.DataFrame:
         """
         participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_ID_GROUP_IDX
+        )
 
         # annoying just P10 follows this naming scheme
         if participant_dirname == "0727120212P10_lamp":
@@ -75,7 +80,9 @@ class ExcelToCSVConverter:
         :return:
         """
         participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-        participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+            PARTICIPANT_ID_GROUP_IDX
+        )
         csvs_dirpath = os.path.join(participant_dirpath, "preprocessed_csvs")
         safe_mkdir(csvs_dirpath)
 
@@ -223,7 +230,9 @@ participant_dirnames_with_excel = (
 for participant_dirname in participant_dirnames_with_excel:
     print(participant_dirname)
     participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-    participant_id = PARTICIPANT_ID_PATTERN.search(participant_dirname).group(1)
+    participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+        PARTICIPANT_ID_GROUP_IDX
+    )
     csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
     df = pd.read_csv(csv_filepath)
     column_values = df.columns.values
