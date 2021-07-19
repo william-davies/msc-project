@@ -1,15 +1,4 @@
-import os
 import re
-
-child_dirs = next(os.walk("Stress Dataset"))[1]
-PARTICIPANT_DIRNAMES = []
-PARTICIPANT_DIRNAME_PATTERN = "\d{10}P\d{1,2}_\S{3,7}"
-PARTICIPANT_DIRNAME_PATTERN = re.compile(PARTICIPANT_DIRNAME_PATTERN)
-for dir in child_dirs:
-    if PARTICIPANT_DIRNAME_PATTERN.match(dir):
-        PARTICIPANT_DIRNAMES.append(dir)
-
-PARTICIPANT_DIRNAMES = sorted(PARTICIPANT_DIRNAMES)
 
 # Exclude P7, P14, P15
 PARTICIPANT_DIRNAMES_WITH_EXCEL = [
