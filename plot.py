@@ -10,6 +10,8 @@ from constants import (
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
     PARTICIPANT_ENVIRONMENT_GROUP_IDX,
+    RECORDED_SIGNAL_ID_PATTERN,
+    RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX,
 )
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
@@ -46,6 +48,7 @@ class PhysiologicalTimeseriesPlotter:
         )
 
         data = self.read_csv(participant_dirname, sheet_name)
+        sampling_rate = data["sample_rate_Hz"][0]
 
         for treatment_name in treatments:
             for signal_name in signals:
@@ -58,7 +61,7 @@ class PhysiologicalTimeseriesPlotter:
                 )
 
                 self.build_single_timeseries_figure(
-                    data, treatment_name, signal_name, participant_info_match
+                    frames, signal_timeseries, sampling_rate, participant_info_match
                 )
 
                 if save:
@@ -83,20 +86,20 @@ class PhysiologicalTimeseriesPlotter:
     def get_series(self, data, column_regex):
         """
         Get the frames or signal timeseries for a particular treatment-signal.
-        :param data:
-        :param column_regex:
-        :return:
+        :param data: pd.DataFrame: single participant-sensor-signal sheet.
+        :param column_regex: str:
+        :return: pd.Series:
         """
         series = data.filter(regex=column_regex)
 
-        # there should only be 1 series
+        # there should only be 1 unique series for this treatment
         assert series.shape[1] == 1
         series = series.iloc[:, 0]
 
         return series
 
     def build_single_timeseries_figure(
-        self, frames, signal_timeseries, signal_name, participant_info_match
+        self, frames, signal_timeseries, sampling_rate, participant_info_match
     ):
         """
         Handles titles, ticks, labels etc. Also plots data itself and noisy/clean spans.
@@ -107,6 +110,9 @@ class PhysiologicalTimeseriesPlotter:
         """
         participant_number, participant_environment = participant_info_match.group(
             PARTICIPANT_NUMBER_GROUP_IDX, PARTICIPANT_ENVIRONMENT_GROUP_IDX
+        )
+        signal_name = RECORDED_SIGNAL_ID_PATTERN.search(signal_timeseries.name).group(
+            RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX
         )
 
         plt.figure()
@@ -173,32 +179,9 @@ for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[14:15]:
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatments=["r5"],
+        treatments=["m4"],
         save=False,
     )
 
 # %%
 breakpoint = 1
-# for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-#     if participant_dirname != "0729165929P16_natural":
-#         plot_participant_data(participant_dirname)
-#
-# # %%
-# plt.title("test")
-# plt.plot(np.arange(10), np.arange(10) ** 2)
-# plt.show()
-# plt.savefig("test.png", format="png")
-#
-#
-# # %%
-# vids_info = pd.read_excel(
-#     os.path.join("Stress Dataset/0720202421P1_608/0720202421P1.xlsx"),
-#     sheet_name="Vids_Info",
-# )
-#
-# # %%
-# EmRBVP = pd.read_csv(
-#     "Stress Dataset/0720202421P1_608/preprocessed_csvs/0720202421P1_EmRBVP.csv"
-# )
-# plt.plot(EmRBVP["emp_r_bvp_r1_row_frame"], EmRBVP["emp_r_bvp_r1_bvp"])
-# plt.show()

@@ -26,6 +26,11 @@ PARTICIPANT_ID_GROUP_IDX = 1
 PARTICIPANT_NUMBER_GROUP_IDX = 2
 PARTICIPANT_ENVIRONMENT_GROUP_IDX = 3
 
+# unique id for each sensor-treatment-signal
+# atm this only works for infinity but can be extended in future
+RECORDED_SIGNAL_ID_PATTERN = re.compile("^infinity_\S{2,7}_(bvp)$")
+RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX = 1
+
 SECONDS_IN_MINUTE = 60
 
 INFINITY_SAMPLE_RATE = 256
