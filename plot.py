@@ -9,6 +9,7 @@ from constants import (
     PREPROCESSED_CSVS_DIRNAME,
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
+    PARTICIPANT_ENVIRONMENT_GROUP_IDX,
 )
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
@@ -17,65 +18,6 @@ from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
-
-# %%
-
-
-def plot_participant_data(participant_dirname):
-    """
-    Plot graphs of bvp vs frame for each treatment of a single participant.
-
-    :param participant_dirname: directory contains all sensor data on this participant.
-    :return:
-    """
-    participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-        PARTICIPANT_ID_GROUP_IDX
-    )
-    csv_fp = os.path.join(
-        "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
-    )
-    data = pd.read_csv(csv_fp)
-
-    participant_number = PARTICIPANT_INFO_PATTERN.search(csv_fp).group(
-        PARTICIPANT_NUMBER_GROUP_IDX
-    )
-
-    sampling_rate = get_sample_rate(participant_dirname)
-
-    treatment_idxs = np.arange(0, len(data.columns), 3)
-    plt.figure(figsize=(120, 20))
-
-    for treatment_idx in treatment_idxs:
-        treatment_label = TREATMENT_PATTERN.search(data.columns[treatment_idx]).group(1)
-        frames = data.iloc[:, treatment_idx]
-        bvp = data.iloc[:, treatment_idx + 1]
-
-        final_recorded_idx = get_final_recorded_idx(frames, bvp)
-
-        frames = frames[: final_recorded_idx + 1]
-        zeroed_frames = frames - frames[0]
-        time = zeroed_frames / sampling_rate
-
-        bvp = bvp[: final_recorded_idx + 1]
-
-        save_filepath = os.path.join(
-            "Stress Dataset",
-            participant_dirname,
-            "Infinity",
-            f"{participant_id}_{treatment_label}.png",
-        )
-
-        plt.title(
-            f"Participant: {participant_number}\n Treatment: {treatment_label}\n BVP vs frame"
-        )
-        plt.plot(time, bvp)
-        plt.xlabel("Time (s)")
-        plt.ylabel("BVP")
-
-        plt.savefig(save_filepath, format="png")
-        plt.clf()
-        # plt.show()
-
 
 # %%
 class PhysiologicalTimeseriesPlotter:
@@ -92,47 +34,32 @@ class PhysiologicalTimeseriesPlotter:
         :param save: bool:
         :return:
         """
-        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-            PARTICIPANT_ID_GROUP_IDX
-        )
-        participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-            PARTICIPANT_NUMBER_GROUP_IDX
+        participant_info_match = PARTICIPANT_INFO_PATTERN.search(participant_dirname)
+        (
+            participant_id,
+            participant_number,
+            participant_environment,
+        ) = participant_info_match.group(
+            PARTICIPANT_ID_GROUP_IDX,
+            PARTICIPANT_NUMBER_GROUP_IDX,
+            PARTICIPANT_ENVIRONMENT_GROUP_IDX,
         )
 
         data = self.read_csv(participant_dirname, sheet_name)
-        sampling_rate = data["sample_rate_Hz"][0]
 
-        # plt.figure(figsize=(120, 20))
+        for treatment_name in treatments:
+            for signal_name in signals:
+                frames_regex = f"^[a-z_]*_{treatment_name}_row_frame$|^[a-z_]*_{treatment_name}_[a-z]{{4}}_row_frame$"
+                frames = self.get_series(data=data, column_regex=frames_regex)
 
-        for treatment in treatments:
-            for signal in signals:
-                frames_regex = f"^[a-z_]*_{treatment}_row_frame$|^[a-z_]*_{treatment}_[a-z]{{4}}_row_frame$"
-                frames = data.filter(regex=frames_regex)
-                signal_regex = f"^[a-z_]*_{treatment}_{signal}$|^[a-z_]*_{treatment}_[a-z]{{4}}_{signal}$"
-                signal_timeseries = data.filter(regex=signal_regex)
-
-                # there should only be 1 signal
-                assert frames.shape[1] == 1
-                frames = frames.iloc[:, 0]
-                assert signal_timeseries.shape[1] == 1
-                signal_timeseries = signal_timeseries.iloc[:, 0]
-
-                plt.figure()
-
-                ax = plt.gca()
-                ax.xaxis.set_major_locator(MultipleLocator(1))
-                ax.xaxis.set_major_formatter("{x:.0f}")
-
-                # For the minor ticks, use no labels; default NullFormatter.
-                ax.xaxis.set_minor_locator(MultipleLocator(0.5))
-
-                plt.title(
-                    f"Participant: {participant_number}\n {signal_timeseries.name}"
+                signal_regex = f"^[a-z_]*_{treatment_name}_{signal_name}$|^[a-z_]*_{treatment_name}_[a-z]{{4}}_{signal_name}$"
+                signal_timeseries = self.get_series(
+                    data=data, column_regex=signal_regex
                 )
-                plt.xlabel("Time (s)")
-                plt.ylabel(signal)
-                plt.xticks(np.arange(0, 300, 1))
-                self.plot_single_timeseries(frames, signal_timeseries, sampling_rate)
+
+                self.build_single_timeseries_figure(
+                    data, treatment_name, signal_name, participant_info_match
+                )
 
                 if save:
                     dirpath = os.path.join(
@@ -140,7 +67,7 @@ class PhysiologicalTimeseriesPlotter:
                         participant_dirname,
                         "plots",
                         sheet_name,
-                        signal,
+                        signal_name,
                     )
                     safe_makedirs(dirpath)
                     save_filepath = os.path.join(
@@ -153,7 +80,53 @@ class PhysiologicalTimeseriesPlotter:
                 else:
                     plt.show()
 
-    def plot_single_timeseries(self, frames, signal_timeseries, sampling_rate):
+    def get_series(self, data, column_regex):
+        """
+        Get the frames or signal timeseries for a particular treatment-signal.
+        :param data:
+        :param column_regex:
+        :return:
+        """
+        series = data.filter(regex=column_regex)
+
+        # there should only be 1 series
+        assert series.shape[1] == 1
+        series = series.iloc[:, 0]
+
+        return series
+
+    def build_single_timeseries_figure(
+        self, frames, signal_timeseries, signal_name, participant_info_match
+    ):
+        """
+        Handles titles, ticks, labels etc. Also plots data itself and noisy/clean spans.
+        :param frames:
+        :param signal_timeseries:
+        :param sampling_rate:
+        :return:
+        """
+        participant_number, participant_environment = participant_info_match.group(
+            PARTICIPANT_NUMBER_GROUP_IDX, PARTICIPANT_ENVIRONMENT_GROUP_IDX
+        )
+
+        plt.figure()
+
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(MultipleLocator(1))
+        ax.xaxis.set_major_formatter("{x:.0f}")
+
+        # For the minor ticks, use no labels; default NullFormatter.
+        ax.xaxis.set_minor_locator(MultipleLocator(0.5))
+
+        plt.title(
+            f"Participant: {participant_number}\n{participant_environment}\n{signal_timeseries.name}"
+        )
+        plt.xlabel("Time (s)")
+        plt.ylabel(signal_name)
+        plt.xticks(np.arange(0, 300, 1))
+        self.plot_timeseries_data(frames, signal_timeseries, sampling_rate)
+
+    def plot_timeseries_data(self, frames, signal_timeseries, sampling_rate):
         """
         Just plots data. Doesn't know what the treatment/signal is called.
         :param frames:
@@ -170,6 +143,9 @@ class PhysiologicalTimeseriesPlotter:
         signal_timeseries = signal_timeseries[: final_recorded_idx + 1]
 
         plt.plot(time, signal_timeseries)
+
+    def plot_noisy_spans(self):
+        excel = pd.read_excel("Stress Dataset/labelling-dataset.xlsx", sheet_name=None)
 
     def read_csv(self, participant_dirname, sheet_name):
         participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
@@ -192,12 +168,12 @@ class PhysiologicalTimeseriesPlotter:
 plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[13:14]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[14:15]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatments=["r3"],
+        treatments=["r5"],
         save=False,
     )
 
