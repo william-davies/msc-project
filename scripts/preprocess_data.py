@@ -68,6 +68,10 @@ def get_central_3_minutes(timeseries, framerate):
 
 
 class DatasetWrapper:
+    """
+    Converts the original .csv data into a format appropriate for model training/testing.
+    """
+
     def __init__(self, window_size, step_size):
         """
 
@@ -87,8 +91,7 @@ class DatasetWrapper:
                 participant_dirname, signal_name
             )
             self.dataset_dictionary.update(participant_preprocessed_data)
-        self.dataset_dictionary = self.remove_frames()
-        self.dataset_dictionary = self.convert_dataframe_to_array()
+        self.dataset_dictionary = self.remove_frames_series()
         self.dataset = pd.DataFrame(data=self.dataset_dictionary)
         self.dataset = self.convert_index_to_timedelta()
         return self.dataset
@@ -96,32 +99,22 @@ class DatasetWrapper:
     def convert_index_to_timedelta(self):
         """
         Input index: RangeIndex: 0, 1, 2, 3, ... . These are frames.
-        Output index: TimedeltaIndex: 0s, 1s, 2s, .... . Concomitant with sample frequency (1Hz in this example).
+        Output index: TimedeltaIndex: 0s, 0.5s, 1s, .... . Concomitant with sample frequency (0.5Hz in this example).
         :return:
         """
         seconds_index = self.dataset.index / INFINITY_SAMPLE_RATE
         timedelta_index = pd.to_timedelta(seconds_index, unit="second")
         return self.dataset.set_index(timedelta_index)
 
-    def remove_frames(self):
+    def remove_frames_series(self):
         """
         Remove frames column.
         :return:
         """
         just_bvp_no_frames = {}
-        for key, dataframe in self.dataset_dictionary.items():
-            just_bvp_no_frames[key] = dataframe.filter(regex=MEASUREMENT_COLUMN_PATTERN)
+        for key, signal_measurements in self.dataset_dictionary.items():
+            just_bvp_no_frames[key] = signal_measurements[1]
         return just_bvp_no_frames
-
-    def convert_dataframe_to_array(self):
-        """
-        Convert pd.DataFrame to np.array.
-        :return:
-        """
-        label_to_array = {}
-        for key, dataframe in self.dataset_dictionary.items():
-            label_to_array[key] = dataframe.values.squeeze()
-        return label_to_array
 
     def save_dataset(self, filepath):
         self.dataset.to_csv(filepath, index_label="timedelta", index=True)
@@ -151,8 +144,11 @@ class DatasetWrapper:
         original_data = pd.read_csv(csv_fp)
 
         framerate = original_data["sample_rate_Hz"][0]
+        original_data_without_framerate = original_data[original_data.columns[:-1]]
 
-        list_of_treatment_timeseries = split_data_into_treatments(original_data)
+        list_of_treatment_timeseries = split_data_into_treatments(
+            original_data_without_framerate
+        )
         list_of_filtered_treatment_timeseries = list(
             map(filter_recorded_measurements, list_of_treatment_timeseries)
         )
@@ -169,7 +165,7 @@ class DatasetWrapper:
         step_size = int(self.step_size * framerate)
 
         for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
-            windows = sliding_window_view(treatment_timeseries, window_size)[
+            windows = sliding_window_view(treatment_timeseries, window_size, axis=0)[
                 ::step_size
             ]
 
