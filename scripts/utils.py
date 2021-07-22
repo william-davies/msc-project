@@ -3,7 +3,12 @@ import re
 import pandas as pd
 import numpy as np
 
-from constants import PARTICIPANT_INFO_PATTERN, PARTICIPANT_NUMBER_GROUP_IDX
+from constants import (
+    PARTICIPANT_INFO_PATTERN,
+    PARTICIPANT_NUMBER_GROUP_IDX,
+    BASE_DIR,
+    PARTICIPANT_ID_GROUP_IDX,
+)
 
 
 def split_data_into_treatments(data):
@@ -41,31 +46,6 @@ def get_final_recorded_idx(frames, measurements):
 
     final_recorded_idx = frames_zeros[0] - 1
     return final_recorded_idx
-
-
-def get_sample_rate(participant_dirname):
-    """
-    Get sampling rate in Hz of Infinity sensor. Read information from .txt output from Infinity sensor. I think it might
-    be 256Hz for every participant but can't help to be robust.
-    :param participant_dirname: contains all sensor data for this participant
-    :return: int: sampling rate
-    """
-    participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-        PARTICIPANT_NUMBER_GROUP_IDX
-    )
-
-    inf_dir = os.path.join("../Stress Dataset", participant_dirname, "Infinity")
-    txt_filepath = os.path.join(inf_dir, f"P{participant_number}_inf.txt")
-    with open(txt_filepath, "r") as f:
-        first_line = f.readline()
-        SAMPLING_RATE_PATTERN = (
-            "^Export Channel Data with rate of (\d{3}) samples per second.\n$"
-        )
-        SAMPLING_RATE_PATTERN = re.compile(SAMPLING_RATE_PATTERN)
-        sampling_rate = SAMPLING_RATE_PATTERN.search(first_line).group(1)
-        sampling_rate = int(sampling_rate)
-
-    return sampling_rate
 
 
 def read_dataset_csv(csv_filepath):

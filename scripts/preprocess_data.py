@@ -9,7 +9,6 @@ import tensorflow as tf
 from utils import (
     split_data_into_treatments,
     get_final_recorded_idx,
-    get_sample_rate,
     read_dataset_csv,
 )
 
@@ -20,6 +19,8 @@ from constants import (
     INFINITY_SAMPLE_RATE,
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
+    BASE_DIR,
+    XLSX_CONVERTED_TO_CSV,
 )
 
 MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
@@ -101,10 +102,10 @@ class DatasetWrapper:
         self.window_size = window_size
         self.overlap_size = overlap_size
 
-    def build_dataset(self):
-        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+    def build_dataset(self, signal_name):
+        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:1]:
             participant_preprocessed_data = self.preprocess_participant_data(
-                participant_dirname
+                participant_dirname, signal_name
             )
             self.dataset_dictionary.update(participant_preprocessed_data)
         self.dataset_dictionary = self.remove_frames()
@@ -146,25 +147,37 @@ class DatasetWrapper:
     def save_dataset(self, filepath):
         self.dataset.to_csv(filepath, index_label="timedelta", index=True)
 
-    def preprocess_participant_data(self, participant_dirname):
+    def preprocess_participant_data(self, participant_dirname, signal_name):
         """
-        Convert original .xlsx data for ONE participant into format appropriate for model training.
+        Convert original .csv data for ONE participant into format appropriate for model training.
         - remove 0 measurements
         - use central 3 minutes
         - sliding window
 
-        :param raw_data: dp.DataFrame: data pulled directly from .xlsx
+        :param raw_data: dp.DataFrame: data pulled directly from .csv
         :return:
         """
-        framerate = get_sample_rate(participant_dirname)
-        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-            PARTICIPANT_ID_GROUP_IDX
-        )
-        participant_number = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-            PARTICIPANT_NUMBER_GROUP_IDX
-        )
+        participant_id, participant_number = PARTICIPANT_INFO_PATTERN.search(
+            participant_dirname
+        ).group(PARTICIPANT_ID_GROUP_IDX, PARTICIPANT_NUMBER_GROUP_IDX)
+
         csv_fp = os.path.join(
-            "../Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            participant_dirname,
+            XLSX_CONVERTED_TO_CSV,
+            f"{participant_id}_{signal_name}.csv",
+        )
+        original_data = pd.read_csv(csv_fp)
+
+        framerate = original_data["sample_rate_Hz"][0]
+
+        csv_fp = os.path.join(
+            BASE_DIR,
+            "data/Stress Dataset",
+            participant_dirname,
+            f"{participant_id}_inf.csv",
         )
         unprocessed_data = pd.read_csv(csv_fp)
 
@@ -202,11 +215,12 @@ class DatasetWrapper:
 window_size = 10
 overlap_size = window_size * 0.5
 wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
-normalized_dataset = wrapper.build_dataset()
+normalized_dataset = wrapper.build_dataset(signal_name="Inf")
 
 # %%
-save_filepath = (
-    f"Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
+save_filepath = os.path.join(
+    BASE_DIR,
+    f"data/Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv",
 )
 
 # %%
