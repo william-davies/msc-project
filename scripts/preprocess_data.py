@@ -203,7 +203,6 @@ normalized_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
 # %%
 
-
 # not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
 loaded_dataset = read_dataset_csv(save_filepath)
 
@@ -211,15 +210,6 @@ loaded_dataset = read_dataset_csv(save_filepath)
 # %%
 normalized_dataset = loaded_dataset
 
-# %%
-# test sliding window worked
-window0 = normalized_dataset.iloc[:, 1]
-window1 = normalized_dataset.iloc[:, 2]
-assert len(window0) == len(window1)
-halfway = int(len(window0) * 0.5)
-window0_overlap = window0.values[halfway:]
-window1_overlap = window1.values[:halfway]
-assert np.array_equal(window0_overlap, window1_overlap)
 
 # %%
 def normalize(data):
@@ -261,77 +251,4 @@ downsampled_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 example_idx = 2
 plt.plot(normalized_dataset.iloc[:, example_idx], "b")
 plt.plot(downsampled_dataset.iloc[:, example_idx], "r")
-plt.show()
-
-# %%
-
-for label, df in all_preprocessed_data.items():
-    plt.title(f"{label}\n BVP vs frame")
-    plt.plot(df.iloc[:, 1])
-    plt.xlabel("Frames")
-    plt.ylabel("BVP")
-
-    save_filepath = f"two_min_window_plots/{label}.png"
-    plt.savefig(save_filepath, format="png")
-
-    # plt.show()
-    plt.clf()
-
-
-# %%
-for label, df in all_preprocessed_data.items():
-    HARD_MATHS_PATTERN = "infinity_m[24]_hard_bvp"
-    HARD_MATHS_PATTERN = re.compile(HARD_MATHS_PATTERN)
-    if HARD_MATHS_PATTERN.search(label):
-        plt.title(f"{label}\n BVP vs frame")
-        plt.plot(df.iloc[:, 1])
-        plt.xlabel("Frames")
-        plt.ylabel("BVP")
-
-        save_filepath = f"two_min_window_hard_maths_plots/{label}.png"
-        plt.savefig(save_filepath, format="png")
-
-        # plt.show()
-        plt.clf()
-
-
-# %%
-for idx, timeseries in enumerate(all_participants_preprocessed_data):
-    plt.title(f"{idx}\n BVP vs frame")
-    plt.plot(timeseries)
-    plt.xlabel("Frames")
-    plt.ylabel("BVP")
-
-    save_filepath = f"two_min_window_plots_numpy/{idx}.png"
-    plt.savefig(save_filepath, format="png")
-
-    # plt.show()
-    plt.clf()
-
-
-# %%
-p1_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
-preprocessed_data = preprocess_data(p1_dirname)
-
-# %%
-# dummy_data = np.arange(10 * 15).reshape((10, 15))
-normalized_dataset = tf.data.Dataset.from_tensor_slices(
-    all_participants_preprocessed_data
-)
-
-# %%
-save_filepath = "Stress Dataset/dataset_two_min_window"
-np.save(save_filepath, all_participants_preprocessed_data)
-
-# %%
-# check labels
-p5 = pd.read_csv("../Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
-bvp = p5["infinity_m4_hard_bvp"]
-frames = p5["infinity_m4_hard_frame"]
-
-ONE_MINUTE = 60 * 256
-FOUR_MINUTE = 4 * 60 * 256
-
-# bvp_zeros = bvp.index[bvp==0]
-plt.plot(frames[ONE_MINUTE:FOUR_MINUTE], bvp[ONE_MINUTE:FOUR_MINUTE])
 plt.show()
