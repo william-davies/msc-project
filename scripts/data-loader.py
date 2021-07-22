@@ -24,16 +24,36 @@ class ExcelToCSVConverter:
     Saves the .csv's.
     """
 
-    SHEET_NAMES = ["Inf", "EmRBVP", "EmLBVP"]
+    ALL_SHEETS = ["Inf", "EmRBVP", "EmLBVP"]
     NUM_TREATMENTS = 5
 
-    def read_excel(self, participant_dirname):
+    def convert_excel_to_csvs(self, participant_dirname, sheet_names=ALL_SHEETS):
+        """
+        Convert .xlsx to .csv's and save. One .csv for each sheet.
+
+        :param participant_dirname: name of directory that contains all physiological data on participant
+        :param sheet_names:
+        :return:
+        """
+        assert type(sheet_names) == list
+        excel_sheets = self.read_excel(participant_dirname, sheet_names)
+
+        for sheet_name, sheet_dataframe in excel_sheets.items():
+            processed_sheet = self.process_excel_sheet(sheet_dataframe)
+
+            self.save_csv(
+                sheet_name=sheet_name,
+                sheet=processed_sheet,
+                participant_dirname=participant_dirname,
+            )
+
+    def read_excel(self, participant_dirname, sheet_names):
         """
         Read .xlsx for a particular participant and return DataFrame.
         :param participant_dirname: str:
         :return: dict: dict['sheet_name'] = pd.DataFrame:
         """
-        participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
+        participant_dirpath = os.path.join("../Stress Dataset", participant_dirname)
         participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
             PARTICIPANT_ID_GROUP_IDX
         )
@@ -48,29 +68,11 @@ class ExcelToCSVConverter:
 
         read_excel = pd.read_excel(
             excel_filepath,
-            sheet_name=self.SHEET_NAMES,
+            sheet_name=sheet_names,
             header=None,  # the header in the .xlsx is nested and spans two rows. Actually cleaner to do header=None
         )
 
         return read_excel
-
-    def convert_excel_to_csvs(self, participant_dirname):
-        """
-        Convert .xlsx to .csv's and save. One .csv for each sheet.
-
-        :param participant_dirname: name of directory that contains all physiological data on participant
-        :return: None.
-        """
-        excel_sheets = self.read_excel(participant_dirname)
-
-        for sheet_name, sheet_dataframe in excel_sheets.items():
-            processed_sheet = self.process_excel_sheet(sheet_dataframe)
-
-            self.save_csv(
-                sheet_name=sheet_name,
-                sheet=processed_sheet,
-                participant_dirname=participant_dirname,
-            )
 
     def save_csv(self, sheet_name, sheet, participant_dirname):
         """
@@ -79,7 +81,7 @@ class ExcelToCSVConverter:
         :param sheet:
         :return:
         """
-        participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
+        participant_dirpath = os.path.join("../Stress Dataset", participant_dirname)
         participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
             PARTICIPANT_ID_GROUP_IDX
         )
@@ -215,88 +217,90 @@ excel_to_csv_converter = ExcelToCSVConverter()
 
 # %%
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[7:]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[14:15]:
     print(participant_dirname)
-    excel_to_csv_converter.convert_excel_to_csvs(participant_dirname)
-
-# %%
-breakpoint = 1
-# Exclude P7, P14, P15
-participant_dirnames_with_excel = (
-    participant_dirnames[:6] + participant_dirnames[7:10] + participant_dirnames[12:]
-)
-
-# %%
-for participant_dirname in participant_dirnames_with_excel:
-    print(participant_dirname)
-    participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
-    participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
-        PARTICIPANT_ID_GROUP_IDX
+    excel_to_csv_converter.convert_excel_to_csvs(
+        participant_dirname, sheet_names=["Inf"]
     )
-    csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
-    df = pd.read_csv(csv_filepath)
-    column_values = df.columns.values
-    # treatment_order = np.take(column_values, np.arange(0,len(column_values), 3))
-    treatment_order = np.take(column_values, [3, 9])
-
-    print(treatment_order)
-
-#%%
-f1 = "Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt"
-f2 = "Stress Dataset/0730133959P19_lamp/0730133959P19_treatment_order.txt"
-result = filecmp.cmp(f1, f2, shallow=False)
-print(result)
 
 # %%
-# sheets = pd.read_excel('Stress Dataset/0725114340P3_608/0725114340P3.xlsx', sheet_name=['Inf', 'EmRBVP'])
-small_sheets = pd.read_excel(
-    "Stress Dataset/0726094551P5_609/test.xlsx",
-    sheet_name=["Inf", "EmRBVP"],
-    header=None,
-)
-
-# %%
-Inf_sheet = small_sheets["Inf"]
-EmRBVP_sheet = small_sheets["EmRBVP"]
-
-# %%
-frame_cols = EmRBVP_sheet.iloc[1].values == "Row/frame"
-frame_cols = frame_cols.nonzero()[0]
-
-# %%
-NUM_TREATMENTS = 5
-assert len(frame_cols) == NUM_TREATMENTS
-cols_per_treatment = frame_cols[1] - frame_cols[0]
-correct_frame_cols = np.arange(
-    frame_cols[0],
-    frame_cols[0] + cols_per_treatment * NUM_TREATMENTS,
-    cols_per_treatment,
-)
-assert np.array_equal(frame_cols, correct_frame_cols)
-
-# %%
-labels = EmRBVP_sheet.iloc[0, frame_cols[0] : frame_cols[1]].values
-# %%
-data_col_ranges = [
-    np.arange(frame_col, frame_col + cols_per_treatment) for frame_col in frame_cols
-]  # row/frame, bvp, resp.
-
-# %%
-sheet = EmRBVP_sheet
-new_header = [""] * cols_per_treatment * NUM_TREATMENTS
-treatment_idx = 0
-treatment_label = "emp_r_bvp_r1"
-
-for series_idx in range(cols_per_treatment):
-    series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
-    new_header[
-        cols_per_treatment * treatment_idx + series_idx
-    ] = f"{treatment_label}_{series_label}".lower()
-
-# %%
-new_header[cols_per_treatment * treatment_idx] = f"{treatment_label}_frame"
-new_header[cols_per_treatment * treatment_idx + 1] = f"{treatment_label}_bvp"
-new_header[cols_per_treatment * treatment_idx + 2] = f"{treatment_label}_resp"
-
-# %%
-inf_csv = pd.read_csv("Stress Dataset/0725114340P3_608/0725114340P3_inf.csv")
+# breakpoint = 1
+# # Exclude P7, P14, P15
+# participant_dirnames_with_excel = (
+#     participant_dirnames[:6] + participant_dirnames[7:10] + participant_dirnames[12:]
+# )
+#
+# # %%
+# for participant_dirname in participant_dirnames_with_excel:
+#     print(participant_dirname)
+#     participant_dirpath = os.path.join("Stress Dataset", participant_dirname)
+#     participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+#         PARTICIPANT_ID_GROUP_IDX
+#     )
+#     csv_filepath = os.path.join(participant_dirpath, f"{participant_id}_inf.csv")
+#     df = pd.read_csv(csv_filepath)
+#     column_values = df.columns.values
+#     # treatment_order = np.take(column_values, np.arange(0,len(column_values), 3))
+#     treatment_order = np.take(column_values, [3, 9])
+#
+#     print(treatment_order)
+#
+# #%%
+# f1 = "Stress Dataset/0726094551P5_609/0726094551P5_treatment_order.txt"
+# f2 = "Stress Dataset/0730133959P19_lamp/0730133959P19_treatment_order.txt"
+# result = filecmp.cmp(f1, f2, shallow=False)
+# print(result)
+#
+# # %%
+# # sheets = pd.read_excel('Stress Dataset/0725114340P3_608/0725114340P3.xlsx', sheet_name=['Inf', 'EmRBVP'])
+# small_sheets = pd.read_excel(
+#     "Stress Dataset/0726094551P5_609/test.xlsx",
+#     sheet_name=["Inf", "EmRBVP"],
+#     header=None,
+# )
+#
+# # %%
+# Inf_sheet = small_sheets["Inf"]
+# EmRBVP_sheet = small_sheets["EmRBVP"]
+#
+# # %%
+# frame_cols = EmRBVP_sheet.iloc[1].values == "Row/frame"
+# frame_cols = frame_cols.nonzero()[0]
+#
+# # %%
+# NUM_TREATMENTS = 5
+# assert len(frame_cols) == NUM_TREATMENTS
+# cols_per_treatment = frame_cols[1] - frame_cols[0]
+# correct_frame_cols = np.arange(
+#     frame_cols[0],
+#     frame_cols[0] + cols_per_treatment * NUM_TREATMENTS,
+#     cols_per_treatment,
+# )
+# assert np.array_equal(frame_cols, correct_frame_cols)
+#
+# # %%
+# labels = EmRBVP_sheet.iloc[0, frame_cols[0] : frame_cols[1]].values
+# # %%
+# data_col_ranges = [
+#     np.arange(frame_col, frame_col + cols_per_treatment) for frame_col in frame_cols
+# ]  # row/frame, bvp, resp.
+#
+# # %%
+# sheet = EmRBVP_sheet
+# new_header = [""] * cols_per_treatment * NUM_TREATMENTS
+# treatment_idx = 0
+# treatment_label = "emp_r_bvp_r1"
+#
+# for series_idx in range(cols_per_treatment):
+#     series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
+#     new_header[
+#         cols_per_treatment * treatment_idx + series_idx
+#     ] = f"{treatment_label}_{series_label}".lower()
+#
+# # %%
+# new_header[cols_per_treatment * treatment_idx] = f"{treatment_label}_frame"
+# new_header[cols_per_treatment * treatment_idx + 1] = f"{treatment_label}_bvp"
+# new_header[cols_per_treatment * treatment_idx + 2] = f"{treatment_label}_resp"
+#
+# # %%
+# inf_csv = pd.read_csv("Stress Dataset/0725114340P3_608/0725114340P3_inf.csv")

@@ -54,7 +54,7 @@ def get_sample_rate(participant_dirname):
         PARTICIPANT_NUMBER_GROUP_IDX
     )
 
-    inf_dir = os.path.join("Stress Dataset", participant_dirname, "Infinity")
+    inf_dir = os.path.join("../Stress Dataset", participant_dirname, "Infinity")
     txt_filepath = os.path.join(inf_dir, f"P{participant_number}_inf.txt")
     with open(txt_filepath, "r") as f:
         first_line = f.readline()

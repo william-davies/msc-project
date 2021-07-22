@@ -28,7 +28,7 @@ NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
 validation_size = round(NUM_PARTICIPANTS * 0.3)
 
 data = read_dataset_csv(
-    "Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
+    "../Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
 )
 
 
@@ -222,7 +222,7 @@ loaded_autoencoder = tf.keras.models.load_model(
 loaded_autoencoder.summary()
 
 # %%
-tf.keras.utils.plot_model(loaded_autoencoder, "model_plot.png", show_shapes=True)
+tf.keras.utils.plot_model(loaded_autoencoder, "../model_plot.png", show_shapes=True)
 
 
 # %%

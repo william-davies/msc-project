@@ -82,7 +82,7 @@ class PhysiologicalTimeseriesPlotter:
 
                 if save:
                     dirpath = os.path.join(
-                        "Stress Dataset",
+                        "../Stress Dataset",
                         participant_dirname,
                         "plots",
                         sheet_name,
@@ -178,7 +178,7 @@ class PhysiologicalTimeseriesPlotter:
 
     def get_noisy_spans(self, participant_number, treatment_idx):
         excel_sheets = pd.read_excel(
-            "Stress Dataset/labelling-dataset.xlsx", sheet_name=None
+            "Stress Dataset/labelling-dataset-less-strict.xlsx", sheet_name=None
         )
         participant_key = f"P{participant_number}"
         spans = excel_sheets[participant_key][treatment_idx]
@@ -208,7 +208,7 @@ class PhysiologicalTimeseriesPlotter:
 
         csv_filename = f"{participant_id}_{sheet_name}.csv"
         csv_filepath = os.path.join(
-            "Stress Dataset",
+            "../Stress Dataset",
             participant_dirname,
             PREPROCESSED_CSVS_DIRNAME,
             csv_filename,
@@ -221,13 +221,14 @@ class PhysiologicalTimeseriesPlotter:
 # %%
 plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
+# ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[0:1]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[4:5]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatment_idxs=["r1", "m2", "r3", "m4", "r5"],
+        treatment_idxs=["m4"],
         save=False,
     )
 

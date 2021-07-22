@@ -164,7 +164,7 @@ class DatasetWrapper:
             PARTICIPANT_NUMBER_GROUP_IDX
         )
         csv_fp = os.path.join(
-            "Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
+            "../Stress Dataset", participant_dirname, f"{participant_id}_inf.csv"
         )
         unprocessed_data = pd.read_csv(csv_fp)
 
@@ -339,7 +339,7 @@ np.save(save_filepath, all_participants_preprocessed_data)
 
 # %%
 # check labels
-p5 = pd.read_csv("Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
+p5 = pd.read_csv("../Stress Dataset/0726094551P5_609/0726094551P5_inf.csv")
 bvp = p5["infinity_m4_hard_bvp"]
 frames = p5["infinity_m4_hard_frame"]
 
