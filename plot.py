@@ -33,13 +33,13 @@ class PhysiologicalTimeseriesPlotter:
     spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
 
     def plot_multiple_timeseries(
-        self, participant_dirname, sheet_name, signals, treatments, save
+        self, participant_dirname, sheet_name, signals, treatment_idxs, save
     ):
         """
         Plot graphs of {signals} vs time for each {treatments} of a single participant.
 
         :param participant_dirname: directory contains all sensor data on this participant.
-        :param treatments: list:
+        :param treatment_idxs: list:
         :param sheet_name: str:
         :param signals: list:
         :param save: bool:
@@ -59,18 +59,25 @@ class PhysiologicalTimeseriesPlotter:
         data = self.read_csv(participant_dirname, sheet_name)
         sampling_rate = data["sample_rate_Hz"][0]
 
-        for treatment_name in treatments:
+        for treatment_idx in treatment_idxs:
             for signal_name in signals:
-                frames_regex = f"^[a-z_]*_{treatment_name}_row_frame$|^[a-z_]*_{treatment_name}_[a-z]{{4}}_row_frame$"
+                frames_regex = f"^[a-z_]*_{treatment_idx}_row_frame$|^[a-z_]*_{treatment_idx}_[a-z]{{4}}_row_frame$"
                 frames = self.get_series(data=data, column_regex=frames_regex)
 
-                signal_regex = f"^[a-z_]*_{treatment_name}_{signal_name}$|^[a-z_]*_{treatment_name}_[a-z]{{4}}_{signal_name}$"
+                signal_regex = f"^[a-z_]*_{treatment_idx}_{signal_name}$|^[a-z_]*_{treatment_idx}_[a-z]{{4}}_{signal_name}$"
                 signal_timeseries = self.get_series(
                     data=data, column_regex=signal_regex
                 )
 
+                noisy_spans = self.get_noisy_spans(
+                    participant_number=participant_number, treatment_idx=treatment_idx
+                )
                 self.build_single_timeseries_figure(
-                    frames, signal_timeseries, sampling_rate, participant_info_match
+                    frames,
+                    signal_timeseries,
+                    sampling_rate,
+                    participant_info_match,
+                    noisy_spans,
                 )
 
                 if save:
@@ -108,7 +115,12 @@ class PhysiologicalTimeseriesPlotter:
         return series
 
     def build_single_timeseries_figure(
-        self, frames, signal_timeseries, sampling_rate, participant_info_match
+        self,
+        frames,
+        signal_timeseries,
+        sampling_rate,
+        participant_info_match,
+        noisy_spans,
     ):
         """
         Handles titles, ticks, labels etc. Also plots data itself and noisy/clean spans.
@@ -140,6 +152,7 @@ class PhysiologicalTimeseriesPlotter:
         plt.ylabel(signal_name)
         plt.xticks(np.arange(0, 300, 1))
         self.plot_timeseries_data(frames, signal_timeseries, sampling_rate)
+        self.plot_noisy_spans(noisy_spans)
 
     def plot_timeseries_data(self, frames, signal_timeseries, sampling_rate):
         """
@@ -159,11 +172,9 @@ class PhysiologicalTimeseriesPlotter:
 
         plt.plot(time, signal_timeseries)
 
-    def plot_noisy_spans(self, participant_number):
-        excel_sheets = pd.read_excel(
-            "Stress Dataset/labelling-dataset.xlsx", sheet_name=None
-        )
-        participant_key = f"P{participant_number}"
+    def plot_noisy_spans(self, noisy_spans):
+        for span in noisy_spans:
+            plt.axvspan(span.span_start, span.span_end, facecolor="r", alpha=0.3)
 
     def get_noisy_spans(self, participant_number, treatment_idx):
         excel_sheets = pd.read_excel(
@@ -210,12 +221,12 @@ class PhysiologicalTimeseriesPlotter:
 plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[14:15]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[2:3]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatments=["m4"],
+        treatment_idxs=["r5"],
         save=False,
     )
 
