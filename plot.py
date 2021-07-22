@@ -22,7 +22,16 @@ TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 
 # %%
+class Span:
+    def __init__(self, span_start, span_end):
+        self.span_start = span_start
+        self.span_end = span_end
+        assert self.span_end > self.span_start
+
+
 class PhysiologicalTimeseriesPlotter:
+    spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
+
     def plot_multiple_timeseries(
         self, participant_dirname, sheet_name, signals, treatments, save
     ):
@@ -150,8 +159,35 @@ class PhysiologicalTimeseriesPlotter:
 
         plt.plot(time, signal_timeseries)
 
-    def plot_noisy_spans(self):
-        excel = pd.read_excel("Stress Dataset/labelling-dataset.xlsx", sheet_name=None)
+    def plot_noisy_spans(self, participant_number):
+        excel_sheets = pd.read_excel(
+            "Stress Dataset/labelling-dataset.xlsx", sheet_name=None
+        )
+        participant_key = f"P{participant_number}"
+
+    def get_noisy_spans(self, participant_number, treatment_idx):
+        excel_sheets = pd.read_excel(
+            "Stress Dataset/labelling-dataset.xlsx", sheet_name=None
+        )
+        participant_key = f"P{participant_number}"
+        spans = excel_sheets[participant_key][treatment_idx]
+        spans = spans[pd.notnull(spans)]
+        span_objects = []
+
+        previous_span_end = 0
+
+        for span_tuple in spans:
+            span_range = self.spans_pattern.search(span_tuple).group(1, 2)
+            span_range = tuple(map(float, span_range))
+            span_object = Span(*span_range)
+
+            if previous_span_end:
+                assert span_object.span_start > previous_span_end
+            previous_span_end = span_object.span_end
+
+            span_objects.append(span_object)
+
+        return span_objects
 
     def read_csv(self, participant_dirname, sheet_name):
         participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
