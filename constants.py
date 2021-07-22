@@ -35,4 +35,7 @@ SECONDS_IN_MINUTE = 60
 
 INFINITY_SAMPLE_RATE = 256
 
-PREPROCESSED_CSVS_DIRNAME = "preprocessed_csvs"
+XLSX_CONVERTED_TO_CSV = "xlsx_converted_to_csv"
+
+# absolute path of repo directory
+BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/Repo"

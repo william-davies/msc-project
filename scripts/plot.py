@@ -6,7 +6,7 @@ import re
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,
-    PREPROCESSED_CSVS_DIRNAME,
+    XLSX_CONVERTED_TO_CSV,
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
     PARTICIPANT_ENVIRONMENT_GROUP_IDX,
@@ -210,7 +210,7 @@ class PhysiologicalTimeseriesPlotter:
         csv_filepath = os.path.join(
             "../Stress Dataset",
             participant_dirname,
-            PREPROCESSED_CSVS_DIRNAME,
+            XLSX_CONVERTED_TO_CSV,
             csv_filename,
         )
 

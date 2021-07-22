@@ -222,7 +222,9 @@ loaded_autoencoder = tf.keras.models.load_model(
 loaded_autoencoder.summary()
 
 # %%
-tf.keras.utils.plot_model(loaded_autoencoder, "../model_plot.png", show_shapes=True)
+tf.keras.utils.plot_model(
+    loaded_autoencoder, "../plots/model_plot.png", show_shapes=True
+)
 
 
 # %%
