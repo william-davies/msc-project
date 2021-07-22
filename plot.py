@@ -188,15 +188,16 @@ class PhysiologicalTimeseriesPlotter:
         previous_span_end = 0
 
         for span_tuple in spans:
-            span_range = self.spans_pattern.search(span_tuple).group(1, 2)
-            span_range = tuple(map(float, span_range))
-            span_object = Span(*span_range)
+            if span_tuple != "ALL_CLEAN":
+                span_range = self.spans_pattern.search(span_tuple).group(1, 2)
+                span_range = tuple(map(float, span_range))
+                span_object = Span(*span_range)
 
-            if previous_span_end:
-                assert span_object.span_start > previous_span_end
-            previous_span_end = span_object.span_end
+                if previous_span_end:
+                    assert span_object.span_start > previous_span_end
+                previous_span_end = span_object.span_end
 
-            span_objects.append(span_object)
+                span_objects.append(span_object)
 
         return span_objects
 
@@ -221,12 +222,12 @@ class PhysiologicalTimeseriesPlotter:
 plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[2:3]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[0:1]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatment_idxs=["r5"],
+        treatment_idxs=["r1", "m2", "r3", "m4", "r5"],
         save=False,
     )
 
