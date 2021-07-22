@@ -24,6 +24,7 @@ from constants import (
 )
 
 MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
+from numpy.lib.stride_tricks import sliding_window_view
 
 # %%
 participant_dirname = "0720202421P1_608"
@@ -34,28 +35,6 @@ def get_total_number_of_windows(list_of_treatment_windows):
     for windows in list_of_treatment_windows:
         m += len(windows)
     return m
-
-
-def get_sliding_windows(timeseries, window_size, overlap_size):
-    """
-
-    :param timeseries: array_like: time series data
-    :param window_size: in frames
-    :param overlap_size: in frames
-    :return: list of sliding windows
-    """
-    windows = []
-    start = 0
-    shift_size = window_size - overlap_size
-    remaining_length = len(timeseries)
-
-    while remaining_length >= window_size:
-        window = timeseries[start : start + window_size]
-        windows.append(window)
-        start += shift_size
-        remaining_length = len(timeseries) - start
-
-    return windows
 
 
 def filter_recorded_measurements(data):
@@ -89,18 +68,18 @@ def get_central_3_minutes(timeseries, framerate):
 
 
 class DatasetWrapper:
-    def __init__(self, window_size, overlap_size):
+    def __init__(self, window_size, step_size):
         """
 
         :param window_size: in seconds
-        :param overlap_size: in seconds
+        :param step_size: in seconds
         """
         self.dataset_dictionary = (
             {}
         )  # map from label (e.g. P1_infinity_r1_bvp_window0) to pd.DataFrame/np.array
         self.dataset = pd.DataFrame()
         self.window_size = window_size
-        self.overlap_size = overlap_size
+        self.step_size = step_size
 
     def build_dataset(self, signal_name):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:1]:
@@ -173,15 +152,7 @@ class DatasetWrapper:
 
         framerate = original_data["sample_rate_Hz"][0]
 
-        csv_fp = os.path.join(
-            BASE_DIR,
-            "data/Stress Dataset",
-            participant_dirname,
-            f"{participant_id}_inf.csv",
-        )
-        unprocessed_data = pd.read_csv(csv_fp)
-
-        list_of_treatment_timeseries = split_data_into_treatments(unprocessed_data)
+        list_of_treatment_timeseries = split_data_into_treatments(original_data)
         list_of_filtered_treatment_timeseries = list(
             map(filter_recorded_measurements, list_of_treatment_timeseries)
         )
@@ -195,12 +166,13 @@ class DatasetWrapper:
 
         treatment_windows = {}
         window_size = int(self.window_size * framerate)
-        overlap_size = int(self.overlap_size * framerate)
+        step_size = int(self.step_size * framerate)
 
         for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
-            windows = get_sliding_windows(
-                treatment_timeseries, window_size, overlap_size
-            )
+            windows = sliding_window_view(treatment_timeseries, window_size)[
+                ::step_size
+            ]
+
             treatment_string = treatment_timeseries.filter(
                 regex=MEASUREMENT_COLUMN_PATTERN
             ).columns[0]
@@ -213,14 +185,14 @@ class DatasetWrapper:
 
 # %%
 window_size = 10
-overlap_size = window_size * 0.5
-wrapper = DatasetWrapper(window_size=window_size, overlap_size=overlap_size)
+step_size = 1
+wrapper = DatasetWrapper(window_size=window_size, step_size=step_size)
 normalized_dataset = wrapper.build_dataset(signal_name="Inf")
 
 # %%
 save_filepath = os.path.join(
     BASE_DIR,
-    f"data/Stress Dataset/dataset_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv",
+    f"data/Stress Dataset/dataset_{window_size}sec_window_{step_size:.0f}sec_overlap.csv",
 )
 
 # %%
@@ -283,7 +255,7 @@ downsampled_dataset = downsample(
 )
 
 # %%
-save_filepath = f"Stress Dataset/preprocessed_data/downsampled{downsampled_rate}Hz_{window_size}sec_window_{overlap_size:.0f}sec_overlap.csv"
+save_filepath = f"Stress Dataset/preprocessed_data/downsampled{downsampled_rate}Hz_{window_size}sec_window_{step_size:.0f}sec_overlap.csv"
 downsampled_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 # %%
 example_idx = 2
