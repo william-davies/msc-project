@@ -10,6 +10,7 @@ from utils import (
     split_data_into_treatments,
     get_final_recorded_idx,
     read_dataset_csv,
+    safe_makedirs,
 )
 
 from constants import (
@@ -155,6 +156,8 @@ class DatasetWrapper:
         return just_bvp_no_frames
 
     def save_dataset(self, filepath):
+        dirname = os.path.dirname(filepath)
+        os.makedirs(dirname, exist_ok=True)
         self.dataset.to_csv(filepath, index_label="timedelta", index=True)
 
     def preprocess_participant_data(self, participant_dirname, signal_name):
@@ -229,10 +232,14 @@ class DatasetWrapper:
 # %%
 window_size = 10
 step_size = 1
+downsampled_sampling_rate = 16
 wrapper = DatasetWrapper(
-    window_size=window_size, step_size=step_size, downsampled_sampling_rate=16
+    window_size=window_size,
+    step_size=step_size,
+    downsampled_sampling_rate=downsampled_sampling_rate,
 )
-dataset = wrapper.build_dataset(signal_name="Inf")
+signal_name = "Inf"
+dataset = wrapper.build_dataset(signal_name=signal_name)
 
 # %%
 dataset = normalize(dataset)
@@ -241,7 +248,7 @@ dataset = normalize(dataset)
 # %%
 save_filepath = os.path.join(
     BASE_DIR,
-    f"data/Stress Dataset/dataset_{window_size}sec_window_{step_size:.0f}sec_overlap.csv",
+    f"data/preprocessed_data/{signal_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
 )
 
 # %%
