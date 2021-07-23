@@ -22,6 +22,7 @@ from constants import (
     PARTICIPANT_ID_GROUP_IDX,
     BASE_DIR,
     XLSX_CONVERTED_TO_CSV,
+    TREATMENT_LABEL_PATTERN,
 )
 from scipy import signal
 
@@ -45,7 +46,7 @@ def downsample(original_data, original_rate, downsampled_rate):
     """
     Downsample signal.
 
-    :param original_data: pd.DataFrame:
+    :param original_data: pd.DataFrame: shape (n, 2)
     :param original_rate: scalar: Hz
     :param downsampled_rate: scalar: Hz
     :return: pd.DataFrame:
@@ -90,10 +91,10 @@ def filter_recorded_measurements(data):
     return data.iloc[: final_recorded_idx + 1]
 
 
-def get_central_3_minutes(timeseries, framerate):
+def get_central_3_minutes(data, framerate):
     """
     Following Jade thesis. Resets index of the returned dataframe.
-    :param timeseries:
+    :param data: pd.DataFrame:
     :param framerate:
     :return:
     """
@@ -105,7 +106,7 @@ def get_central_3_minutes(timeseries, framerate):
 
     end_in_frames = start_in_frames + three_minutes_in_frames
 
-    central_3_minutes = timeseries[start_in_frames:end_in_frames]
+    central_3_minutes = data[start_in_frames:end_in_frames]
     central_3_minutes = central_3_minutes.reset_index(drop=True)
     return central_3_minutes
 
@@ -115,12 +116,13 @@ class DatasetWrapper:
     Converts the original .csv data into a format appropriate for model training/testing.
     """
 
-    def __init__(self, window_size, step_size, downsampled_sampling_rate):
+    def __init__(self, signal_name, window_size, step_size, downsampled_sampling_rate):
         """
 
         :param window_size: in seconds
         :param step_size: in seconds
         """
+        self.signal_name = signal_name
         self.dataset_dictionary = (
             {}
         )  # map from label (e.g. P1_infinity_r1_bvp_window0) to pd.DataFrame/np.array
@@ -129,10 +131,10 @@ class DatasetWrapper:
         self.step_size = step_size
         self.downsampled_sampling_rate = downsampled_sampling_rate
 
-    def build_dataset(self, signal_name):
+    def build_dataset(self, sheet_name):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:1]:
             participant_preprocessed_data = self.preprocess_participant_data(
-                participant_dirname, signal_name
+                participant_dirname, sheet_name
             )
             self.dataset_dictionary.update(participant_preprocessed_data)
         self.dataset_dictionary = self.remove_frames_series()
@@ -140,19 +142,15 @@ class DatasetWrapper:
         self.dataset = self.convert_index_to_timedelta()
         return self.dataset
 
-    def convert_frames_to_timedelta(self, window):
-        seconds_index = self.dataset.index / INFINITY_SAMPLE_RATE
-        pass
-
-    def convert_index_to_timedelta(self, framerate):
+    def convert_index_to_timedelta(self, signal, framerate):
         """
         Input index: RangeIndex: 0, 1, 2, 3, ... . These are frames.
         Output index: TimedeltaIndex: 0s, 0.5s, 1s, .... . Concomitant with sample frequency (0.5Hz in this example).
         :return:
         """
-        seconds_index = self.dataset.index / framerate
+        seconds_index = signal.index / framerate
         timedelta_index = pd.to_timedelta(seconds_index, unit="second")
-        return self.dataset.set_index(timedelta_index)
+        return signal.set_index(timedelta_index)
 
     def remove_frames_series(self):
         """
@@ -196,61 +194,61 @@ class DatasetWrapper:
         original_sampling_rate = original_data["sample_rate_Hz"][0]
         original_data_without_framerate = original_data[original_data.columns[:-1]]
 
-        list_of_treatment_timeseries = split_data_into_treatments(
-            original_data_without_framerate
-        )
-        list_of_filtered_treatment_timeseries = list(
-            map(filter_recorded_measurements, list_of_treatment_timeseries)
-        )
-        list_of_central_3_minutes = list(
-            map(
-                get_central_3_minutes,
-                list_of_filtered_treatment_timeseries,
-                [original_sampling_rate] * len(list_of_treatment_timeseries),
-            )
-        )
+        treatment_dfs = split_data_into_treatments(original_data_without_framerate)
 
-        list_of_downsampled_timeseries = list(
-            map(
-                downsample,
-                list_of_central_3_minutes,
-                [original_sampling_rate] * len(list_of_treatment_timeseries),
-                [self.downsampled_sampling_rate] * len(list_of_treatment_timeseries),
+        treatment_signals = [None] * len(treatment_dfs)
+        for i, treatment_df in enumerate(treatment_dfs):
+            treatment_signal = self.preprocess_treatment_df(
+                treatment_df, original_sampling_rate=original_sampling_rate
             )
-        )
-
-        list_of_downsampled_timeseries = list(
-            map(
-                remove_frame_column,
-                list_of_downsampled_timeseries,
-            )
-        )
-
-        list_of_downsampled_timeseries = list(
-            map(
-                self.convert_index_to_timedelta,
-                list_of_downsampled_timeseries,
-                [self.downsampled_sampling_rate] * len(list_of_treatment_timeseries),
-            )
-        )
+            treatment_signals[i] = treatment_signal
 
         treatment_windows = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
 
-        for idx, treatment_timeseries in enumerate(list_of_downsampled_timeseries):
-            windows = sliding_window_view(treatment_timeseries, window_size, axis=0)[
+        for idx, treatment_signal in enumerate(treatment_signals):
+            windows = sliding_window_view(treatment_signal, window_size, axis=0)[
                 ::step_size
             ]
 
-            treatment_string = treatment_timeseries.filter(
-                regex=MEASUREMENT_COLUMN_PATTERN
-            ).columns[0]
+            treatment_string = treatment_signal.name
             for window_idx, window in enumerate(windows):
                 key = f"P{participant_number}_{treatment_string}_window{window_idx}"
                 treatment_windows[key] = window
 
         return treatment_windows
+
+    def get_noisy_mask(self, treatment_signal):
+        pass
+
+    def preprocess_treatment_df(self, treatment_df, original_sampling_rate):
+        """
+        Make a signal that's ready for the sliding window.
+
+        :param treatment_df: pd.DataFrame
+        :param original_sampling_rate: scalar" Hz
+        :return:
+        """
+        signal_regex = f"(?:^\w+_{TREATMENT_LABEL_PATTERN}_{self.signal_name}$)"
+        frames_and_signal_regex = (
+            f"(?:^\w+_{TREATMENT_LABEL_PATTERN}_row_frame$)|{signal_regex}"
+        )
+        frames_and_signal = treatment_df.filter(regex=frames_and_signal_regex)
+
+        frames_and_signal = filter_recorded_measurements(frames_and_signal)
+        frames_and_signal = get_central_3_minutes(
+            frames_and_signal, framerate=original_sampling_rate
+        )
+        downsampled_frames_and_signal = downsample(
+            frames_and_signal, original_sampling_rate, self.downsampled_sampling_rate
+        )
+        signal = downsampled_frames_and_signal.filter(regex=signal_regex)
+        signal = self.convert_index_to_timedelta(
+            signal, framerate=self.downsampled_sampling_rate
+        )
+
+        return signal.squeeze()
 
 
 # %%
@@ -258,12 +256,13 @@ window_size = 10
 step_size = 1
 downsampled_sampling_rate = 16
 wrapper = DatasetWrapper(
+    signal_name="bvp",
     window_size=window_size,
     step_size=step_size,
     downsampled_sampling_rate=downsampled_sampling_rate,
 )
-signal_name = "Inf"
-dataset = wrapper.build_dataset(signal_name=signal_name)
+sheet_name = "Inf"
+dataset = wrapper.build_dataset(sheet_name=sheet_name)
 
 # %%
 dataset = normalize(dataset)
@@ -272,7 +271,7 @@ dataset = normalize(dataset)
 # %%
 save_filepath = os.path.join(
     BASE_DIR,
-    f"data/preprocessed_data/{signal_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
+    f"data/preprocessed_data/{sheet_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
 )
 
 # %%
