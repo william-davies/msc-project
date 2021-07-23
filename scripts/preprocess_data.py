@@ -10,7 +10,7 @@ from utils import (
     split_data_into_treatments,
     get_final_recorded_idx,
     read_dataset_csv,
-    safe_makedirs,
+    get_noisy_spans,
 )
 
 from constants import (
@@ -23,6 +23,7 @@ from constants import (
     BASE_DIR,
     XLSX_CONVERTED_TO_CSV,
     TREATMENT_LABEL_PATTERN,
+    TREATMENT_INDEXES,
 )
 from scipy import signal
 
@@ -196,31 +197,54 @@ class DatasetWrapper:
 
         treatment_dfs = split_data_into_treatments(original_data_without_framerate)
 
-        treatment_signals = [None] * len(treatment_dfs)
+        treatment_series_list = [None] * len(treatment_dfs)
+        noisy_masks = [None] * len(treatment_dfs)
         for i, treatment_df in enumerate(treatment_dfs):
-            treatment_signal = self.preprocess_treatment_df(
+            treatment_series = self.preprocess_treatment_df(
                 treatment_df, original_sampling_rate=original_sampling_rate
             )
-            treatment_signals[i] = treatment_signal
+            treatment_series_list[i] = treatment_series
+            noisy_masks[i] = self.get_noisy_mask(
+                participant_number=participant_number,
+                treatment_idx=TREATMENT_INDEXES[i],
+                signal=treatment_series,
+            )
 
         treatment_windows = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
 
-        for idx, treatment_signal in enumerate(treatment_signals):
-            windows = sliding_window_view(treatment_signal, window_size, axis=0)[
+        for idx, treatment_series in enumerate(treatment_series_list):
+            windows = sliding_window_view(treatment_series, window_size, axis=0)[
                 ::step_size
             ]
 
-            treatment_string = treatment_signal.name
+            treatment_string = treatment_series.name
             for window_idx, window in enumerate(windows):
                 key = f"P{participant_number}_{treatment_string}_window{window_idx}"
                 treatment_windows[key] = window
 
         return treatment_windows
 
-    def get_noisy_mask(self, treatment_signal):
-        pass
+    def get_noisy_mask(self, participant_number, treatment_idx, signal):
+        """
+        Mask showing which signal measurements are noisy.
+        :param participant_number:
+        :param treatment_idx:
+        :param signal:
+        :return:
+        """
+        spans = get_noisy_spans(participant_number, treatment_idx)
+        noisy_mask = pd.Series(
+            data=False, index=signal.index, name=signal.name, dtype=bool
+        )
+
+        for span in spans:
+            start = pd.Timedelta(value=span.start, unit="second")
+            end = pd.Timedelta(value=span.end, unit="second")
+            noisy_mask[(noisy_mask.index >= start) & (noisy_mask.index <= end)] = True
+
+        return noisy_mask
 
     def preprocess_treatment_df(self, treatment_df, original_sampling_rate):
         """

@@ -16,7 +16,7 @@ from constants import (
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 # %%
-from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs, Span
+from utils import get_final_recorded_idx, get_sample_rate, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
@@ -83,7 +83,7 @@ class PhysiologicalTimeseriesPlotter:
                         sheet_name,
                         signal_name,
                     )
-                    safe_makedirs(dirpath)
+                    os.makedirs(dirpath, exist_ok=True)
                     save_filepath = os.path.join(
                         dirpath,
                         f"{participant_id}_{signal_timeseries.name}.png",
