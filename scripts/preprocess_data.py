@@ -62,6 +62,11 @@ def downsample(original_data, original_rate, downsampled_rate):
     return downsampled_df
 
 
+def remove_frame_column(data):
+    non_frame_regex = "\w+(?<!_row_frame)$"
+    return data.filter(regex=non_frame_regex)
+
+
 # %%
 participant_dirname = "0720202421P1_608"
 
@@ -135,13 +140,17 @@ class DatasetWrapper:
         self.dataset = self.convert_index_to_timedelta()
         return self.dataset
 
-    def convert_index_to_timedelta(self):
+    def convert_frames_to_timedelta(self, window):
+        seconds_index = self.dataset.index / INFINITY_SAMPLE_RATE
+        pass
+
+    def convert_index_to_timedelta(self, framerate):
         """
         Input index: RangeIndex: 0, 1, 2, 3, ... . These are frames.
         Output index: TimedeltaIndex: 0s, 0.5s, 1s, .... . Concomitant with sample frequency (0.5Hz in this example).
         :return:
         """
-        seconds_index = self.dataset.index / INFINITY_SAMPLE_RATE
+        seconds_index = self.dataset.index / framerate
         timedelta_index = pd.to_timedelta(seconds_index, unit="second")
         return self.dataset.set_index(timedelta_index)
 
@@ -206,6 +215,21 @@ class DatasetWrapper:
                 downsample,
                 list_of_central_3_minutes,
                 [original_sampling_rate] * len(list_of_treatment_timeseries),
+                [self.downsampled_sampling_rate] * len(list_of_treatment_timeseries),
+            )
+        )
+
+        list_of_downsampled_timeseries = list(
+            map(
+                remove_frame_column,
+                list_of_downsampled_timeseries,
+            )
+        )
+
+        list_of_downsampled_timeseries = list(
+            map(
+                self.convert_index_to_timedelta,
+                list_of_downsampled_timeseries,
                 [self.downsampled_sampling_rate] * len(list_of_treatment_timeseries),
             )
         )
