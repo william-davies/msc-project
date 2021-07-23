@@ -258,20 +258,3 @@ loaded_dataset = read_dataset_csv(save_filepath)
 
 # %%
 dataset = loaded_dataset
-
-
-# %%
-dataset = normalize(dataset)
-downsampled_rate = 16
-downsampled_dataset = downsample(
-    original_data=dataset, downsampled_rate=downsampled_rate
-)
-
-# %%
-save_filepath = f"Stress Dataset/preprocessed_data/downsampled{downsampled_rate}Hz_{window_size}sec_window_{step_size:.0f}sec_overlap.csv"
-downsampled_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
-# %%
-example_idx = 2
-plt.plot(dataset.iloc[:, example_idx], "b")
-plt.plot(downsampled_dataset.iloc[:, example_idx], "r")
-plt.show()
