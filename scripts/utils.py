@@ -8,21 +8,23 @@ from constants import (
     PARTICIPANT_NUMBER_GROUP_IDX,
     BASE_DIR,
     PARTICIPANT_ID_GROUP_IDX,
+    TREATMENT_INDEXES,
 )
 
 
 def split_data_into_treatments(data):
     """
-    Split participant data into list. Each element of list is bvp data for treatment {{idx}}. E.g. list[0] = r1_treatment_data.
+    Split participant data into list. Each element of list is physiological data for treatment {{idx}}. E.g. list[0] = r1_treatment_data.
+    Only test for Inf but should work for EmLBVP, EmRBVP.
     :param data: pd.DataFrame:
     :return:
     """
-    treatment_idxs = np.arange(0, len(data.columns), 3)
+    treatments = [None] * len(TREATMENT_INDEXES)
+    for i, treatment_idx in enumerate(TREATMENT_INDEXES):
+        treatment_regex = f"^\S+_{treatment_idx}_\S+$"
+        treatment_df = data.filter(regex=treatment_regex)
+        treatments[i] = treatment_df
 
-    treatments = [None] * len(treatment_idxs)
-    for idx, treatment_idx in enumerate(treatment_idxs):
-        treatment_data = data.iloc[:, treatment_idx : treatment_idx + 2]
-        treatments[idx] = treatment_data
     return treatments
 
 
