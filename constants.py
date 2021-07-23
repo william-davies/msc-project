@@ -39,3 +39,9 @@ XLSX_CONVERTED_TO_CSV = "xlsx_converted_to_csv"
 
 # absolute path of repo directory
 BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/Repo"
+
+TREATMENT_INDEXES = ["r1", "m2", "r3", "m4", "r5"]
+
+TREATMENT_LABEL_PATTERN = "(?:\w\d|\w\d_\w{4})"
+
+SPAN_PATTERN = re.compile("^([\d.]+)-([\d.]+)$")
