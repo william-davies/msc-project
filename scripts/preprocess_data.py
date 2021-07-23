@@ -22,9 +22,44 @@ from constants import (
     BASE_DIR,
     XLSX_CONVERTED_TO_CSV,
 )
+from scipy import signal
 
 MEASUREMENT_COLUMN_PATTERN = "infinity_\w{2,7}_bvp"
 from numpy.lib.stride_tricks import sliding_window_view
+
+# %%
+def normalize(data):
+    """
+    Normalize data to [0,1]
+    :param data: pd.DataFrame:
+    :return:
+    """
+    max_val = data.values.max()
+    min_val = data.values.min()
+    normalized_data = (data - min_val) / (max_val - min_val)
+    return normalized_data
+
+
+def downsample(original_data, original_rate, downsampled_rate):
+    """
+    Downsample signal.
+
+    :param original_data: pd.DataFrame:
+    :param original_rate: scalar: Hz
+    :param downsampled_rate: scalar: Hz
+    :return: pd.DataFrame:
+    """
+    num = len(original_data) * downsampled_rate / original_rate
+    assert num.is_integer()
+    num = int(num)
+
+    downsampled_signal, downsampled_t = signal.resample(
+        x=original_data.iloc[:, 1], num=num, t=original_data.iloc[:, 0]
+    )
+    downsampled_data = np.column_stack((downsampled_t, downsampled_signal))
+    downsampled_df = pd.DataFrame(data=downsampled_data, columns=original_data.columns)
+    return downsampled_df
+
 
 # %%
 participant_dirname = "0720202421P1_608"
@@ -51,7 +86,7 @@ def filter_recorded_measurements(data):
 
 def get_central_3_minutes(timeseries, framerate):
     """
-    Following Jade thesis.
+    Following Jade thesis. Resets index of the returned dataframe.
     :param timeseries:
     :param framerate:
     :return:
@@ -64,7 +99,9 @@ def get_central_3_minutes(timeseries, framerate):
 
     end_in_frames = start_in_frames + three_minutes_in_frames
 
-    return timeseries[start_in_frames:end_in_frames]
+    central_3_minutes = timeseries[start_in_frames:end_in_frames]
+    central_3_minutes = central_3_minutes.reset_index(drop=True)
+    return central_3_minutes
 
 
 class DatasetWrapper:
@@ -72,7 +109,7 @@ class DatasetWrapper:
     Converts the original .csv data into a format appropriate for model training/testing.
     """
 
-    def __init__(self, window_size, step_size):
+    def __init__(self, window_size, step_size, downsampled_sampling_rate):
         """
 
         :param window_size: in seconds
@@ -84,6 +121,7 @@ class DatasetWrapper:
         self.dataset = pd.DataFrame()
         self.window_size = window_size
         self.step_size = step_size
+        self.downsampled_sampling_rate = downsampled_sampling_rate
 
     def build_dataset(self, signal_name):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:1]:
@@ -143,7 +181,7 @@ class DatasetWrapper:
         )
         original_data = pd.read_csv(csv_fp)
 
-        framerate = original_data["sample_rate_Hz"][0]
+        original_sampling_rate = original_data["sample_rate_Hz"][0]
         original_data_without_framerate = original_data[original_data.columns[:-1]]
 
         list_of_treatment_timeseries = split_data_into_treatments(
@@ -156,15 +194,24 @@ class DatasetWrapper:
             map(
                 get_central_3_minutes,
                 list_of_filtered_treatment_timeseries,
-                [framerate] * len(list_of_treatment_timeseries),
+                [original_sampling_rate] * len(list_of_treatment_timeseries),
+            )
+        )
+
+        list_of_downsampled_timeseries = list(
+            map(
+                downsample,
+                list_of_central_3_minutes,
+                [original_sampling_rate] * len(list_of_treatment_timeseries),
+                [self.downsampled_sampling_rate] * len(list_of_treatment_timeseries),
             )
         )
 
         treatment_windows = {}
-        window_size = int(self.window_size * framerate)
-        step_size = int(self.step_size * framerate)
+        window_size = int(self.window_size * self.downsampled_sampling_rate)
+        step_size = int(self.step_size * self.downsampled_sampling_rate)
 
-        for idx, treatment_timeseries in enumerate(list_of_central_3_minutes):
+        for idx, treatment_timeseries in enumerate(list_of_downsampled_timeseries):
             windows = sliding_window_view(treatment_timeseries, window_size, axis=0)[
                 ::step_size
             ]
@@ -182,8 +229,14 @@ class DatasetWrapper:
 # %%
 window_size = 10
 step_size = 1
-wrapper = DatasetWrapper(window_size=window_size, step_size=step_size)
-normalized_dataset = wrapper.build_dataset(signal_name="Inf")
+wrapper = DatasetWrapper(
+    window_size=window_size, step_size=step_size, downsampled_sampling_rate=16
+)
+dataset = wrapper.build_dataset(signal_name="Inf")
+
+# %%
+dataset = normalize(dataset)
+
 
 # %%
 save_filepath = os.path.join(
@@ -195,7 +248,7 @@ save_filepath = os.path.join(
 wrapper.save_dataset(save_filepath)
 
 # %%
-normalized_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
+dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
 # %%
 
@@ -204,40 +257,14 @@ loaded_dataset = read_dataset_csv(save_filepath)
 
 
 # %%
-normalized_dataset = loaded_dataset
+dataset = loaded_dataset
 
 
 # %%
-def normalize(data):
-    """
-    Normalize data to [0,1]
-    :param data: pd.DataFrame:
-    :return:
-    """
-    max_val = data.values.max()
-    min_val = data.values.min()
-    normalized_data = (data - min_val) / (max_val - min_val)
-    return normalized_data
-
-
-def downsample(data, downsampled_rate):
-    """
-    Downsample signal. Using mean.
-
-    :param data: pd.DataFrame:
-    :param downsampled_rate: scalar: Hz
-    :return:
-    """
-    downsample_delta = pd.Timedelta(value=1 / downsampled_rate, unit="second")
-    data = data.resample(rule=downsample_delta).mean()
-    return data
-
-
-# %%
-normalized_dataset = normalize(normalized_dataset)
+dataset = normalize(dataset)
 downsampled_rate = 16
 downsampled_dataset = downsample(
-    data=normalized_dataset, downsampled_rate=downsampled_rate
+    original_data=dataset, downsampled_rate=downsampled_rate
 )
 
 # %%
@@ -245,6 +272,6 @@ save_filepath = f"Stress Dataset/preprocessed_data/downsampled{downsampled_rate}
 downsampled_dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 # %%
 example_idx = 2
-plt.plot(normalized_dataset.iloc[:, example_idx], "b")
+plt.plot(dataset.iloc[:, example_idx], "b")
 plt.plot(downsampled_dataset.iloc[:, example_idx], "r")
 plt.show()
