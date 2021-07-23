@@ -16,17 +16,12 @@ from constants import (
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 # %%
-from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs
+from utils import get_final_recorded_idx, get_sample_rate, safe_makedirs, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 
 # %%
-class Span:
-    def __init__(self, span_start, span_end):
-        self.span_start = span_start
-        self.span_end = span_end
-        assert self.span_end > self.span_start
 
 
 class PhysiologicalTimeseriesPlotter:
@@ -174,7 +169,7 @@ class PhysiologicalTimeseriesPlotter:
 
     def plot_noisy_spans(self, noisy_spans):
         for span in noisy_spans:
-            plt.axvspan(span.span_start, span.span_end, facecolor="r", alpha=0.3)
+            plt.axvspan(span.start, span.end, facecolor="r", alpha=0.3)
 
     def get_noisy_spans(self, participant_number, treatment_idx):
         excel_sheets = pd.read_excel(
@@ -194,8 +189,8 @@ class PhysiologicalTimeseriesPlotter:
                 span_object = Span(*span_range)
 
                 if previous_span_end:
-                    assert span_object.span_start > previous_span_end
-                previous_span_end = span_object.span_end
+                    assert span_object.start > previous_span_end
+                previous_span_end = span_object.end
 
                 span_objects.append(span_object)
 
