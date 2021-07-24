@@ -1,0 +1,1 @@
+from msc_project.constants import TREATMENT_INDEXES

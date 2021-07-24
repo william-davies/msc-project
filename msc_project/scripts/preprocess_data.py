@@ -11,7 +11,7 @@ from utils import (
     get_noisy_spans,
 )
 
-from constants import (
+from msc_project.constants import (
     SECONDS_IN_MINUTE,
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,

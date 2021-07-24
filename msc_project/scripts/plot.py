@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import re
-from constants import (
+from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,
     XLSX_CONVERTED_TO_CSV,

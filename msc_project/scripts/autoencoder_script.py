@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import wandb
 
-from constants import (
+from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,
     PARTICIPANT_NUMBER_GROUP_IDX,

@@ -140,8 +140,8 @@ cython_debug/
 # added by Will
 .DS_Store
 .idea/
-msc-project/scripts/wandb/
+msc_project/scripts/wandb/
 data/
 plots/
-msc-project/models/checkpoints
-msc-project/models/run-data
+msc_project/models/checkpoints
+msc_project/models/run-data

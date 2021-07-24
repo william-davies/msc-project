@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import numpy as np
 
-from constants import (
+from msc_project.constants import (
     BASE_DIR,
     TREATMENT_INDEXES,
     SPAN_PATTERN,

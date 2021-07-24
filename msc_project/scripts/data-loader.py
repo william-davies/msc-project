@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from constants import (
+from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,
     PARTICIPANT_ID_GROUP_IDX,
