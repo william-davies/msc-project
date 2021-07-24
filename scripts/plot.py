@@ -16,7 +16,7 @@ from constants import (
 from matplotlib.ticker import MultipleLocator, AutoMinorLocator
 
 # %%
-from utils import get_final_recorded_idx, get_sample_rate, Span
+from utils import get_final_recorded_idx, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
