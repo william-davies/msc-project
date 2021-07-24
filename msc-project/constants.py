@@ -42,6 +42,9 @@ BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/
 
 TREATMENT_INDEXES = ["r1", "m2", "r3", "m4", "r5"]
 
-TREATMENT_LABEL_PATTERN = "(?:\w\d|\w\d_\w{4})"
+TREATMENT_LABEL_PATTERN = "(?:(\w\d)(?:_\w{4}|))"  # e.g. r1, m2_easy, r3, m4_hard, r5
+# e.g. emp_l_bvp_r1_bvp, infinity_m4_hard_resp
+SIGNAL_SERIES_NAME_PATTERN = f"^\w+_{TREATMENT_LABEL_PATTERN}_\w+$"
+TREATMENT_IDX_GROUP_IDX = 1
 
 SPAN_PATTERN = re.compile("^([\d.]+)-([\d.]+)$")

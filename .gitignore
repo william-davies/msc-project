@@ -137,7 +137,11 @@ dmypy.json
 # Cython debug symbols
 cython_debug/
 
-/Stress Dataset/*/
+# added by Will
 .DS_Store
 .idea/
-wandb/
+msc-project/scripts/wandb/
+data/
+plots/
+msc-project/models/checkpoints
+msc-project/models/run-data

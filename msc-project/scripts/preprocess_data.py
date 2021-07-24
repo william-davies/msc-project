@@ -1,10 +1,8 @@
 import os
 import re
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 
 from utils import (
     split_data_into_treatments,
@@ -17,13 +15,13 @@ from constants import (
     SECONDS_IN_MINUTE,
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,
-    INFINITY_SAMPLE_RATE,
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
     BASE_DIR,
     XLSX_CONVERTED_TO_CSV,
     TREATMENT_LABEL_PATTERN,
-    TREATMENT_INDEXES,
+    SIGNAL_SERIES_NAME_PATTERN,
+    TREATMENT_IDX_GROUP_IDX,
 )
 from scipy import signal
 
@@ -203,10 +201,15 @@ class DatasetWrapper:
             treatment_series = self.preprocess_treatment_df(
                 treatment_df, original_sampling_rate=original_sampling_rate
             )
+            treatment_idx = (
+                re.compile(SIGNAL_SERIES_NAME_PATTERN)
+                .search(treatment_series.name)
+                .group(TREATMENT_IDX_GROUP_IDX)
+            )
             treatment_series_list[i] = treatment_series
             noisy_masks[i] = self.get_noisy_mask(
                 participant_number=participant_number,
-                treatment_idx=TREATMENT_INDEXES[i],
+                treatment_idx=treatment_idx,
                 signal=treatment_series,
             )
 

@@ -1,12 +1,6 @@
-import filecmp
 import os
 import pandas as pd
-import matplotlib.pyplot as plt
 import numpy as np
-import re
-import time
-import string
-import math
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICIPANT_INFO_PATTERN,

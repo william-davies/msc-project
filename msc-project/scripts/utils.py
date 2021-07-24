@@ -1,13 +1,9 @@
 import os
-import re
 import pandas as pd
 import numpy as np
 
 from constants import (
-    PARTICIPANT_INFO_PATTERN,
-    PARTICIPANT_NUMBER_GROUP_IDX,
     BASE_DIR,
-    PARTICIPANT_ID_GROUP_IDX,
     TREATMENT_INDEXES,
     SPAN_PATTERN,
 )

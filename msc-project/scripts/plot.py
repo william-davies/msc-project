@@ -13,7 +13,7 @@ from constants import (
     RECORDED_SIGNAL_ID_PATTERN,
     RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX,
 )
-from matplotlib.ticker import MultipleLocator, AutoMinorLocator
+from matplotlib.ticker import MultipleLocator
 
 # %%
 from utils import get_final_recorded_idx, Span

@@ -1,12 +1,8 @@
-import csv
-import datetime
 import os
 import re
 import matplotlib.pyplot as plt
-import pandas as pd
 import numpy as np
 import wandb
-from tensorflow import keras
 
 from constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
@@ -16,8 +12,6 @@ from constants import (
 from models.denoising_autoencoder import create_autoencoder
 from utils import read_dataset_csv
 from wandb.keras import WandbCallback
-from tensorflow.keras.models import Model
-from tensorflow.keras import layers
 
 import tensorflow as tf
 
@@ -223,7 +217,7 @@ loaded_autoencoder.summary()
 
 # %%
 tf.keras.utils.plot_model(
-    loaded_autoencoder, "../plots/model_plot.png", show_shapes=True
+    loaded_autoencoder, "../../plots/model_plot.png", show_shapes=True
 )
 
 
