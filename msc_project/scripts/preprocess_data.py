@@ -1,10 +1,12 @@
 import os
 import re
+import sys
+import matplotlib.pyplot as plt
 
 import numpy as np
 import pandas as pd
 
-from utils import (
+from msc_project.scripts.utils import (
     split_data_into_treatments,
     get_final_recorded_idx,
     read_dataset_csv,
@@ -68,9 +70,6 @@ def remove_frame_column(data):
 
 
 # %%
-participant_dirname = "0720202421P1_608"
-
-
 def get_total_number_of_windows(list_of_treatment_windows):
     m = 0
     for windows in list_of_treatment_windows:
@@ -135,11 +134,11 @@ class DatasetWrapper:
             participant_preprocessed_data = self.preprocess_participant_data(
                 participant_dirname, sheet_name
             )
-            self.dataset_dictionary.update(participant_preprocessed_data)
-        self.dataset_dictionary = self.remove_frames_series()
-        self.dataset = pd.DataFrame(data=self.dataset_dictionary)
-        self.dataset = self.convert_index_to_timedelta()
-        return self.dataset
+        #     self.dataset_dictionary.update(participant_preprocessed_data)
+        # self.dataset_dictionary = self.remove_frames_series()
+        # self.dataset = pd.DataFrame(data=self.dataset_dictionary)
+        # self.dataset = self.convert_index_to_timedelta()
+        # return self.dataset
 
     def convert_index_to_timedelta(self, signal, framerate):
         """
@@ -217,10 +216,23 @@ class DatasetWrapper:
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
 
-        for idx, treatment_series in enumerate(treatment_series_list):
+        for i, treatment_series in enumerate(treatment_series_list):
             windows = sliding_window_view(treatment_series, window_size, axis=0)[
                 ::step_size
             ]
+            noisy_mask_windows = sliding_window_view(
+                noisy_masks[i], window_size, axis=0
+            )[::step_size]
+
+            self.plot_noisy_mask_histogram(noisy_mask_windows)
+            plot_title = f"P{participant_number}_{treatment_string}"
+            plt.title(plot_title)
+            save_filepath = os.path.join(
+                "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/plots/noisy-signal-histogram",
+                f"{plot_title}.png",
+            )
+            plt.savefig(save_filepath)
+            plt.clf()
 
             treatment_string = treatment_series.name
             for window_idx, window in enumerate(windows):
@@ -228,6 +240,13 @@ class DatasetWrapper:
                 treatment_windows[key] = window
 
         return treatment_windows
+
+    def plot_noisy_mask_histogram(self, noisy_mask_windows):
+        noisy_frames = noisy_mask_windows.sum(axis=1)
+        noisy_frames_proportion = noisy_frames / noisy_mask_windows.shape[1]
+        plt.ylabel("# of windows")
+        plt.xlabel("Proportion of frames that are noisy")
+        plt.hist(noisy_frames_proportion)
 
     def get_noisy_mask(self, participant_number, treatment_idx, signal):
         """
@@ -279,39 +298,40 @@ class DatasetWrapper:
 
 
 # %%
-window_size = 10
-step_size = 1
-downsampled_sampling_rate = 16
-wrapper = DatasetWrapper(
-    signal_name="bvp",
-    window_size=window_size,
-    step_size=step_size,
-    downsampled_sampling_rate=downsampled_sampling_rate,
-)
-sheet_name = "Inf"
-dataset = wrapper.build_dataset(sheet_name=sheet_name)
+if __name__ == "__main__":
+    print("is main")
+    # %%
+    window_size = 10
+    step_size = 1
+    downsampled_sampling_rate = 16
+    wrapper = DatasetWrapper(
+        signal_name="bvp",
+        window_size=window_size,
+        step_size=step_size,
+        downsampled_sampling_rate=downsampled_sampling_rate,
+    )
+    sheet_name = "Inf"
+    dataset = wrapper.build_dataset(sheet_name=sheet_name)
 
-# %%
-dataset = normalize(dataset)
+    # %%
+    dataset = normalize(dataset)
 
+    # %%
+    save_filepath = os.path.join(
+        BASE_DIR,
+        f"data/preprocessed_data/{sheet_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
+    )
 
-# %%
-save_filepath = os.path.join(
-    BASE_DIR,
-    f"data/preprocessed_data/{sheet_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
-)
+    # %%
+    wrapper.save_dataset(save_filepath)
 
-# %%
-wrapper.save_dataset(save_filepath)
+    # %%
+    dataset.to_csv(save_filepath, index_label="timedelta", index=True)
 
-# %%
-dataset.to_csv(save_filepath, index_label="timedelta", index=True)
+    # %%
 
-# %%
+    # not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
+    loaded_dataset = read_dataset_csv(save_filepath)
 
-# not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
-loaded_dataset = read_dataset_csv(save_filepath)
-
-
-# %%
-dataset = loaded_dataset
+    # %%
+    dataset = loaded_dataset
