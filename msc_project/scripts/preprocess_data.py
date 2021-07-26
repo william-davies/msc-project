@@ -224,6 +224,7 @@ class DatasetWrapper:
                 noisy_masks[i], window_size, axis=0
             )[::step_size]
 
+            treatment_string = treatment_series.name
             self.plot_noisy_mask_histogram(noisy_mask_windows)
             plot_title = f"P{participant_number}_{treatment_string}"
             plt.title(plot_title)
@@ -234,7 +235,6 @@ class DatasetWrapper:
             plt.savefig(save_filepath)
             plt.clf()
 
-            treatment_string = treatment_series.name
             for window_idx, window in enumerate(windows):
                 key = f"P{participant_number}_{treatment_string}_window{window_idx}"
                 treatment_windows[key] = window
@@ -246,7 +246,10 @@ class DatasetWrapper:
         noisy_frames_proportion = noisy_frames / noisy_mask_windows.shape[1]
         plt.ylabel("# of windows")
         plt.xlabel("Proportion of frames that are noisy")
-        plt.hist(noisy_frames_proportion)
+        bins = np.linspace(0.01, 1, 20)
+        bins = np.insert(bins, 0, 0)
+        plt.hist(noisy_frames_proportion, bins=bins)
+        plt.show()
 
     def get_noisy_mask(self, participant_number, treatment_idx, signal):
         """
