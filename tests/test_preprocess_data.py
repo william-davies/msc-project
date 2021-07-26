@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import pytest
-import sys
 
 from msc_project.constants import TREATMENT_INDEXES
 
@@ -55,29 +54,14 @@ class TestGetNoisyMask:
 
         pd.testing.assert_series_equal(noisy_mask, true_noisy_mask, check_index=True)
 
-    def test_multiple_noisy_spans(self):
-        pass
+    def test_multiple_noisy_spans(self, dataset_wrapper, signal):
+        noisy_mask = dataset_wrapper.get_noisy_mask(
+            participant_number=10, treatment_idx=TREATMENT_INDEXES[4], signal=signal
+        )
+        true_noisy_mask = pd.Series(index=signal.index, data=False, name=signal.name)
+        spans = [(0, 2), (225, 226), (253, 255.5)]
+        span_idxs = [(int(span[0] * 16), int(span[1] * 16 + 1)) for span in spans]
+        for span_idx in span_idxs:
+            true_noisy_mask[span_idx[0] : span_idx[1]] = True
 
-
-# window_size = 10
-# step_size = 1
-# downsampled_sampling_rate = 16
-# dataset_wrapper = DatasetWrapper(
-#     signal_name="bvp",
-#     window_size=window_size,
-#     step_size=step_size,
-#     downsampled_sampling_rate=downsampled_sampling_rate,
-# )
-#
-# index = np.arange(0, 2880)
-# index = pd.TimedeltaIndex(
-#     data=index / dataset_wrapper.downsampled_sampling_rate, unit="second"
-# )
-# signal_name = "signal_name"
-# signal = pd.Series(index=index, data=42, name=signal_name)
-#
-# noisy_mask = dataset_wrapper.get_noisy_mask(
-#     participant_number=3, treatment_idx=TREATMENT_INDEXES[2], signal=signal
-# )
-#
-# breakpoint = 1
+        pd.testing.assert_series_equal(noisy_mask, true_noisy_mask, check_index=True)
