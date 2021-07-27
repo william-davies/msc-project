@@ -24,6 +24,8 @@ from msc_project.constants import (
     TREATMENT_LABEL_PATTERN,
     SIGNAL_SERIES_NAME_PATTERN,
     TREATMENT_IDX_GROUP_IDX,
+    TREATMENT_INDEXES,
+    PARTICPANT_NUMBERS_WITH_EXCEL,
 )
 from scipy import signal
 
@@ -129,6 +131,10 @@ class DatasetWrapper:
         self.step_size = step_size
         self.downsampled_sampling_rate = downsampled_sampling_rate
 
+        self.all_noisy_mask_windows = np.zeros(
+            (len(PARTICIPANT_DIRNAMES_WITH_EXCEL), len(TREATMENT_INDEXES), 171, 160)
+        )
+
     def build_dataset(self, sheet_name):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
             participant_preprocessed_data = self.preprocess_participant_data(
@@ -223,6 +229,9 @@ class DatasetWrapper:
             noisy_mask_windows = sliding_window_view(
                 noisy_masks[i], window_size, axis=0
             )[::step_size]
+
+            participant_idx = PARTICPANT_NUMBERS_WITH_EXCEL.index(participant_number)
+            self.all_noisy_mask_windows[participant_idx, i] = noisy_mask_windows
 
             treatment_string = treatment_series.name
             self.plot_noisy_mask_histogram(noisy_mask_windows)
@@ -320,6 +329,11 @@ if __name__ == "__main__":
 
     # %%
     dataset = normalize(dataset)
+
+    all_noisy_mask_windows = wrapper.all_noisy_mask_windows
+    summed = all_noisy_mask_windows.sum(axis=3)
+    num_nonzero = np.count_nonzero(summed)
+    proportion_noisy = num_nonzero / summed.size
 
     # %%
     save_filepath = os.path.join(
