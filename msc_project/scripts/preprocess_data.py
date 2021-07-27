@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import sys
@@ -116,17 +117,25 @@ class DatasetWrapper:
     Converts the original .csv data into a format appropriate for model training/testing.
     """
 
-    def __init__(self, signal_name, window_size, step_size, downsampled_sampling_rate):
+    def __init__(
+        self,
+        signal_name,
+        window_size,
+        step_size,
+        downsampled_sampling_rate,
+        sheet_name,
+        noisy_proportion_tolerance=0,
+    ):
         """
 
         :param window_size: in seconds
         :param step_size: in seconds
         """
         self.signal_name = signal_name
-        self.dataset_dictionary = (
+        self.signal_data_dictionary = (
             {}
         )  # map from label (e.g. P1_infinity_r1_bvp_window0) to pd.DataFrame/np.array
-        self.dataset = pd.DataFrame()
+        self.signals = pd.DataFrame()
         self.window_size = window_size
         self.step_size = step_size
         self.downsampled_sampling_rate = downsampled_sampling_rate
@@ -134,42 +143,78 @@ class DatasetWrapper:
         self.all_noisy_mask_windows = np.zeros(
             (len(PARTICIPANT_DIRNAMES_WITH_EXCEL), len(TREATMENT_INDEXES), 171, 160)
         )
+        self.noisy_proportion_tolerance = 0
+        self.noisy_frame_proportions = {}
+        self.sheet_name = sheet_name
 
-    def build_dataset(self, sheet_name):
-        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-            participant_preprocessed_data = self.preprocess_participant_data(
-                participant_dirname, sheet_name
-            )
-        #     self.dataset_dictionary.update(participant_preprocessed_data)
-        # self.dataset_dictionary = self.remove_frames_series()
-        # self.dataset = pd.DataFrame(data=self.dataset_dictionary)
-        # self.dataset = self.convert_index_to_timedelta()
-        # return self.dataset
+    def build_dataset(self):
+        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:2]:
+            (
+                participant_preprocessed_data,
+                participant_noisy_frame_proportions,
+            ) = self.preprocess_participant_data(participant_dirname, self.sheet_name)
+            self.signal_data_dictionary.update(participant_preprocessed_data)
+            self.noisy_frame_proportions.update(participant_noisy_frame_proportions)
+        self.signals = pd.DataFrame(data=self.signal_data_dictionary)
+        self.signals = self.convert_index_to_timedelta(
+            self.signals, framerate=self.downsampled_sampling_rate
+        )
+        return self.signals
 
-    def convert_index_to_timedelta(self, signal, framerate):
+    def convert_index_to_timedelta(self, signals, framerate):
         """
         Input index: RangeIndex: 0, 1, 2, 3, ... . These are frames.
         Output index: TimedeltaIndex: 0s, 0.5s, 1s, .... . Concomitant with sample frequency (0.5Hz in this example).
+        :param signals: pd.DataFrame or pd.Series: multiple signals or a single signal
+        :param framerate: scalar:
         :return:
         """
-        seconds_index = signal.index / framerate
+        seconds_index = signals.index / framerate
         timedelta_index = pd.to_timedelta(seconds_index, unit="second")
-        return signal.set_index(timedelta_index)
+        return signals.set_index(timedelta_index)
 
-    def remove_frames_series(self):
+    def save_dataset(self, dirname):
         """
-        Remove frames column.
+        Save complete dataset, include metadata.
+        :param dirname:
         :return:
         """
-        just_bvp_no_frames = {}
-        for key, signal_measurements in self.dataset_dictionary.items():
-            just_bvp_no_frames[key] = signal_measurements[1]
-        return just_bvp_no_frames
+        os.makedirs(dirname, exist_ok=False)
+        self.save_metadata_txt(dirname)
+        self.save_signal(dirname)
+        self.save_noisy_frame_proportions(dirname)
 
-    def save_dataset(self, filepath):
-        dirname = os.path.dirname(filepath)
-        os.makedirs(dirname, exist_ok=True)
-        self.dataset.to_csv(filepath, index_label="timedelta", index=True)
+    def save_metadata_txt(self, dirname):
+        """
+        Cleaner than including this information in filenames.
+        :param dirname:
+        :return:
+        """
+        with open(os.path.join(dirname, "metadata.txt", "w")) as fp:
+            fp.write(f"sheet_name: {self.sheet_name}\n")
+            fp.write(f"signal_name: {self.signal_name}\n")
+            fp.write(f"downsampled_sampling_rate: {self.downsampled_sampling_rate}\n")
+            fp.write(f"window_size: {self.window_size}\n")
+            fp.write(f"step_size: {self.step_size}\n")
+
+    def save_signal(self, dirname):
+        """
+        Save physiological signal dataframe.
+        :param dirname:
+        :return:
+        """
+        fp = os.path.join(dirname, "signal.csv")
+        self.signals.to_csv(fp, index_label="timedelta", index=True)
+
+    def save_noisy_frame_proportions(self, dirname):
+        """
+        Save mapping from window-id to proportion of measurements that are noisy.
+        :param dirname:
+        :return:
+        """
+        filepath = os.path.join(dirname, "noisy_frame_proportions.json")
+        with open(filepath, "w") as fp:
+            json.dump(self.noisy_frame_proportions, fp)
 
     def preprocess_participant_data(self, participant_dirname, signal_name):
         """
@@ -219,6 +264,7 @@ class DatasetWrapper:
             )
 
         treatment_windows = {}
+        noisy_frame_proportions = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
 
@@ -248,11 +294,17 @@ class DatasetWrapper:
             plt.savefig(save_filepath)
             plt.clf()
 
+            noisy_frame_counts = noisy_mask_windows.sum(axis=1)
+            treatment_noisy_frame_proportions = (
+                noisy_frame_counts / noisy_mask_windows.shape[1]
+            )
             for window_idx, window in enumerate(windows):
                 key = f"P{participant_number}_{treatment_string}_window{window_idx}"
+                noisy_frame_proportion = treatment_noisy_frame_proportions[window_idx]
+                noisy_frame_proportions[key] = noisy_frame_proportion
                 treatment_windows[key] = window
 
-        return treatment_windows
+        return treatment_windows, noisy_frame_proportions
 
     def plot_noisy_mask_histogram(self, noisy_mask_windows):
         noisy_frames = noisy_mask_windows.sum(axis=1)
@@ -318,14 +370,15 @@ if __name__ == "__main__":
     window_size = 10
     step_size = 1
     downsampled_sampling_rate = 16
+    sheet_name = "Inf"
     wrapper = DatasetWrapper(
         signal_name="bvp",
         window_size=window_size,
         step_size=step_size,
         downsampled_sampling_rate=downsampled_sampling_rate,
+        sheet_name=sheet_name,
     )
-    sheet_name = "Inf"
-    dataset = wrapper.build_dataset(sheet_name=sheet_name)
+    dataset = wrapper.build_dataset()
 
     # %%
     dataset = normalize(dataset)
