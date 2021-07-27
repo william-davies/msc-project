@@ -24,9 +24,6 @@ class DatasetPreparer:
         self.noisy_tolerance = noisy_tolerance
 
     def get_dataset(self):
-        random_state = np.random.RandomState(42)
-        NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
-        validation_size = round(NUM_PARTICIPANTS * 0.3)
 
         data_fp = os.path.join(
             BASE_DIR,
@@ -39,25 +36,38 @@ class DatasetPreparer:
         signals = read_dataset_csv(data_fp)
         clean_signals, noisy_signals = self.filter_noisy_signals(signals=signals)
 
-        validation_participants = random_state.choice(
-            a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
-        )
-        validation_participants = set(validation_participants)
+        validation_participants = self.get_validation_participants()
 
         train_columns, val_columns = self.get_train_val_columns(
             clean_signals, validation_participants
         )
 
-        train_data = signals.filter(items=train_columns).T
-        val_data = signals.filter(items=val_columns).T
+        train_signals = signals.filter(items=train_columns).T
+        val_signals = signals.filter(items=val_columns).T
+
+        return train_signals, val_signals, noisy_signals
+
+    def get_validation_participants(self):
+        """
+
+        :return: int[]: validation participant numbers
+        """
+        random_state = np.random.RandomState(42)
+        NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
+        validation_size = round(NUM_PARTICIPANTS * 0.3)
+        validation_participants = random_state.choice(
+            a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
+        )
+        validation_participants = set(validation_participants)
+        return validation_participants
 
     def filter_noisy_signals(self, signals):
         """
-        Separate
+        Split signals into 2 DataFrame. 1 is clean signals. 1 is noisy (as determined by self.noisy_tolerance) signals.
         :return:
         """
 
-        def get_noisy_signal_keys():
+        def filter_noisy_signal_keys():
             noisy_frame_proportions_fp = os.path.join(
                 self.data_dirname, "noisy_frame_proportions.json"
             )
@@ -75,24 +85,26 @@ class DatasetPreparer:
 
             return clean_keys, noisy_keys
 
-        clean_columns, noisy_columns = get_noisy_signal_keys()
+        clean_columns, noisy_columns = filter_noisy_signal_keys()
         clean_signals = signals.filter(clean_columns)
         noisy_signals = signals.filter(noisy_columns)
 
         return clean_signals, noisy_signals
 
-    def get_train_val_columns(self, data, validation_participants):
+    def get_train_val_columns(self, signals, validation_participants):
         """
         Get DataFrame columns that correspond to participants in training set and validation set.
-        :param data: pd.DataFrame:
+        :param signals: pd.DataFrame:
         :return:
         """
-        number_pattern = re.compile("^P(\d{1,2})_")
+        participant_number_pattern = re.compile("^P(\d{1,2})_")
 
         train_columns = []
         val_columns = []
-        for participant_column in data.columns:
-            participant_number = number_pattern.match(participant_column).group(1)
+        for participant_column in signals.columns:
+            participant_number = participant_number_pattern.match(
+                participant_column
+            ).group(1)
             if participant_number in validation_participants:
                 val_columns.append(participant_column)
             else:
