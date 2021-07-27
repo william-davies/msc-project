@@ -6,10 +6,10 @@ import wandb
 
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_INFO_PATTERN,
-    PARTICIPANT_NUMBER_GROUP_IDX,
+    PARTICPANT_NUMBERS_WITH_EXCEL,
 )
-from models.denoising_autoencoder import create_autoencoder
+from msc_project.models.denoising_autoencoder import create_autoencoder
+
 from utils import read_dataset_csv
 from wandb.keras import WandbCallback
 
@@ -23,23 +23,6 @@ validation_size = round(NUM_PARTICIPANTS * 0.3)
 
 data = read_dataset_csv(
     "../Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
-)
-
-
-def get_participant_number(string):
-    """
-
-    :param string:
-    :return: int:
-    """
-    participant_number = PARTICIPANT_INFO_PATTERN.search(string).group(
-        PARTICIPANT_NUMBER_GROUP_IDX
-    )
-    return participant_number
-
-
-PARTICPANT_NUMBERS_WITH_EXCEL = list(
-    map(get_participant_number, PARTICIPANT_DIRNAMES_WITH_EXCEL)
 )
 
 validation_participants = random_state.choice(

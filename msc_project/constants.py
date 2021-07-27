@@ -21,6 +21,26 @@ PARTICIPANT_DIRNAMES_WITH_EXCEL = [
     "0802184155P23_natural",
 ]
 
+PARTICPANT_NUMBERS_WITH_EXCEL = [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "8",
+    "9",
+    "10",
+    "16",
+    "17",
+    "18",
+    "19",
+    "20",
+    "21",
+    "22",
+    "23",
+]
+
 PARTICIPANT_INFO_PATTERN = re.compile("^(\d{10}P(\d{1,2}))_(\S{3,7})$")
 PARTICIPANT_ID_GROUP_IDX = 1
 PARTICIPANT_NUMBER_GROUP_IDX = 2
