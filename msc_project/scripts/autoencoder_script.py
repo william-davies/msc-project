@@ -37,7 +37,7 @@ class DatasetPreparer:
             "signal.csv",
         )
         signals = read_dataset_csv(data_fp)
-        clean, noisy = self.filter_noisy_signals(signals=signals)
+        clean_signals, noisy_signals = self.filter_noisy_signals(signals=signals)
 
         validation_participants = random_state.choice(
             a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
@@ -45,7 +45,7 @@ class DatasetPreparer:
         validation_participants = set(validation_participants)
 
         train_columns, val_columns = self.get_train_val_columns(
-            clean, validation_participants
+            clean_signals, validation_participants
         )
 
         train_data = signals.filter(items=train_columns).T
@@ -64,25 +64,22 @@ class DatasetPreparer:
             with open(noisy_frame_proportions_fp, "r") as fp:
                 noisy_frame_proportions = json.load(fp)
 
+            clean_keys = []
+            noisy_keys = []
+
             for key, noisy_proportion in noisy_frame_proportions.items():
-                clean = dict(
-                    filter(
-                        lambda item: item[1] <= self.noisy_tolerance,
-                        noisy_frame_proportions.items(),
-                    )
-                )
-                noisy = dict(
-                    filter(
-                        lambda item: item[1] > self.noisy_tolerance,
-                        noisy_frame_proportions.items(),
-                    )
-                )
-            return clean, noisy
+                if noisy_proportion <= self.noisy_tolerance:
+                    clean_keys.append(key)
+                else:
+                    noisy_keys.append(key)
 
-        clean_keys, noisy_keys = get_noisy_signal_keys()
-        clean_signals = 42
+            return clean_keys, noisy_keys
 
-        return clean, noisy
+        clean_columns, noisy_columns = get_noisy_signal_keys()
+        clean_signals = signals.filter(clean_columns)
+        noisy_signals = signals.filter(noisy_columns)
+
+        return clean_signals, noisy_signals
 
     def get_train_val_columns(self, data, validation_participants):
         """
