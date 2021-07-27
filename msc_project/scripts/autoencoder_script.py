@@ -120,65 +120,29 @@ dataset_preparer = DatasetPreparer(
     noisy_tolerance=0,
 )
 train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
-timeseries_length = len(data)
 
 
 # %%
-# autoencoder.build(train_data.shape)
-# autoencoder.summary()
+def train_autoencoder(resume, train_signals, val_signals):
+    """
 
+    :param resume: bool: resume training a previous model
+    :return:
+    """
+    project_name = "denoising-autoencoder"
+    early_stop = tf.keras.callbacks.EarlyStopping(
+        monitor="val_loss",
+        min_delta=1e-2,
+        patience=200,
+        verbose=0,
+        mode="auto",
+        baseline=None,
+        restore_best_weights=True,
+    )
 
-# %%
-early_stop = tf.keras.callbacks.EarlyStopping(
-    monitor="val_loss",
-    min_delta=1e-2,
-    patience=200,
-    verbose=0,
-    mode="auto",
-    baseline=None,
-    restore_best_weights=True,
-)
-
-
-# %%
-
-bottleneck_size = 8
-# Start a run, tracking hyperparameters
-# wandb.init(
-#     project="denoising-autoencoder",
-#     # Set entity to specify your username or team name
-#     # ex: entity="carey",
-#     config={
-#         "encoder_1": bottleneck_size * 2 * 2,
-#         "encoder_activation_1": "relu",
-#         "encoder_2": bottleneck_size * 2,
-#         "encoder_activation_2": "relu",
-#         "encoder_3": bottleneck_size,
-#         "encoder_activation_3": "relu",
-#         "decoder_1": bottleneck_size * 2,
-#         "decoder_activation_1": "relu",
-#         "decoder_2": bottleneck_size * 2 * 2,
-#         "decoder_activation_2": "relu",
-#         "decoder_3": timeseries_length,
-#         "decoder_activation_3": "sigmoid",
-#         "optimizer": "adam",
-#         "loss": "mae",
-#         "metric": [None],
-#         "epoch": 3000,
-#         "batch_size": 32,
-#         "timeseries_length": timeseries_length,
-#     },
-#     force=True,
-#     allow_val_change=False
-# )
-
-wandb.init(
-    id="ytenhze8",
-    project="denoising-autoencoder",
-    resume="must",
-    # Set entity to specify your username or team name
-    # ex: entity="carey",
-    config={
+    timeseries_length = train_signals.shape[1]
+    bottleneck_size = 8
+    base_config = {
         "encoder_1": bottleneck_size * 2 * 2,
         "encoder_activation_1": "relu",
         "encoder_2": bottleneck_size * 2,
@@ -194,53 +158,59 @@ wandb.init(
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
-        "epoch": 6000,
         "batch_size": 32,
         "timeseries_length": timeseries_length,
-    },
-    force=True,
-    allow_val_change=True,
-)
+    }
 
-config = wandb.config
+    if resume:
+        wandb.init(
+            id="ytenhze8",
+            project=project_name,
+            resume="must",
+            config={**base_config, "epoch": 6000},
+            force=True,
+            allow_val_change=True,
+        )
+        best_model = wandb.restore("model-best.h5")
+        autoencoder = tf.keras.models.load_model(best_model.name)
+        wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
+
+        history = autoencoder.fit(
+            train_signals,
+            train_signals,
+            epochs=wandb.config.epoch,
+            batch_size=wandb.config.batch_size,
+            validation_data=(val_signals, val_signals),
+            callbacks=[wandbcallback],
+            shuffle=True,
+            initial_epoch=wandb.run.step,
+        )
+
+    else:
+        wandb.init(
+            project=project_name,
+            config={**base_config, "epoch": 2},
+            force=True,
+            allow_val_change=False,
+        )
+        autoencoder = create_autoencoder(wandb.config)
+        wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
+
+        history = autoencoder.fit(
+            train_signals,
+            train_signals,
+            epochs=wandb.config.epoch,
+            batch_size=wandb.config.batch_size,
+            validation_data=(val_signals, val_signals),
+            callbacks=[wandbcallback],
+            shuffle=True,
+        )
+    wandb.finish()
+    return history
+
 
 # %%
-best_model = wandb.restore("model-best.h5")
-autoencoder = tf.keras.models.load_model(best_model.name)
-
-# %%
-
-autoencoder = create_autoencoder(config)
-
-# %%
-wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
-
-# %%
-history = autoencoder.fit(
-    train_data,
-    train_data,
-    epochs=config.epoch,
-    batch_size=config.batch_size,
-    validation_data=(val_data, val_data),
-    callbacks=[wandbcallback],
-    shuffle=True,
-)
-
-# %%
-# RESUMING TRAINING
-if wandb.run.resumed:
-    history = autoencoder.fit(
-        train_data,
-        train_data,
-        epochs=config.epoch,
-        batch_size=config.batch_size,
-        validation_data=(val_data, val_data),
-        callbacks=[wandbcallback],
-        shuffle=True,
-        initial_epoch=wandb.run.step,
-    )
-else:
-    raise ValueError
+train_autoencoder(resume=False, train_signals=train_signals, val_signals=val_signals)
 
 # %%
 api = wandb.Api()
@@ -255,7 +225,6 @@ metrics_dataframe = run.history()
 # %%
 val_loss = metrics_dataframe["val_loss"]
 # %%
-wandb.finish()
 
 # %%
 loaded_autoencoder = tf.keras.models.load_model(
