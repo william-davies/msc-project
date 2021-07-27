@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import matplotlib.pyplot as plt
@@ -7,6 +8,7 @@ import wandb
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     PARTICPANT_NUMBERS_WITH_EXCEL,
+    BASE_DIR,
 )
 from msc_project.models.denoising_autoencoder import create_autoencoder
 
@@ -16,45 +18,96 @@ from wandb.keras import WandbCallback
 import tensorflow as tf
 
 # %%
+class DatasetPreparer:
+    def __init__(self, data_dirname, noisy_tolerance):
+        self.data_dirname = data_dirname
+        self.noisy_tolerance = noisy_tolerance
 
-random_state = np.random.RandomState(42)
-NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
-validation_size = round(NUM_PARTICIPANTS * 0.3)
+    def get_dataset(self):
+        random_state = np.random.RandomState(42)
+        NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
+        validation_size = round(NUM_PARTICIPANTS * 0.3)
 
-data = read_dataset_csv(
-    "../Stress Dataset/preprocessed_data/downsampled16Hz_10sec_window_5sec_overlap.csv"
+        data_fp = os.path.join(
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            "preprocessed_data",
+            self.data_dirname,
+            "signal.csv",
+        )
+        signals = read_dataset_csv(data_fp)
+        clean, noisy = self.filter_noisy_signals(signals=signals)
+
+        validation_participants = random_state.choice(
+            a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
+        )
+        validation_participants = set(validation_participants)
+
+        train_columns, val_columns = self.get_train_val_columns(
+            clean, validation_participants
+        )
+
+        train_data = signals.filter(items=train_columns).T
+        val_data = signals.filter(items=val_columns).T
+
+    def filter_noisy_signals(self, signals):
+        """
+        Separate
+        :return:
+        """
+
+        def get_noisy_signal_keys():
+            noisy_frame_proportions_fp = os.path.join(
+                self.data_dirname, "noisy_frame_proportions.json"
+            )
+            with open(noisy_frame_proportions_fp, "r") as fp:
+                noisy_frame_proportions = json.load(fp)
+
+            for key, noisy_proportion in noisy_frame_proportions.items():
+                clean = dict(
+                    filter(
+                        lambda item: item[1] <= self.noisy_tolerance,
+                        noisy_frame_proportions.items(),
+                    )
+                )
+                noisy = dict(
+                    filter(
+                        lambda item: item[1] > self.noisy_tolerance,
+                        noisy_frame_proportions.items(),
+                    )
+                )
+            return clean, noisy
+
+        clean_keys, noisy_keys = get_noisy_signal_keys()
+        clean_signals = 42
+
+        return clean, noisy
+
+    def get_train_val_columns(self, data, validation_participants):
+        """
+        Get DataFrame columns that correspond to participants in training set and validation set.
+        :param data: pd.DataFrame:
+        :return:
+        """
+        number_pattern = re.compile("^P(\d{1,2})_")
+
+        train_columns = []
+        val_columns = []
+        for participant_column in data.columns:
+            participant_number = number_pattern.match(participant_column).group(1)
+            if participant_number in validation_participants:
+                val_columns.append(participant_column)
+            else:
+                train_columns.append(participant_column)
+        return train_columns, val_columns
+
+
+dataset_preparer = DatasetPreparer(
+    data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
+    noisy_tolerance=0,
 )
-
-validation_participants = random_state.choice(
-    a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
-)
-validation_participants = set(validation_participants)
-
-
-def get_train_val_columns(data, validation_participants):
-    """
-    Get DataFrame columns that correspond to participants in training set and validation set.
-    :param data: pd.DataFrame:
-    :return:
-    """
-    number_pattern = re.compile("^P(\d{1,2})_")
-
-    train_columns = []
-    val_columns = []
-    for participant_column in data.columns:
-        participant_number = number_pattern.match(participant_column).group(1)
-        if participant_number in validation_participants:
-            val_columns.append(participant_column)
-        else:
-            train_columns.append(participant_column)
-    return train_columns, val_columns
-
-
-train_columns, val_columns = get_train_val_columns(data, validation_participants)
-
-train_data = data.filter(items=train_columns).T
-val_data = data.filter(items=val_columns).T
-
+dataset_preparer.get_dataset()
 timeseries_length = len(data)
 
 
