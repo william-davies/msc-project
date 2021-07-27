@@ -130,7 +130,7 @@ class DatasetWrapper:
         self.downsampled_sampling_rate = downsampled_sampling_rate
 
     def build_dataset(self, sheet_name):
-        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:1]:
+        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
             participant_preprocessed_data = self.preprocess_participant_data(
                 participant_dirname, sheet_name
             )
@@ -230,8 +230,12 @@ class DatasetWrapper:
             plt.title(plot_title)
             save_filepath = os.path.join(
                 "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/plots/noisy-signal-histogram",
+                f"P{participant_number}",
                 f"{plot_title}.png",
             )
+            dirname = os.path.dirname(save_filepath)
+            os.makedirs(dirname, exist_ok=True)
+
             plt.savefig(save_filepath)
             plt.clf()
 
@@ -244,12 +248,11 @@ class DatasetWrapper:
     def plot_noisy_mask_histogram(self, noisy_mask_windows):
         noisy_frames = noisy_mask_windows.sum(axis=1)
         noisy_frames_proportion = noisy_frames / noisy_mask_windows.shape[1]
-        plt.ylabel("# of windows")
+        plt.ylabel("Probability density of windows")
         plt.xlabel("Proportion of frames that are noisy")
         bins = np.linspace(0.01, 1, 20)
         bins = np.insert(bins, 0, 0)
-        plt.hist(noisy_frames_proportion, bins=bins)
-        plt.show()
+        plt.hist(noisy_frames_proportion, bins=bins, density=True)
 
     def get_noisy_mask(self, participant_number, treatment_idx, signal):
         """
@@ -302,7 +305,6 @@ class DatasetWrapper:
 
 # %%
 if __name__ == "__main__":
-    print("is main")
     # %%
     window_size = 10
     step_size = 1
