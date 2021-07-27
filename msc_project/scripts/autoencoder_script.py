@@ -19,13 +19,16 @@ import tensorflow as tf
 
 # %%
 class DatasetPreparer:
+    """
+    Reads preprocessed signal data. Splits it into train, val, noisy.
+    """
+
     def __init__(self, data_dirname, noisy_tolerance):
         self.data_dirname = data_dirname
         self.noisy_tolerance = noisy_tolerance
 
     def get_dataset(self):
-
-        data_fp = os.path.join(
+        signals_fp = os.path.join(
             BASE_DIR,
             "data",
             "Stress Dataset",
@@ -33,7 +36,7 @@ class DatasetPreparer:
             self.data_dirname,
             "signal.csv",
         )
-        signals = read_dataset_csv(data_fp)
+        signals = read_dataset_csv(signals_fp)
         clean_signals, noisy_signals = self.filter_noisy_signals(signals=signals)
 
         validation_participants = self.get_validation_participants()
@@ -45,7 +48,7 @@ class DatasetPreparer:
         train_signals = signals.filter(items=train_columns).T
         val_signals = signals.filter(items=val_columns).T
 
-        return train_signals, val_signals, noisy_signals
+        return train_signals, val_signals, noisy_signals.T
 
     def get_validation_participants(self):
         """
@@ -116,7 +119,7 @@ dataset_preparer = DatasetPreparer(
     data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
     noisy_tolerance=0,
 )
-dataset_preparer.get_dataset()
+train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 timeseries_length = len(data)
 
 
