@@ -1,51 +1,58 @@
 # %%
+import json
+
+import numpy as np
 import wandb
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import os
 
+from msc_project.constants import BASE_DIR
+from msc_project.scripts.autoencoder_script import DatasetPreparer
+
+# %%
+run_id = "8doiurqf"
+project_name = "denoising-autoencoder"
+
+# %%
 api = wandb.Api()
 
 # run is specified by <entity>/<project>/<run id>
-run = api.run("william-davies/denoising-autoencoder/ytenhze8")
+run = api.run(f"william-davies/{project_name}/{run_id}")
 
 # save the metrics for the run to a csv file
 metrics_dataframe = run.history()
 # metrics_dataframe.to_csv("metrics.csv")
 
 # %%
-val_loss = metrics_dataframe["val_loss"]
-# %%
+best_model = wandb.restore("model-best.h5", run_path=f"{project_name}/{run_id}")
+autoencoder = tf.keras.models.load_model(best_model.name)
+autoencoder.summary()
 
 # %%
-loaded_autoencoder = tf.keras.models.load_model(
-    "/Users/williamdavies/Downloads/model-best.h5"
+wandb_summary = json.loads(
+    wandb.restore("wandb-summary.json", run_path=f"{project_name}/{run_id}").read()
 )
-loaded_autoencoder.summary()
 
 # %%
 tf.keras.utils.plot_model(
-    loaded_autoencoder, "../../plots/model_plot.png", show_shapes=True
+    autoencoder,
+    to_file=os.path.join(BASE_DIR, "plots/model_plot.png"),
+    show_shapes=True,
 )
 
+# %%
+dataset_preparer = DatasetPreparer(
+    data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
+    noisy_tolerance=0,
+)
+train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
 # %%
-plt.figure(figsize=(8, 6))
-plt.plot(history.history["loss"][1:], label="Training Loss")
-plt.plot(history.history["val_loss"][1:], label="Validation Loss")
-plt.legend()
-plt.show()
+decoded_noisy_examples = tf.stop_gradient(autoencoder(noisy_signals.values))
+decoded_train_examples = tf.stop_gradient(autoencoder(train_signals.values))
+decoded_val_examples = tf.stop_gradient(autoencoder(val_signals.values))
 
-# %%
-example = train_data.T.iloc[0].values
-
-# %%
-autoencoder = loaded_autoencoder
-
-# %%
-decoded_all_examples = tf.stop_gradient(autoencoder(data.values.T))
-decoded_train_examples = tf.stop_gradient(autoencoder(train_data.values))
-decoded_val_examples = tf.stop_gradient(autoencoder(val_data.values))
 
 # %%
 def plot_examples(
@@ -68,6 +75,7 @@ def plot_examples(
     :param example_idxs: List[int]:
     :return:
     """
+    random_state = np.random.RandomState(42)
     if example_idxs is None:
         example_idxs = random_state.choice(
             a=len(original_data), size=num_examples, replace=False
@@ -95,13 +103,13 @@ def plot_examples(
 
 # %%
 plot_examples(
-    val_data,
+    val_signals,
     decoded_val_examples,
     example_type="Validation",
-    save_dir=f"{wandb.run.step}-epochs",
-    epoch=wandb.run.step,
+    save_dir=os.path.join(BASE_DIR, "plots", f"{wandb_summary['best_epoch']}-epochs"),
+    epoch=wandb_summary["best_epoch"],
     # example_idxs=[372, 377, 434, 688, 863]
-    example_idxs=np.arange(0, len(val_data)),
+    example_idxs=np.arange(0, len(val_signals)),
 )
 
 # %%
