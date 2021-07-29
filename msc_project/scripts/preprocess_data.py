@@ -25,7 +25,7 @@ from msc_project.constants import (
     TREATMENT_LABEL_PATTERN,
     SIGNAL_SERIES_NAME_PATTERN,
     TREATMENT_IDX_GROUP_IDX,
-    TREATMENT_INDEXES,
+    TREATMENT_NAMES,
     PARTICPANT_NUMBERS_WITH_EXCEL,
 )
 from scipy import signal
@@ -125,6 +125,7 @@ class DatasetWrapper:
         downsampled_sampling_rate,
         sheet_name,
         noisy_proportion_tolerance=0,
+        plot_histogram: bool = False,
     ):
         """
 
@@ -141,11 +142,12 @@ class DatasetWrapper:
         self.downsampled_sampling_rate = downsampled_sampling_rate
 
         self.all_noisy_mask_windows = np.zeros(
-            (len(PARTICIPANT_DIRNAMES_WITH_EXCEL), len(TREATMENT_INDEXES), 171, 160)
+            (len(PARTICIPANT_DIRNAMES_WITH_EXCEL), len(TREATMENT_NAMES), 171, 160)
         )
         self.noisy_proportion_tolerance = 0
         self.noisy_frame_proportions = {}
         self.sheet_name = sheet_name
+        self.plot_histogram = plot_histogram
 
     def build_dataset(self):
         for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
@@ -251,32 +253,36 @@ class DatasetWrapper:
         window_id_to_noise_proportion = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
+        participant_idx = PARTICPANT_NUMBERS_WITH_EXCEL.index(participant_number)
 
-        for i, treatment_series in enumerate(treatment_series_list):
+        for treatment_idx in range(len(treatment_series_list)):
+            treatment_series = treatment_series_list[treatment_idx]
+            treatment_string = treatment_series.name
             windows = sliding_window_view(treatment_series, window_size, axis=0)[
                 ::step_size
             ]
             noisy_mask_windows = sliding_window_view(
-                noisy_masks[i], window_size, axis=0
+                noisy_masks[treatment_idx], window_size, axis=0
             )[::step_size]
 
-            participant_idx = PARTICPANT_NUMBERS_WITH_EXCEL.index(participant_number)
-            self.all_noisy_mask_windows[participant_idx, i] = noisy_mask_windows
+            self.all_noisy_mask_windows[
+                participant_idx, treatment_idx
+            ] = noisy_mask_windows
 
-            treatment_string = treatment_series.name
-            self.plot_noisy_mask_histogram(noisy_mask_windows)
-            plot_title = f"P{participant_number}_{treatment_string}"
-            plt.title(plot_title)
-            save_filepath = os.path.join(
-                "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/plots/noisy-signal-histogram",
-                f"P{participant_number}",
-                f"{plot_title}.png",
-            )
-            dirname = os.path.dirname(save_filepath)
-            os.makedirs(dirname, exist_ok=True)
-
-            plt.savefig(save_filepath)
-            plt.clf()
+            if self.plot_histogram:
+                self.plot_noisy_mask_histogram(noisy_mask_windows)
+                plot_title = f"P{participant_number}_{treatment_string}"
+                plt.title(plot_title)
+                save_filepath = os.path.join(
+                    BASE_DIR,
+                    "plots/noisy-signal-histogram",
+                    f"P{participant_number}",
+                    f"{plot_title}.png",
+                )
+                dirname = os.path.dirname(save_filepath)
+                os.makedirs(dirname, exist_ok=True)
+                plt.savefig(save_filepath)
+                plt.clf()
 
             noisy_frame_counts = noisy_mask_windows.sum(axis=1)
             window_noisy_frame_proportions = (
