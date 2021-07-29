@@ -148,7 +148,7 @@ class DatasetWrapper:
         self.sheet_name = sheet_name
 
     def build_dataset(self):
-        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[:2]:
+        for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
             (
                 participant_preprocessed_data,
                 participant_noisy_frame_proportions,
@@ -159,6 +159,7 @@ class DatasetWrapper:
         self.signals = self.convert_index_to_timedelta(
             self.signals, framerate=self.downsampled_sampling_rate
         )
+        self.signals = normalize(self.signals)
         return self.signals
 
     def convert_index_to_timedelta(self, signals, framerate):
@@ -179,7 +180,7 @@ class DatasetWrapper:
         :param dirname:
         :return:
         """
-        os.makedirs(dirname, exist_ok=False)
+        os.makedirs(dirname, exist_ok=True)
         self.save_metadata_txt(dirname)
         self.save_signal(dirname)
         self.save_noisy_frame_proportions(dirname)
@@ -190,7 +191,7 @@ class DatasetWrapper:
         :param dirname:
         :return:
         """
-        with open(os.path.join(dirname, "metadata.txt", "w")) as fp:
+        with open(os.path.join(dirname, "metadata.txt"), "w") as fp:
             fp.write(f"sheet_name: {self.sheet_name}\n")
             fp.write(f"signal_name: {self.signal_name}\n")
             fp.write(f"downsampled_sampling_rate: {self.downsampled_sampling_rate}\n")
@@ -214,7 +215,7 @@ class DatasetWrapper:
         """
         filepath = os.path.join(dirname, "noisy_frame_proportions.json")
         with open(filepath, "w") as fp:
-            json.dump(self.noisy_frame_proportions, fp)
+            json.dump(self.noisy_frame_proportions, fp, indent=4)
 
     def preprocess_participant_data(self, participant_dirname, signal_name):
         """
@@ -245,23 +246,12 @@ class DatasetWrapper:
 
         treatment_dfs = split_data_into_treatments(original_data_without_framerate)
 
-        treatment_series_list = [None] * len(treatment_dfs)
-        noisy_masks = [None] * len(treatment_dfs)
-        for i, treatment_df in enumerate(treatment_dfs):
-            treatment_series = self.preprocess_treatment_df(
-                treatment_df, original_sampling_rate=original_sampling_rate
-            )
-            treatment_idx = (
-                re.compile(SIGNAL_SERIES_NAME_PATTERN)
-                .search(treatment_series.name)
-                .group(TREATMENT_IDX_GROUP_IDX)
-            )
-            treatment_series_list[i] = treatment_series
-            noisy_masks[i] = self.get_noisy_mask(
-                participant_number=participant_number,
-                treatment_idx=treatment_idx,
-                signal=treatment_series,
-            )
+        treatment_series_list = self.get_treatment_series_list(
+            treatment_dfs=treatment_dfs, original_sampling_rate=original_sampling_rate
+        )
+        noisy_masks = self.get_noisy_masks(
+            treatment_dfs, treatment_series_list, participant_number
+        )
 
         treatment_windows = {}
         noisy_frame_proportions = {}
@@ -305,6 +295,43 @@ class DatasetWrapper:
                 treatment_windows[key] = window
 
         return treatment_windows, noisy_frame_proportions
+
+    def get_treatment_series_list(self, treatment_dfs, original_sampling_rate):
+        """
+
+        :param treatment_dfs:
+        :param original_sampling_rate:
+        :return: 5 series
+        """
+        treatment_series_list = [None] * len(treatment_dfs)
+        for i, treatment_df in enumerate(treatment_dfs):
+            treatment_series = self.preprocess_treatment_df(
+                treatment_df, original_sampling_rate=original_sampling_rate
+            )
+            treatment_series_list[i] = treatment_series
+        return treatment_series_list
+
+    def get_noisy_masks(self, treatment_dfs, treatment_series_list, participant_number):
+        """
+
+        :param treatment_dfs:
+        :param treatment_series_list:
+        :param participant_number:
+        :return: 5 masks
+        """
+        noisy_masks = [None] * len(treatment_dfs)
+        for i, treatment_df in enumerate(treatment_dfs):
+            treatment_idx = (
+                re.compile(SIGNAL_SERIES_NAME_PATTERN)
+                .search(treatment_series_list[i].name)
+                .group(TREATMENT_IDX_GROUP_IDX)
+            )
+            noisy_masks[i] = self.get_noisy_mask(
+                participant_number=participant_number,
+                treatment_idx=treatment_idx,
+                signal=treatment_series_list[i],
+            )
+        return noisy_masks
 
     def plot_noisy_mask_histogram(self, noisy_mask_windows):
         noisy_frames = noisy_mask_windows.sum(axis=1)
@@ -389,21 +416,21 @@ if __name__ == "__main__":
     proportion_noisy = num_nonzero / summed.size
 
     # %%
-    save_filepath = os.path.join(
+    save_dirname = os.path.join(
         BASE_DIR,
-        f"data/preprocessed_data/{sheet_name.lower()}/dataset_{window_size}sec_window_{step_size:.0f}sec_step_{downsampled_sampling_rate}Hz.csv",
+        f"data/preprocessed_data/noisy_labelled/",
     )
 
     # %%
-    wrapper.save_dataset(save_filepath)
+    wrapper.save_dataset(save_dirname)
 
     # %%
-    dataset.to_csv(save_filepath, index_label="timedelta", index=True)
+    dataset.to_csv(save_dirname, index_label="timedelta", index=True)
 
     # %%
 
     # not exactly the same as `dataset` before saving to csv. Some rounding so use np.allclose if you want to check for equality.
-    loaded_dataset = read_dataset_csv(save_filepath)
+    loaded_dataset = read_dataset_csv(save_dirname)
 
     # %%
     dataset = loaded_dataset
