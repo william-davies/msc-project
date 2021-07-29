@@ -117,13 +117,6 @@ class DatasetPreparer:
         return train_columns, val_columns
 
 
-dataset_preparer = DatasetPreparer(
-    data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
-    noisy_tolerance=0,
-)
-train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
-
-
 # %%
 def train_autoencoder(resume, train_signals, val_signals, run_id=None):
     """
@@ -215,7 +208,14 @@ def train_autoencoder(resume, train_signals, val_signals, run_id=None):
 
 
 # %%
-# autoencoder, history = train_autoencoder(resume=True, train_signals=train_signals, val_signals=val_signals, run_id='3f1ei8kq')
-autoencoder, history = train_autoencoder(
-    resume=False, train_signals=train_signals, val_signals=val_signals
-)
+if __name__ == "__main__":
+    dataset_preparer = DatasetPreparer(
+        data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
+        noisy_tolerance=0,
+    )
+    train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
+
+    # autoencoder, history = train_autoencoder(resume=True, train_signals=train_signals, val_signals=val_signals, run_id='3f1ei8kq')
+    autoencoder, history = train_autoencoder(
+        resume=False, train_signals=train_signals, val_signals=val_signals
+    )
