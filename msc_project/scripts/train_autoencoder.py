@@ -118,12 +118,19 @@ class DatasetPreparer:
 
 
 # %%
-def train_autoencoder(resume, train_signals, val_signals, run_id=None):
+def train_autoencoder(
+    resume: bool, train_signals, val_signals, epoch: int, run_id: str = ""
+):
     """
 
-    :param resume: bool: resume training a previous model
+    :param resume: resume training a previous model
+    :param train_signals:
+    :param val_signals:
+    :param epoch: how many more epochs to train.
+    :param run_id: wandb run id
     :return:
     """
+    # you must have both or neither
     if resume != bool(run_id):
         raise ValueError
 
@@ -161,11 +168,18 @@ def train_autoencoder(resume, train_signals, val_signals, run_id=None):
     }
 
     if resume:
+
+        wandb_summary = json.loads(
+            wandb.restore(
+                "wandb-summary.json", run_path=f"{project_name}/{run_id}"
+            ).read()
+        )
+
         wandb.init(
             id=run_id,
             project=project_name,
             resume="must",
-            config={**base_config, "epoch": 10},
+            config={**base_config, "epoch": wandb_summary["epoch"] + epoch},
             force=True,
             allow_val_change=True,
         )
@@ -187,7 +201,7 @@ def train_autoencoder(resume, train_signals, val_signals, run_id=None):
     else:
         wandb.init(
             project=project_name,
-            config={**base_config, "epoch": 3000},
+            config={**base_config, "epoch": epoch},
             force=True,
             allow_val_change=False,
         )
@@ -215,7 +229,13 @@ if __name__ == "__main__":
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
-    # autoencoder, history = train_autoencoder(resume=True, train_signals=train_signals, val_signals=val_signals, run_id='3f1ei8kq')
     autoencoder, history = train_autoencoder(
-        resume=False, train_signals=train_signals, val_signals=val_signals
+        resume=True,
+        train_signals=train_signals,
+        val_signals=val_signals,
+        run_id="8doiurqf",
+        epoch=10000,
     )
+    # autoencoder, history = train_autoencoder(
+    #     resume=False, train_signals=train_signals, val_signals=val_signals
+    # )
