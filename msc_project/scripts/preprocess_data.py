@@ -286,11 +286,11 @@ class DatasetWrapper:
             treatment_window_id_to_array = self.get_window_id_to_array(
                 windows, participant_number, treatment_string
             )
-            current_window_id_to_array_len = len(window_id_to_array)
-            window_id_to_array.update(treatment_window_id_to_array)
-            assert len(window_id_to_array) == current_window_id_to_array_len + len(
-                treatment_window_id_to_array
+            intersection = (
+                treatment_window_id_to_array.keys() & window_id_to_array.keys()
             )
+            assert len(intersection) == 0
+            window_id_to_array.update(treatment_window_id_to_array)
 
             treatment_window_id_to_noise_proportion = (
                 self.get_treatment_window_id_to_noise_proportion(
@@ -299,10 +299,13 @@ class DatasetWrapper:
                     treatment_string,
                 )
             )
-            current_window_id_to_array_len = len(window_id_to_array)
-            window_id_to_array.update(treatment_window_id_to_array)
-            assert len(window_id_to_array) == current_window_id_to_array_len + len(
-                treatment_window_id_to_array
+            intersection = (
+                treatment_window_id_to_noise_proportion.keys()
+                & window_id_to_noise_proportion.keys()
+            )
+            assert len(intersection) == 0
+            window_id_to_noise_proportion.update(
+                treatment_window_id_to_noise_proportion
             )
 
         return window_id_to_array, window_id_to_noise_proportion
