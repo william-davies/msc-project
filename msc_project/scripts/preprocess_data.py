@@ -282,14 +282,27 @@ class DatasetWrapper:
             window_noisy_frame_proportions = (
                 noisy_frame_counts / noisy_mask_windows.shape[1]
             )
-            self.update_window_id_to_array(
-                window_id_to_array, windows, participant_number, treatment_string
+
+            treatment_window_id_to_array = self.get_window_id_to_array(
+                windows, participant_number, treatment_string
             )
-            self.update_noisy_frame_proportions(
-                window_id_to_noise_proportion,
-                window_noisy_frame_proportions,
-                participant_number,
-                treatment_string,
+            current_window_id_to_array_len = len(window_id_to_array)
+            window_id_to_array.update(treatment_window_id_to_array)
+            assert len(window_id_to_array) == current_window_id_to_array_len + len(
+                treatment_window_id_to_array
+            )
+
+            treatment_window_id_to_noise_proportion = (
+                self.get_treatment_window_id_to_noise_proportion(
+                    window_noisy_frame_proportions,
+                    participant_number,
+                    treatment_string,
+                )
+            )
+            current_window_id_to_array_len = len(window_id_to_array)
+            window_id_to_array.update(treatment_window_id_to_array)
+            assert len(window_id_to_array) == current_window_id_to_array_len + len(
+                treatment_window_id_to_array
             )
 
         return window_id_to_array, window_id_to_noise_proportion
@@ -350,21 +363,27 @@ class DatasetWrapper:
             )
         return noisy_masks
 
-    def update_window_id_to_array(
-        self, window_id_to_array, windows, participant_number, treatment_string
-    ):
+    def get_window_id_to_array(self, windows, participant_number, treatment_string):
+        """
+        Get mapping from window id to array for a particular treatment.
+        :param windows:
+        :param participant_number:
+        :param treatment_string:
+        :return:
+        """
+        window_id_to_array = {}
         for window_idx, window in enumerate(windows):
             key = f"P{participant_number}_{treatment_string}_window{window_idx}"
             window_id_to_array[key] = window
         return window_id_to_array
 
-    def update_noisy_frame_proportions(
+    def get_treatment_window_id_to_noise_proportion(
         self,
-        window_id_to_noise_proportion,
         window_noisy_frame_proportions,
         participant_number,
         treatment_string,
     ):
+        window_id_to_noise_proportion = {}
         for window_idx, noise_proportion in enumerate(window_noisy_frame_proportions):
             key = f"P{participant_number}_{treatment_string}_window{window_idx}"
             window_id_to_noise_proportion[key] = noise_proportion
