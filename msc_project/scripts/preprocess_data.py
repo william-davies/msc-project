@@ -231,15 +231,9 @@ class DatasetWrapper:
             participant_dirname
         ).group(PARTICIPANT_ID_GROUP_IDX, PARTICIPANT_NUMBER_GROUP_IDX)
 
-        csv_fp = os.path.join(
-            BASE_DIR,
-            "data",
-            "Stress Dataset",
-            participant_dirname,
-            XLSX_CONVERTED_TO_CSV,
-            f"{participant_id}_{signal_name}.csv",
+        original_data = self.get_original_data(
+            participant_dirname, participant_id, signal_name
         )
-        original_data = pd.read_csv(csv_fp)
 
         original_sampling_rate = original_data["sample_rate_Hz"][0]
         original_data_without_framerate = original_data[original_data.columns[:-1]]
@@ -295,6 +289,25 @@ class DatasetWrapper:
                 treatment_windows[key] = window
 
         return treatment_windows, noisy_frame_proportions
+
+    def get_original_data(self, participant_dirname, participant_id, signal_name: str):
+        """
+        Returns all treatments for participant and signal.
+        :param participant_dirname:
+        :param participant_id:
+        :param signal_name: e.g. bvp/resp/emg
+        :return:
+        """
+        csv_fp = os.path.join(
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            participant_dirname,
+            XLSX_CONVERTED_TO_CSV,
+            f"{participant_id}_{signal_name}.csv",
+        )
+        original_data = pd.read_csv(csv_fp)
+        return original_data
 
     def get_treatment_series_list(self, treatment_dfs, original_sampling_rate):
         """
