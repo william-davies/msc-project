@@ -247,8 +247,8 @@ class DatasetWrapper:
             treatment_dfs, treatment_series_list, participant_number
         )
 
-        treatment_windows = {}
-        noisy_frame_proportions = {}
+        window_id_to_array = {}
+        window_id_to_noise_proportion = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
 
@@ -279,16 +279,20 @@ class DatasetWrapper:
             plt.clf()
 
             noisy_frame_counts = noisy_mask_windows.sum(axis=1)
-            treatment_noisy_frame_proportions = (
+            window_noisy_frame_proportions = (
                 noisy_frame_counts / noisy_mask_windows.shape[1]
             )
-            for window_idx, window in enumerate(windows):
-                key = f"P{participant_number}_{treatment_string}_window{window_idx}"
-                noisy_frame_proportion = treatment_noisy_frame_proportions[window_idx]
-                noisy_frame_proportions[key] = noisy_frame_proportion
-                treatment_windows[key] = window
+            self.update_window_id_to_array(
+                window_id_to_array, windows, participant_number, treatment_string
+            )
+            self.update_noisy_frame_proportions(
+                window_id_to_noise_proportion,
+                window_noisy_frame_proportions,
+                participant_number,
+                treatment_string,
+            )
 
-        return treatment_windows, noisy_frame_proportions
+        return window_id_to_array, window_id_to_noise_proportion
 
     def get_original_data(self, participant_dirname, participant_id, signal_name: str):
         """
@@ -345,6 +349,26 @@ class DatasetWrapper:
                 signal=treatment_series_list[i],
             )
         return noisy_masks
+
+    def update_window_id_to_array(
+        self, window_id_to_array, windows, participant_number, treatment_string
+    ):
+        for window_idx, window in enumerate(windows):
+            key = f"P{participant_number}_{treatment_string}_window{window_idx}"
+            window_id_to_array[key] = window
+        return window_id_to_array
+
+    def update_noisy_frame_proportions(
+        self,
+        window_id_to_noise_proportion,
+        window_noisy_frame_proportions,
+        participant_number,
+        treatment_string,
+    ):
+        for window_idx, noise_proportion in enumerate(window_noisy_frame_proportions):
+            key = f"P{participant_number}_{treatment_string}_window{window_idx}"
+            window_id_to_noise_proportion[key] = noise_proportion
+        return window_id_to_noise_proportion
 
     def plot_noisy_mask_histogram(self, noisy_mask_windows):
         noisy_frames = noisy_mask_windows.sum(axis=1)
