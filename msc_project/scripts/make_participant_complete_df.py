@@ -12,6 +12,9 @@ from msc_project.constants import (
     TREATMENT_POSITION_GROUP_IDX,
     TREATMENT_LABEL_GROUP_IDX,
     SECONDS_IN_MINUTE,
+    XLSX_CONVERTED_TO_CSV,
+    PARTICIPANT_DIRNAME_PATTERN,
+    PARTICIPANT_ID_GROUP_IDX,
 )
 from msc_project.scripts.utils import split_data_into_treatments
 
@@ -113,21 +116,36 @@ def make_multiindex_df(inf_data):
     return multiindex_df
 
 
+def read_participant_sheet(participant_dirname, sheet_name):
+    """
+    Helper function.
+    :param participant_dirname:
+    :param sheet_name:
+    :return:
+    """
+    participant_id = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
+        PARTICIPANT_ID_GROUP_IDX
+    )
+
+    csv_fp = os.path.join(
+        BASE_DIR,
+        "data",
+        "Stress Dataset",
+        participant_dirname,
+        XLSX_CONVERTED_TO_CSV,
+        f"{participant_id}_{sheet_name}.csv",
+    )
+    participant_signal = pd.read_csv(csv_fp)
+    return participant_signal
+
+
 def get_participant_df(participant_dir):
     """
     Make a multiindex for this participant. Currently just for Inf sheet.
     :param participant_dir:
     :return:
     """
-    inf_data_fp = os.path.join(
-        BASE_DIR,
-        "data",
-        "Stress Dataset",
-        participant_dir,
-        "xlsx_converted_to_csv",
-        "0720202421P1_Inf.csv",
-    )
-    inf_data = pd.read_csv(inf_data_fp)
+    inf_data = read_participant_sheet(participant_dir, sheet_name="Inf")
 
     participant_df = make_multiindex_df(inf_data)
     participant_df = set_nonrecorded_values_to_nan(participant_df)
