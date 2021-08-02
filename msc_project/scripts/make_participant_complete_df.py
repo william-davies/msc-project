@@ -15,6 +15,7 @@ from msc_project.constants import (
     XLSX_CONVERTED_TO_CSV,
     PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_ID_GROUP_IDX,
+    PARTICIPANT_NUMBERS_WITH_EXCEL,
 )
 from msc_project.scripts.utils import split_data_into_treatments
 
@@ -93,6 +94,7 @@ def set_nonrecorded_values_to_nan(all_values):
     for treatment_label, df in all_values.groupby(axis=1, level="treatment_label"):
         first_nonrecorded_idx = get_first_nonrecorded_idx(treatment_label, df)
         df[first_nonrecorded_idx:] = np.NaN
+        df = df.sort_index(axis=1, level=1, sort_remaining=False)
         naned[treatment_label] = df.values
     return naned
 
@@ -113,6 +115,7 @@ def make_multiindex_df(inf_data):
         duration=SECONDS_IN_MINUTE * 5, frequency=sample_rate
     )
     multiindex_df = set_timedelta_index(multiindex_df, timedelta_index)
+    multiindex_df = multiindex_df.sort_index(axis=1, level=0, sort_remaining=True)
     return multiindex_df
 
 
@@ -173,3 +176,36 @@ save_participant_df(participant_df, participant_dirname)
 breakpoint = 1
 
 # %%
+participants = [f"P{number}" for number in PARTICIPANT_NUMBERS_WITH_EXCEL]
+intra_participant_multiindex_columns = participant_df.columns.levels
+inter_participant_multiindex_columns = [
+    PARTICIPANT_DIRNAMES_WITH_EXCEL,
+    *intra_participant_multiindex_columns,
+]
+inter_participant_multiindex_names = ["participant", *participant_df.columns.names]
+inter_participant_multiindex = pd.MultiIndex.from_product(
+    inter_participant_multiindex_columns, names=inter_participant_multiindex_names
+)
+
+dummy_data = np.zeros(
+    (
+        participant_df.shape[0],
+        len(PARTICIPANT_DIRNAMES_WITH_EXCEL) * participant_df.shape[1],
+    )
+)
+inter_participant_multiindex_df = pd.DataFrame(
+    data=dummy_data, index=participant_df.index, columns=inter_participant_multiindex
+)
+inter_participant_multiindex_df = inter_participant_multiindex_df.sort_index(
+    axis=1, level=0, sort_remaining=True
+)
+# %%
+inter_participant_multiindex_df_copy = inter_participant_multiindex_df.copy()
+participant_dfs = []
+for participant_dirname, df in inter_participant_multiindex_df.groupby(
+    axis=1, level="participant"
+):
+    participant_df = get_participant_df(participant_dirname)
+    inter_participant_multiindex_df_copy[participant_dirname] = participant_df.values
+
+breakpoint = 1
