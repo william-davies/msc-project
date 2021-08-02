@@ -60,11 +60,14 @@ XLSX_CONVERTED_TO_CSV = "xlsx_converted_to_csv"
 # absolute path of repo directory
 BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project"
 
-TREATMENT_INDEXES = ["r1", "m2", "r3", "m4", "r5"]
+# not full identifier because doesn't include easy/hard
+TREATMENT_POSITION_NAMES = ["r1", "m2", "r3", "m4", "r5"]
 
-TREATMENT_LABEL_PATTERN = "(?:(\w\d)(?:_\w{4}|))"  # e.g. r1, m2_easy, r3, m4_hard, r5
+TREATMENT_POSITION_PATTERN = "\w\d"
+TREATMENT_LABEL_PATTERN = f"(({TREATMENT_POSITION_PATTERN})(?:_\w{{4}}|))"  # e.g. r1, m2_easy, r3, m4_hard, r5
 # e.g. emp_l_bvp_r1_bvp, infinity_m4_hard_resp
 SIGNAL_SERIES_NAME_PATTERN = f"^\w+_{TREATMENT_LABEL_PATTERN}_\w+$"
-TREATMENT_IDX_GROUP_IDX = 1
+TREATMENT_LABEL_GROUP_IDX = 1
+TREATMENT_POSITION_GROUP_IDX = 2
 
 SPAN_PATTERN = re.compile("^([\d.]+)-([\d.]+)$")
