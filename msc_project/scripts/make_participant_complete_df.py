@@ -88,7 +88,7 @@ def set_timedelta_index(multiindex_df, timedelta_index):
 recorded_values = set_timedelta_index(multiindex_df, timedelta_index)
 
 
-def get_final_recorded_idx(treatment_label, df):
+def get_first_nonrecorded_idx(treatment_label, df):
     """
 
     :param treatment_label:
@@ -97,14 +97,18 @@ def get_final_recorded_idx(treatment_label, df):
     """
     frames = df[treatment_label]["frames"]
     zero_timedeltas = frames.index[frames == 0]
-    should_be_zero = df[zero_timedeltas[0] :]
-    assert np.count_nonzero(should_be_zero) == 0
-    return zero_timedeltas[0]
+    if len(zero_timedeltas) > 0:
+        should_be_zero = df[zero_timedeltas[0] :]
+        assert np.count_nonzero(should_be_zero) == 0
+        return zero_timedeltas[0]
+    return pd.Timedelta.max
 
 
+naned = recorded_values.copy()
 for treatment_label, df in recorded_values.groupby(axis=1, level="treatment_label"):
-    final_recorded_index = get_final_recorded_idx(treatment_label, df)
-
+    first_nonrecorded_idx = get_first_nonrecorded_idx(treatment_label, df)
+    df[first_nonrecorded_idx:] = np.NaN
+    naned[treatment_label] = df.values
     breakpoint = 1
 
 breakpoint = 1
