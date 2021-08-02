@@ -17,15 +17,15 @@ from msc_project.scripts.utils import (
 from msc_project.constants import (
     SECONDS_IN_MINUTE,
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_INFO_PATTERN,
+    PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_NUMBER_GROUP_IDX,
     PARTICIPANT_ID_GROUP_IDX,
     BASE_DIR,
     XLSX_CONVERTED_TO_CSV,
     TREATMENT_LABEL_PATTERN,
     SIGNAL_SERIES_NAME_PATTERN,
-    TREATMENT_IDX_GROUP_IDX,
-    TREATMENT_NAMES,
+    TREATMENT_POSITION_GROUP_IDX,
+    TREATMENT_POSITION_NAMES,
     PARTICPANT_NUMBERS_WITH_EXCEL,
 )
 from scipy import signal
@@ -142,7 +142,12 @@ class DatasetWrapper:
         self.downsampled_sampling_rate = downsampled_sampling_rate
 
         self.all_noisy_mask_windows = np.zeros(
-            (len(PARTICIPANT_DIRNAMES_WITH_EXCEL), len(TREATMENT_NAMES), 171, 160)
+            (
+                len(PARTICIPANT_DIRNAMES_WITH_EXCEL),
+                len(TREATMENT_POSITION_NAMES),
+                171,
+                160,
+            )
         )
         self.noisy_proportion_tolerance = 0
         self.noisy_frame_proportions = {}
@@ -219,7 +224,7 @@ class DatasetWrapper:
         with open(filepath, "w") as fp:
             json.dump(self.noisy_frame_proportions, fp, indent=4)
 
-    def preprocess_participant_data(self, participant_dirname, signal_name):
+    def preprocess_participant_data(self, participant_dirname, sheet_name):
         """
         Convert original .csv data for ONE participant into format appropriate for model training.
         - remove 0 measurements
@@ -229,12 +234,12 @@ class DatasetWrapper:
         :param raw_data: dp.DataFrame: data pulled directly from .csv
         :return:
         """
-        participant_id, participant_number = PARTICIPANT_INFO_PATTERN.search(
+        participant_id, participant_number = PARTICIPANT_DIRNAME_PATTERN.search(
             participant_dirname
         ).group(PARTICIPANT_ID_GROUP_IDX, PARTICIPANT_NUMBER_GROUP_IDX)
 
         original_data = self.get_original_data(
-            participant_dirname, participant_id, signal_name
+            participant_dirname, participant_id, sheet_name
         )
 
         original_sampling_rate = original_data["sample_rate_Hz"][0]
@@ -258,9 +263,9 @@ class DatasetWrapper:
         for treatment_idx in range(len(treatment_series_list)):
             treatment_series = treatment_series_list[treatment_idx]
             treatment_string = treatment_series.name
-            windows = sliding_window_view(treatment_series, window_size, axis=0)[
-                ::step_size
-            ]
+            windows = sliding_window_view(
+                treatment_series, window_size, axis=0, subok=True
+            )[::step_size]
             noisy_mask_windows = sliding_window_view(
                 noisy_masks[treatment_idx], window_size, axis=0
             )[::step_size]
@@ -316,12 +321,12 @@ class DatasetWrapper:
 
         return window_id_to_array, window_id_to_noise_proportion
 
-    def get_original_data(self, participant_dirname, participant_id, signal_name: str):
+    def get_original_data(self, participant_dirname, participant_id, sheet_name: str):
         """
         Returns all treatments for participant and signal.
         :param participant_dirname:
         :param participant_id:
-        :param signal_name: e.g. bvp/resp/emg
+        :param sheet_name: e.g. Inf
         :return:
         """
         csv_fp = os.path.join(
@@ -330,7 +335,7 @@ class DatasetWrapper:
             "Stress Dataset",
             participant_dirname,
             XLSX_CONVERTED_TO_CSV,
-            f"{participant_id}_{signal_name}.csv",
+            f"{participant_id}_{sheet_name}.csv",
         )
         original_data = pd.read_csv(csv_fp)
         return original_data
@@ -363,7 +368,7 @@ class DatasetWrapper:
             treatment_idx = (
                 re.compile(SIGNAL_SERIES_NAME_PATTERN)
                 .search(treatment_series_list[i].name)
-                .group(TREATMENT_IDX_GROUP_IDX)
+                .group(TREATMENT_POSITION_GROUP_IDX)
             )
             noisy_masks[i] = self.get_noisy_mask(
                 participant_number=participant_number,
