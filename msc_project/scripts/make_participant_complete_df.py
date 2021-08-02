@@ -89,13 +89,16 @@ recorded_values = set_timedelta_index(multiindex_df, timedelta_index)
 
 
 def get_final_recorded_idx(treatment_label, df):
+    """
+
+    :param treatment_label:
+    :param df: frames and measured signal
+    :return:
+    """
     frames = df[treatment_label]["frames"]
     zero_timedeltas = frames.index[frames == 0]
-    should_be_zero_frames = frames[zero_timedeltas[0] :]
-    assert np.count_nonzero(should_be_zero_frames) == 0
-    measurements = df.drop(columns="frames", level="signal_name")
-    should_be_zero_measurements = measurements[zero_timedeltas[0] :]
-    assert np.count_nonzero(should_be_zero_measurements) == 0
+    should_be_zero = df[zero_timedeltas[0] :]
+    assert np.count_nonzero(should_be_zero) == 0
     return zero_timedeltas[0]
 
 
