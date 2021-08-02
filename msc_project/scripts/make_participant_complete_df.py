@@ -87,4 +87,21 @@ def set_timedelta_index(multiindex_df, timedelta_index):
 
 recorded_values = set_timedelta_index(multiindex_df, timedelta_index)
 
+
+def get_final_recorded_idx(treatment_label, df):
+    frames = df[treatment_label]["frames"]
+    zero_timedeltas = frames.index[frames == 0]
+    should_be_zero_frames = frames[zero_timedeltas[0] :]
+    assert np.count_nonzero(should_be_zero_frames) == 0
+    measurements = df.drop(columns="frames", level="signal_name")
+    should_be_zero_measurements = measurements[zero_timedeltas[0] :]
+    assert np.count_nonzero(should_be_zero_measurements) == 0
+    return zero_timedeltas[0]
+
+
+for treatment_label, df in recorded_values.groupby(axis=1, level="treatment_label"):
+    final_recorded_index = get_final_recorded_idx(treatment_label, df)
+
+    breakpoint = 1
+
 breakpoint = 1
