@@ -37,7 +37,6 @@ def get_treatment_labels(inf_data):
     treatment_labels = [""] * len(frame_series_column_names)
 
     COMPILED_SIGNAL_SERIES_NAME_PATTERN = re.compile(SIGNAL_SERIES_NAME_PATTERN)
-    print(SIGNAL_SERIES_NAME_PATTERN)
     for idx, series_name in enumerate(frame_series_column_names):
         treatment_label = COMPILED_SIGNAL_SERIES_NAME_PATTERN.search(series_name).group(
             TREATMENT_LABEL_GROUP_IDX
@@ -67,11 +66,25 @@ def get_timedelta_index(duration, frequency):
     :param frequency: Hz
     :return:
     """
-    seconds_index = np.arange(0, duration, 1 / frequency)
+    seconds_index = np.arange(0, np.nextafter(duration, duration + 1), 1 / frequency)
     timedelta_index = pd.to_timedelta(seconds_index, unit="second")
     return timedelta_index
 
 
 timedelta_index = get_timedelta_index(
-    duration=SECONDS_IN_MINUTE * 3, frequency=sample_rate
+    duration=SECONDS_IN_MINUTE * 5, frequency=sample_rate
 )
+
+
+def set_timedelta_index(multiindex_df, timedelta_index):
+    five_minute_index = len(timedelta_index)
+    nonrecorded_zeros = multiindex_df.iloc[five_minute_index + 1 :]
+    assert np.count_nonzero(nonrecorded_zeros) == 0
+    recorded_values = multiindex_df.iloc[:five_minute_index]
+    recorded_values = recorded_values.set_index(timedelta_index)
+    return recorded_values
+
+
+recorded_values = set_timedelta_index(multiindex_df, timedelta_index)
+
+breakpoint = 1
