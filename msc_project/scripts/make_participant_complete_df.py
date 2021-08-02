@@ -152,6 +152,24 @@ def get_participant_df(participant_dir):
     return participant_df
 
 
-participant_dir = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
-participant_df = get_participant_df(participant_dir)
+def save_participant_df(df, participant_dirname):
+    save_dir = os.path.join(
+        BASE_DIR, "data", "Stress Dataset", participant_dirname, "dataframes"
+    )
+    os.makedirs(save_dir, exist_ok=True)
+
+    participant_id = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
+        PARTICIPANT_ID_GROUP_IDX
+    )
+
+    filename = f"{participant_id}_inf.pkl"
+    complete_fp = os.path.join(save_dir, filename)
+    df.to_pickle(complete_fp)
+
+
+participant_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
+participant_df = get_participant_df(participant_dirname)
+save_participant_df(participant_df, participant_dirname)
 breakpoint = 1
+
+# %%
