@@ -1,8 +1,10 @@
 import os
 import re
+import sys
 
 import pandas as pd
 import scipy
+import matplotlib.pyplot as plt
 
 from msc_project.constants import (
     DATA_DIR,
@@ -43,21 +45,30 @@ def downsample(original_data, original_rate, downsampled_rate):
     :param downsampled_rate: scalar: Hz
     :return: pd.DataFrame:
     """
-    num = len(original_data) * downsampled_rate / original_rate
+    num = (len(original_data) - 1) * downsampled_rate / original_rate
+    num = num + 1  # including measurement at time 0
     assert num.is_integer()
     num = int(num)
 
     downsampled_signal, downsampled_t = scipy.signal.resample(
-        x=original_data.iloc[:, 1], num=num, t=original_data.iloc[:, 0]
+        x=original_data, num=num, t=original_data.index
     )
-    downsampled_data = np.column_stack((downsampled_t, downsampled_signal))
-    downsampled_df = pd.DataFrame(data=downsampled_data, columns=original_data.columns)
+    index = pd.to_timedelta(downsampled_t)
+    downsampled_df = pd.DataFrame(
+        data=downsampled_signal, index=index, columns=original_data.columns
+    )
     return downsampled_df
 
 
-# central_3_minutes = downsample(central_3_minutes, original_rate=256, downsampled_rate=16)
+downsampled = downsample(central_3_minutes, original_rate=256, downsampled_rate=16)
 
+# %%
+plt.plot(central_3_minutes.iloc[:, 0], label="original")
+plt.plot(downsampled.iloc[:, 0], label="downsampled")
+plt.legend()
+plt.show()
 
+# %%
 def get_window(treatment_series):
     pass
 
