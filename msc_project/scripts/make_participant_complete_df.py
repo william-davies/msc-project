@@ -55,14 +55,14 @@ def get_timedelta_index(duration, frequency):
 
 def set_timedelta_index(multiindex_df, timedelta_index):
     """
-    Treatments are <= 300sec long.
+    Treatments are <= 300sec long. In some excel sheets, we have > 300sec of data.
+    I just disregard measurement past 300sec though. According to Jade's thesis, the
+    treatments are 300secs.
     :param multiindex_df:
     :param timedelta_index: 0sec to 300sec at sampling rate frequency
     :return:
     """
     five_minute_index = len(timedelta_index)
-    after_duration = multiindex_df.iloc[five_minute_index + 1 :]
-    assert np.count_nonzero(after_duration) == 0
     within_duration = multiindex_df.iloc[:five_minute_index]
     within_duration = within_duration.set_index(timedelta_index)
     return within_duration
@@ -170,42 +170,13 @@ def save_participant_df(df, participant_dirname):
     df.to_pickle(complete_fp)
 
 
-participant_dirname = PARTICIPANT_DIRNAMES_WITH_EXCEL[0]
-participant_df = get_participant_df(participant_dirname)
-save_participant_df(participant_df, participant_dirname)
-breakpoint = 1
-
 # %%
-participants = [f"P{number}" for number in PARTICIPANT_NUMBERS_WITH_EXCEL]
-intra_participant_multiindex_columns = participant_df.columns.levels
-inter_participant_multiindex_columns = [
-    PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    *intra_participant_multiindex_columns,
-]
-inter_participant_multiindex_names = ["participant", *participant_df.columns.names]
-inter_participant_multiindex = pd.MultiIndex.from_product(
-    inter_participant_multiindex_columns, names=inter_participant_multiindex_names
-)
-
-dummy_data = np.zeros(
-    (
-        participant_df.shape[0],
-        len(PARTICIPANT_DIRNAMES_WITH_EXCEL) * participant_df.shape[1],
-    )
-)
-inter_participant_multiindex_df = pd.DataFrame(
-    data=dummy_data, index=participant_df.index, columns=inter_participant_multiindex
-)
-inter_participant_multiindex_df = inter_participant_multiindex_df.sort_index(
-    axis=1, level=0, sort_remaining=True
-)
-# %%
-inter_participant_multiindex_df_copy = inter_participant_multiindex_df.copy()
 participant_dfs = []
-for participant_dirname, df in inter_participant_multiindex_df.groupby(
-    axis=1, level="participant"
-):
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
     participant_df = get_participant_df(participant_dirname)
-    inter_participant_multiindex_df_copy[participant_dirname] = participant_df.values
+    participant_dfs.append(participant_df)
 
+inter_participant_multiindex_df = pd.concat(
+    participant_dfs, axis=1, keys=PARTICIPANT_DIRNAMES_WITH_EXCEL
+)
 breakpoint = 1
