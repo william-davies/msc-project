@@ -1,7 +1,9 @@
 import os
 import re
 import sys
+from typing import List
 
+import numpy as np
 import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
@@ -22,7 +24,10 @@ TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
 def get_central_3_minutes(df):
     start = pd.Timedelta(value=1, unit="minute")
     end = pd.Timedelta(value=4, unit="minute")
-    central = df[start:end]
+    eps = pd.Timedelta(
+        value=1, unit="ns"
+    )  # timedelta precision is truncated to nanosecond
+    central = df[start : end - eps]
     central.index = central.index - start
     return central
 
@@ -45,8 +50,9 @@ def downsample(original_data, original_rate, downsampled_rate):
     :param downsampled_rate: scalar: Hz
     :return: pd.DataFrame:
     """
-    num = (len(original_data) - 1) * downsampled_rate / original_rate
-    num = num + 1  # including measurement at time 0
+    # num = 2880
+    num = len(original_data) * downsampled_rate / original_rate
+    # num = num + 1
     assert num.is_integer()
     num = int(num)
 
@@ -63,10 +69,10 @@ def downsample(original_data, original_rate, downsampled_rate):
 downsampled = downsample(central_3_minutes, original_rate=256, downsampled_rate=16)
 
 # %%
-plt.plot(central_3_minutes.iloc[:, 0], label="original")
-plt.plot(downsampled.iloc[:, 0], label="downsampled")
-plt.legend()
-plt.show()
+# plt.plot(central_3_minutes.iloc[:, 0], label="original")
+# plt.plot(downsampled.iloc[:, 0], label="downsampled")
+# plt.legend()
+# plt.show()
 
 # %%
 def get_window(treatment_series):
@@ -91,12 +97,8 @@ def get_treatment_noisy_mask(treatment_df):
     return noisy_mask
 
 
-noisy_mask = pd.DataFrame(
-    False, index=central_3_minutes.index, columns=central_3_minutes.columns
-)
-for participant, participant_df in central_3_minutes.groupby(
-    axis=1, level="participant"
-):
+noisy_mask = pd.DataFrame(False, index=downsampled.index, columns=downsampled.columns)
+for participant, participant_df in downsampled.groupby(axis=1, level="participant"):
     breakpoint = 1
     for treatment, treatment_df in participant_df.groupby(
         axis=1, level="treatment_label"
@@ -104,14 +106,52 @@ for participant, participant_df in central_3_minutes.groupby(
         treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
         noisy_mask[participant][treatment]["bvp"] = treatment_noisy_mask.values
 
+
 # tests
+def get_correct_noisy_mask(
+    downsampled_frequency: int, noisy_spans: List[tuple], duration: float
+):
+    """
+
+    :param downsampled_frequency:
+    :param noisy_spans: [(start, end), (start, end), (start, end)...]
+    :param duration:
+    :return:
+    """
+    index = get_timedelta_index(duration=duration, frequency=downsampled_frequency)
+    correct_noisy_mask = pd.Series(False, index=index, dtype=bool)
+
+    span_idxs = [
+        (int(span[0] * downsampled_frequency), int(span[1] * downsampled_frequency))
+        for span in noisy_spans
+    ]
+    for span_idx in span_idxs:
+        correct_noisy_mask[span_idx[0] : span_idx[1] + 1] = True
+    return correct_noisy_mask
+
+
 signal = "bvp"
-index = get_timedelta_index(duration=180, frequency=256)
-correct = pd.Series(False, index=index, dtype=bool)
 
 participant = "0720202421P1_608"
 treatment = "m2_easy"
-p1_r1 = 1
+correct = get_correct_noisy_mask(downsampled_frequency=16, noisy_spans=[], duration=180)
+mask = noisy_mask[participant][treatment][signal]
+pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
 
-mask = noisy_mask[participant][treatment]["bvp"]
+participant = "0725114340P3_608"
+treatment = "r3"
+correct = get_correct_noisy_mask(
+    downsampled_frequency=16, noisy_spans=[(10.5, 12)], duration=180
+)
+mask = noisy_mask[participant][treatment][signal]
+pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+participant = "0727120212P10_lamp"
+treatment = "r5"
+correct = get_correct_noisy_mask(
+    downsampled_frequency=16,
+    noisy_spans=[(0, 2), (225, 226), (253, 255.5)],
+    duration=180,
+)
+mask = noisy_mask[participant][treatment][signal]
 pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
