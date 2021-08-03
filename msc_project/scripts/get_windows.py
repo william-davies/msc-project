@@ -2,6 +2,7 @@ import os
 import re
 
 import pandas as pd
+import scipy
 
 from msc_project.constants import (
     DATA_DIR,
@@ -9,6 +10,8 @@ from msc_project.constants import (
     PARTICIPANT_NUMBER_GROUP_IDX,
     TREATMENT_LABEL_PATTERN,
 )
+from msc_project.scripts.get_all_participants_df import get_timedelta_index
+from msc_project.scripts.preprocess_data import downsample
 from msc_project.scripts.utils import get_noisy_spans
 
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
@@ -29,6 +32,30 @@ central_3_minutes = get_central_3_minutes(all_participants_df)
 central_3_minutes = central_3_minutes.drop(
     columns=["resp", "frames"], level="signal_name"
 )
+
+
+def downsample(original_data, original_rate, downsampled_rate):
+    """
+    Downsample signal.
+
+    :param original_data: pd.DataFrame: shape (n, 2)
+    :param original_rate: scalar: Hz
+    :param downsampled_rate: scalar: Hz
+    :return: pd.DataFrame:
+    """
+    num = len(original_data) * downsampled_rate / original_rate
+    assert num.is_integer()
+    num = int(num)
+
+    downsampled_signal, downsampled_t = scipy.signal.resample(
+        x=original_data.iloc[:, 1], num=num, t=original_data.iloc[:, 0]
+    )
+    downsampled_data = np.column_stack((downsampled_t, downsampled_signal))
+    downsampled_df = pd.DataFrame(data=downsampled_data, columns=original_data.columns)
+    return downsampled_df
+
+
+# central_3_minutes = downsample(central_3_minutes, original_rate=256, downsampled_rate=16)
 
 
 def get_window(treatment_series):
@@ -68,10 +95,12 @@ for participant, participant_df in central_3_minutes.groupby(
 
 # tests
 signal = "bvp"
-index = np.arange()
+index = get_timedelta_index(duration=180, frequency=256)
+correct = pd.Series(False, index=index, dtype=bool)
 
 participant = "0720202421P1_608"
 treatment = "m2_easy"
 p1_r1 = 1
 
 mask = noisy_mask[participant][treatment]["bvp"]
+pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
