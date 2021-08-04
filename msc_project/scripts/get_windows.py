@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
+from numpy.lib.stride_tricks import sliding_window_view
 
 from msc_project.constants import (
     DATA_DIR,
@@ -66,7 +67,10 @@ def downsample(original_data, original_rate, downsampled_rate):
     return downsampled_df
 
 
-downsampled = downsample(central_3_minutes, original_rate=256, downsampled_rate=16)
+downsampled_rate = 16
+downsampled = downsample(
+    central_3_minutes, original_rate=256, downsampled_rate=downsampled_rate
+)
 
 # %%
 # plt.plot(central_3_minutes.iloc[:, 0], label="original")
@@ -107,6 +111,49 @@ for participant, participant_df in downsampled.groupby(axis=1, level="participan
         noisy_mask[participant][treatment]["bvp"] = treatment_noisy_mask.values
 
 
+# %%
+window_duration = 10
+step_duration = 1
+window_shape = window_duration * downsampled_rate
+step_shape = step_duration * downsampled_rate
+
+dummy_windows = sliding_window_view(
+    downsampled.iloc[:, 0], axis=0, window_shape=window_shape
+)[::step_shape]
+num_windows = len(dummy_windows)
+window_columns = [
+    f"{start*step_duration}sec_to_{start*step_duration+window_duration}sec"
+    for start in range(num_windows)
+]
+
+
+def get_windows_multiindex():
+    tuples = []
+    for signal_multiindex in downsampled.columns.values:
+        signal_window_multiindexes = [
+            (*signal_multiindex, window_index) for window_index in window_columns
+        ]
+        tuples.extend(signal_window_multiindexes)
+    multiindex_names = [*downsampled.columns.names, "window"]
+    multiindex = pd.MultiIndex.from_tuples(tuples=tuples, names=multiindex_names)
+    return multiindex
+
+
+dummy_data = np.zeros((downsampled.shape[0], downsampled.shape[1] * num_windows))
+windows_df = pd.DataFrame(data=dummy_data, index=downsampled.index, columns=multiindex)
+
+
+for index, dataframe in downsampled.groupby(
+    axis=1, level=["participant", "treatment_label", "signal_name"]
+):
+    windows = sliding_window_view(
+        dataframe.squeeze(), axis=0, window_shape=window_shape
+    ).T
+    windows_df[index] = windows.values
+    breakpoint = 1
+
+
+# %%
 # tests
 def get_correct_noisy_mask(
     downsampled_frequency: int, noisy_spans: List[tuple], duration: float
