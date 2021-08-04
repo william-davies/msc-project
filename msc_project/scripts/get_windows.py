@@ -67,9 +67,9 @@ def downsample(original_data, original_rate, downsampled_rate):
     return downsampled_df
 
 
-downsampled_rate = 16
+downsampled_frequency = 16
 downsampled = downsample(
-    central_3_minutes, original_rate=256, downsampled_rate=downsampled_rate
+    central_3_minutes, original_rate=256, downsampled_rate=downsampled_frequency
 )
 
 # %%
@@ -102,29 +102,33 @@ def get_treatment_noisy_mask(treatment_df):
 
 
 noisy_mask = pd.DataFrame(False, index=downsampled.index, columns=downsampled.columns)
-for participant, participant_df in downsampled.groupby(axis=1, level="participant"):
-    breakpoint = 1
-    for treatment, treatment_df in participant_df.groupby(
-        axis=1, level="treatment_label"
-    ):
-        treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
-        noisy_mask[participant][treatment]["bvp"] = treatment_noisy_mask.values
+for idx, treatment_df in downsampled.groupby(
+    axis=1, level=["participant", "treatment_label"]
+):
+    treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
+    noisy_mask[idx]["bvp"] = treatment_noisy_mask.values
 
 
 # %%
 window_duration = 10
 step_duration = 1
-window_shape = window_duration * downsampled_rate
-step_shape = step_duration * downsampled_rate
+window_size = window_duration * downsampled_frequency
+step_size = step_duration * downsampled_frequency
 
-dummy_windows = sliding_window_view(
-    downsampled.iloc[:, 0], axis=0, window_shape=window_shape
-)[::step_shape]
-num_windows = len(dummy_windows)
-window_columns = [
-    f"{start*step_duration}sec_to_{start*step_duration+window_duration}sec"
-    for start in range(num_windows)
-]
+
+def get_window_columns():
+    dummy_windows = sliding_window_view(
+        downsampled.iloc[:, 0], axis=0, window_shape=window_size
+    )[::step_size]
+    num_windows = len(dummy_windows)
+    window_columns = [
+        f"{start*step_duration}sec_to_{start*step_duration+window_duration}sec"
+        for start in range(num_windows)
+    ]
+    return window_columns
+
+
+window_columns = get_window_columns()
 
 
 def get_windows_multiindex():
@@ -139,20 +143,25 @@ def get_windows_multiindex():
     return multiindex
 
 
-dummy_data = np.zeros((downsampled.shape[0], downsampled.shape[1] * num_windows))
-windows_df = pd.DataFrame(data=dummy_data, index=downsampled.index, columns=multiindex)
+multiindex = get_windows_multiindex()
 
+dummy_data = np.zeros((window_size, len(multiindex)))
+window_index = get_timedelta_index(
+    duration=window_duration, frequency=downsampled_frequency
+)
+windows_df = pd.DataFrame(data=dummy_data, index=window_index, columns=multiindex)
+windows_noisy_mask = windows_df.astype(bool)
 
 for index, dataframe in downsampled.groupby(
     axis=1, level=["participant", "treatment_label", "signal_name"]
 ):
     windows = sliding_window_view(
-        dataframe.squeeze(), axis=0, window_shape=window_shape
-    ).T
-    windows_df[index] = windows.values
+        dataframe.squeeze(), axis=0, window_shape=window_size
+    )[::step_size].T
+    windows_df.loc[:, index] = windows
     breakpoint = 1
 
-
+breakpoint = 1
 # %%
 # tests
 def get_correct_noisy_mask(
