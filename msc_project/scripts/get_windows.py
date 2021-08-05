@@ -142,16 +142,32 @@ def get_windowed_multiindex():
 windowed_multiindex = get_windowed_multiindex()
 
 
-def get_blank_windowed_df():
-    pass
+def get_blank_windowed_df(
+    window_size, window_duration, frequency, windowed_multiindex, dtype
+):
+    """
+    We will assign windows to this blank slate later.
+    :param window_size: frames
+    :param window_duration: seconds
+    :param frequency: Hz
+    :param windowed_multiindex:
+    :param dtype:
+    :return:
+    """
+    dummy_data = np.zeros((window_size, len(windowed_multiindex)))
+    window_index = get_timedelta_index(duration=window_duration, frequency=frequency)
+    windowed_df = pd.DataFrame(
+        data=dummy_data, index=window_index, columns=windowed_multiindex, dtype=dtype
+    )
+    return windowed_df
 
 
-dummy_data = np.zeros((window_size, len(windowed_multiindex)))
-window_index = get_timedelta_index(
-    duration=window_duration, frequency=downsampled_frequency
-)
-windowed_data = pd.DataFrame(
-    data=dummy_data, index=window_index, columns=windowed_multiindex
+windowed_data = get_blank_windowed_df(
+    window_size=window_size,
+    window_duration=window_duration,
+    frequency=downsampled_frequency,
+    windowed_multiindex=windowed_multiindex,
+    dtype="float64",
 )
 windowed_noisy_mask = windowed_data.astype(bool)
 
