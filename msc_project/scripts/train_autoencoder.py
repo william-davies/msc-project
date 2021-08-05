@@ -87,9 +87,21 @@ class DatasetPreparer:
         noisy_signals = signals[noisy_idxs]
 
         # tests
+        # no noisy span
         with unittest.TestCase().assertRaises(KeyError):
             noisy_signals.xs(("0720202421P1_608", "r1"), axis=1, level="participant")
 
+        # 1 noisy span
+        noisy_windows = noisy_signals.xs(
+            ("0725114340P3_608", "r3"), axis=1, level="participant"
+        ).columns.values
+        tuples = [
+            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(1, 13)],
+        ]
+        correct_noisy_windows = np.array(tuples, dtype="U3,U16")
+        np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
+
+        # 2 noisy spans
         noisy_windows = noisy_signals.xs(
             ("0725095437P2_608", "m2_hard"), axis=1, level="participant"
         ).columns.values
