@@ -142,8 +142,8 @@ def get_windowed_multiindex():
 windowed_multiindex = get_windowed_multiindex()
 
 
-def get_blank_windowed_df(
-    window_size, window_duration, frequency, windowed_multiindex, dtype
+def get_windowed_df(
+    non_windowed_data, window_size, window_duration, frequency, windowed_multiindex
 ):
     """
     We will assign windows to this blank slate later.
@@ -154,22 +154,31 @@ def get_blank_windowed_df(
     :param dtype:
     :return:
     """
-    dummy_data = np.zeros((window_size, len(windowed_multiindex)))
+    windowed_data = sliding_window_view(
+        non_windowed_data, axis=0, window_shape=window_size
+    )[::step_size].T
+    windowed_data = windowed_data.reshape(window_size, -1)
     window_index = get_timedelta_index(duration=window_duration, frequency=frequency)
     windowed_df = pd.DataFrame(
-        data=dummy_data, index=window_index, columns=windowed_multiindex, dtype=dtype
+        data=windowed_data, index=window_index, columns=windowed_multiindex
     )
     return windowed_df
 
 
-windowed_data = get_blank_windowed_df(
+windowed_data = get_windowed_df(
+    non_windowed_data=downsampled,
     window_size=window_size,
     window_duration=window_duration,
     frequency=downsampled_frequency,
     windowed_multiindex=windowed_multiindex,
-    dtype="float64",
 )
-windowed_noisy_mask = windowed_data.astype(bool)
+windowed_noisy_mask = get_windowed_df(
+    non_windowed_data=noisy_mask,
+    window_size=window_size,
+    window_duration=window_duration,
+    frequency=downsampled_frequency,
+    windowed_multiindex=windowed_multiindex,
+)
 
 
 def assign_windows(non_windowed_data, windowed_data):
@@ -189,10 +198,10 @@ def assign_windows(non_windowed_data, windowed_data):
     return windowed_data
 
 
-windowed_data = assign_windows(
+small_windowed_data = assign_windows(
     non_windowed_data=downsampled, windowed_data=windowed_data
 )
-windowed_noisy_mask = assign_windows(
+small_windowed_noisy_mask = assign_windows(
     non_windowed_data=noisy_mask, windowed_data=windowed_noisy_mask
 )
 breakpoint = 1
