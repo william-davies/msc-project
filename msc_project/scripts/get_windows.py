@@ -79,10 +79,6 @@ downsampled = downsample(
 # plt.show()
 
 # %%
-def get_window(treatment_series):
-    pass
-
-
 def get_treatment_noisy_mask(treatment_df):
     participant_dirname = treatment_df.columns.get_level_values("participant").values[0]
     participant_number = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
@@ -131,7 +127,7 @@ def get_window_columns():
 window_columns = get_window_columns()
 
 
-def get_windows_multiindex():
+def get_windowed_multiindex():
     tuples = []
     for signal_multiindex in downsampled.columns.values:
         signal_window_multiindexes = [
@@ -143,24 +139,46 @@ def get_windows_multiindex():
     return multiindex
 
 
-multiindex = get_windows_multiindex()
+windowed_multiindex = get_windowed_multiindex()
 
-dummy_data = np.zeros((window_size, len(multiindex)))
+
+def get_blank_windowed_df():
+    pass
+
+
+dummy_data = np.zeros((window_size, len(windowed_multiindex)))
 window_index = get_timedelta_index(
     duration=window_duration, frequency=downsampled_frequency
 )
-windows_df = pd.DataFrame(data=dummy_data, index=window_index, columns=multiindex)
-windows_noisy_mask = windows_df.astype(bool)
+windowed_data = pd.DataFrame(
+    data=dummy_data, index=window_index, columns=windowed_multiindex
+)
+windowed_noisy_mask = windowed_data.astype(bool)
 
-for index, dataframe in downsampled.groupby(
-    axis=1, level=["participant", "treatment_label", "signal_name"]
-):
-    windows = sliding_window_view(
-        dataframe.squeeze(), axis=0, window_shape=window_size
-    )[::step_size].T
-    windows_df.loc[:, index] = windows
-    breakpoint = 1
 
+def assign_windows(non_windowed_data, windowed_data):
+    """
+
+    :param non_windowed_data: MultiIndex['participant', 'treatment_label', 'signal_name']. For entire dataset
+    :param windowed_data: blank slate. MultiIndex['participant', 'treatment_label', 'signal_name', 'window']
+    :return: window_data: MultiIndex['participant', 'treatment_label', 'signal_name', 'window']
+    """
+    for index, signal in non_windowed_data.groupby(
+        axis=1, level=["participant", "treatment_label", "signal_name"]
+    ):
+        windows = sliding_window_view(
+            signal.squeeze(), axis=0, window_shape=window_size
+        )[::step_size].T
+        windowed_data.loc[:, index] = windows
+    return windowed_data
+
+
+windowed_data = assign_windows(
+    non_windowed_data=downsampled, windowed_data=windowed_data
+)
+windowed_noisy_mask = assign_windows(
+    non_windowed_data=noisy_mask, windowed_data=windowed_noisy_mask
+)
 breakpoint = 1
 # %%
 # tests
