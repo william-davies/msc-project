@@ -99,10 +99,10 @@ def get_treatment_noisy_mask(treatment_df):
 
 noisy_mask = pd.DataFrame(False, index=downsampled.index, columns=downsampled.columns)
 for idx, treatment_df in downsampled.groupby(
-    axis=1, level=["participant", "treatment_label"]
+    axis=1, level=["participant", "treatment_label", "signal_name"]
 ):
     treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
-    noisy_mask[idx]["bvp"] = treatment_noisy_mask.values
+    noisy_mask.loc[:, idx] = treatment_noisy_mask.values
 
 
 # %%
