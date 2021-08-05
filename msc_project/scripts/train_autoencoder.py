@@ -41,6 +41,7 @@ class DatasetPreparer:
             "windowed_data.pkl",
         )
         signals = pd.read_pickle(signals_fp)
+        signals = self.normalize_windows(signals)
         clean_signals, noisy_signals = self.split_into_clean_and_noisy(signals=signals)
 
         validation_participants = self.get_validation_participants()
@@ -50,6 +51,17 @@ class DatasetPreparer:
         )
 
         return train_signals, val_signals, noisy_signals
+
+    def normalize_windows(self, signals):
+        """
+        Normalize each window.
+        :param signals:
+        :return:
+        """
+        min_vals = signals.min(axis=0)
+        max_vals = signals.max(axis=0)
+        normalized = (signals - min_vals) / (max_vals - min_vals)
+        return normalized
 
     def get_validation_participants(self):
         """
