@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sys
+import unittest
 from typing import List, Tuple
 
 import matplotlib.pyplot as plt
@@ -47,6 +48,7 @@ class DatasetPreparer:
         train_signals, val_signals = self.split_into_train_and_val(
             clean_signals, validation_participants
         )
+
         return train_signals, val_signals, noisy_signals
 
     def get_validation_participants(self):
@@ -83,6 +85,21 @@ class DatasetPreparer:
 
         clean_signals = signals[clean_idxs]
         noisy_signals = signals[noisy_idxs]
+
+        # tests
+        with unittest.TestCase().assertRaises(KeyError):
+            noisy_signals.xs(("0720202421P1_608", "r1"), axis=1, level="participant")
+
+        noisy_windows = noisy_signals.xs(
+            ("0725095437P2_608", "m2_hard"), axis=1, level="participant"
+        ).columns.values
+        tuples = [
+            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(29, 40)],
+            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(120, 131)],
+        ]
+        correct_noisy_windows = np.array(tuples, dtype="U3,U16")
+        np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
+
         return clean_signals, noisy_signals
 
     def split_into_train_and_val(
@@ -211,13 +228,14 @@ if __name__ == "__main__":
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
-    autoencoder, history = train_autoencoder(
-        resume=True,
-        train_signals=train_signals,
-        val_signals=val_signals,
-        run_id="8doiurqf",
-        epoch=12999 - 12627,
-    )
     # autoencoder, history = train_autoencoder(
-    #     resume=False, train_signals=train_signals, val_signals=val_signals
+    #     resume=True,
+    #     train_signals=train_signals,
+    #     val_signals=val_signals,
+    #     run_id="8doiurqf",
+    #     epoch=12999 - 12627,
+    # )
+
+    # autoencoder, history = train_autoencoder(
+    #     resume=False, train_signals=train_signals.T, val_signals=val_signals.T, epoch=10
     # )
