@@ -2,6 +2,7 @@ import json
 import os
 import re
 import sys
+from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -39,34 +40,29 @@ class DatasetPreparer:
             "windowed_data.pkl",
         )
         signals = pd.read_pickle(signals_fp)
-        clean_signals, noisy_signals = self.filter_noisy_signals(signals=signals)
+        clean_signals, noisy_signals = self.split_into_clean_and_noisy(signals=signals)
 
         validation_participants = self.get_validation_participants()
 
-        train_columns, val_columns = self.get_train_val_columns(
+        train_signals, val_signals = self.split_into_train_and_val(
             clean_signals, validation_participants
         )
-
-        train_signals = clean_signals.filter(items=train_columns).T
-        val_signals = clean_signals.filter(items=val_columns).T
-
-        return train_signals, val_signals, noisy_signals.T
+        return train_signals, val_signals, noisy_signals
 
     def get_validation_participants(self):
         """
 
-        :return: int[]: validation participant numbers
+        :return: validation participant dirnames
         """
         random_state = np.random.RandomState(42)
         NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
         validation_size = round(NUM_PARTICIPANTS * 0.3)
         validation_participants = random_state.choice(
-            a=PARTICIPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
+            a=PARTICIPANT_DIRNAMES_WITH_EXCEL, size=validation_size, replace=False
         )
-        validation_participants = set(validation_participants)
         return validation_participants
 
-    def filter_noisy_signals(self, signals):
+    def split_into_clean_and_noisy(self, signals):
         """
         Split signals into 2 DataFrame. 1 is clean signals. 1 is noisy (as determined by self.noisy_tolerance) signals.
         :return:
@@ -89,25 +85,18 @@ class DatasetPreparer:
         noisy_signals = signals[noisy_idxs]
         return clean_signals, noisy_signals
 
-    def get_train_val_columns(self, signals, validation_participants):
+    def split_into_train_and_val(
+        self, signals: pd.DataFrame, validation_participants
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """
-        Get DataFrame columns that correspond to participants in training set and validation set.
-        :param signals: pd.DataFrame:
+        Split signals into train and val.
+        :param signals:
+        :param validation_participants:
         :return:
         """
-        participant_number_pattern = re.compile("^P(\d{1,2})_")
-
-        train_columns = []
-        val_columns = []
-        for participant_column in signals.columns:
-            participant_number = participant_number_pattern.match(
-                participant_column
-            ).group(1)
-            if participant_number in validation_participants:
-                val_columns.append(participant_column)
-            else:
-                train_columns.append(participant_column)
-        return train_columns, val_columns
+        train = signals.drop(columns=validation_participants, level="participant")
+        val = signals[validation_participants]
+        return train, val
 
 
 # %%
