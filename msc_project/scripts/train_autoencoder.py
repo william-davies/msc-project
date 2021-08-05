@@ -9,7 +9,7 @@ import wandb
 
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICPANT_NUMBERS_WITH_EXCEL,
+    PARTICIPANT_NUMBERS_WITH_EXCEL,
     BASE_DIR,
 )
 from msc_project.models.denoising_autoencoder import create_autoencoder
@@ -18,6 +18,7 @@ from utils import read_dataset_csv
 from wandb.keras import WandbCallback
 
 import tensorflow as tf
+import pandas as pd
 
 # %%
 class DatasetPreparer:
@@ -34,11 +35,10 @@ class DatasetPreparer:
             BASE_DIR,
             "data",
             "Stress Dataset",
-            "preprocessed_data",
-            self.data_dirname,
-            "signal.csv",
+            "dataframes",
+            "windowed_data.pkl",
         )
-        signals = read_dataset_csv(signals_fp)
+        signals = pd.read_pickle(signals_fp)
         clean_signals, noisy_signals = self.filter_noisy_signals(signals=signals)
 
         validation_participants = self.get_validation_participants()
@@ -47,8 +47,8 @@ class DatasetPreparer:
             clean_signals, validation_participants
         )
 
-        train_signals = signals.filter(items=train_columns).T
-        val_signals = signals.filter(items=val_columns).T
+        train_signals = clean_signals.filter(items=train_columns).T
+        val_signals = clean_signals.filter(items=val_columns).T
 
         return train_signals, val_signals, noisy_signals.T
 
@@ -61,7 +61,7 @@ class DatasetPreparer:
         NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
         validation_size = round(NUM_PARTICIPANTS * 0.3)
         validation_participants = random_state.choice(
-            a=PARTICPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
+            a=PARTICIPANT_NUMBERS_WITH_EXCEL, size=validation_size, replace=False
         )
         validation_participants = set(validation_participants)
         return validation_participants
@@ -71,29 +71,22 @@ class DatasetPreparer:
         Split signals into 2 DataFrame. 1 is clean signals. 1 is noisy (as determined by self.noisy_tolerance) signals.
         :return:
         """
+        noisy_mask_fp = os.path.join(
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            "dataframes",
+            "windowed_noisy_mask.pkl",
+        )
+        noisy_mask = pd.read_pickle(noisy_mask_fp)
+        noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
 
-        def filter_noisy_signal_keys():
-            noisy_frame_proportions_fp = os.path.join(
-                self.data_dirname, "noisy_frame_proportions.json"
-            )
-            with open(noisy_frame_proportions_fp, "r") as fp:
-                noisy_frame_proportions = json.load(fp)
+        is_clean = noisy_proportions <= self.noisy_tolerance
+        clean_idxs = is_clean.index[is_clean]
+        noisy_idxs = is_clean.index[~is_clean]
 
-            clean_keys = []
-            noisy_keys = []
-
-            for key, noisy_proportion in noisy_frame_proportions.items():
-                if noisy_proportion <= self.noisy_tolerance:
-                    clean_keys.append(key)
-                else:
-                    noisy_keys.append(key)
-
-            return clean_keys, noisy_keys
-
-        clean_columns, noisy_columns = filter_noisy_signal_keys()
-        clean_signals = signals.filter(clean_columns)
-        noisy_signals = signals.filter(noisy_columns)
-
+        clean_signals = signals[clean_idxs]
+        noisy_signals = signals[noisy_idxs]
         return clean_signals, noisy_signals
 
     def get_train_val_columns(self, signals, validation_participants):
@@ -179,7 +172,7 @@ def train_autoencoder(
             id=run_id,
             project=project_name,
             resume="must",
-            config={**base_config, "epoch": wandb_summary["epoch"] + epoch},
+            config={**base_config, "epoch": 12627 + epoch},
             force=True,
             allow_val_change=True,
         )
@@ -234,7 +227,7 @@ if __name__ == "__main__":
         train_signals=train_signals,
         val_signals=val_signals,
         run_id="8doiurqf",
-        epoch=10000,
+        epoch=12999 - 12627,
     )
     # autoencoder, history = train_autoencoder(
     #     resume=False, train_signals=train_signals, val_signals=val_signals
