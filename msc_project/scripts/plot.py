@@ -35,16 +35,6 @@ def get_freq(index):
     return Hz
 
 
-def normalize_noisy_spans(noisy_spans, time_range_start):
-    normalized_spans = []
-    for span in noisy_spans:
-        normalized_span = copy.copy(span)
-        normalized_span.start -= time_range_start
-        normalized_span.end -= time_range_start
-        normalized_spans.append(normalized_span)
-    return normalized_spans
-
-
 class PhysiologicalTimeseriesPlotter:
     spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
 
@@ -90,9 +80,6 @@ class PhysiologicalTimeseriesPlotter:
                 noisy_spans = self.get_noisy_spans(
                     participant_number=participant_number,
                     treatment_position=treatment_label[:2],
-                )
-                noisy_spans = normalize_noisy_spans(
-                    noisy_spans, time_range_start=self.temporal_subwindow_params[0]
                 )
 
                 self.build_single_timeseries_figure(
@@ -147,9 +134,7 @@ class PhysiologicalTimeseriesPlotter:
         # plt.xticks(np.arange(0, 300, 1))
         signal_timeseries = self.get_time_range_signal(signal_timeseries)
         plt.plot(signal_timeseries.index.total_seconds(), signal_timeseries)
-        plt.xlim(
-            0, self.temporal_subwindow_params[1] - self.temporal_subwindow_params[0]
-        )
+        plt.xlim(self.temporal_subwindow_params[0], self.temporal_subwindow_params[1])
         self.plot_noisy_spans(noisy_spans)
 
     def get_time_range_signal(self, signal_timeseries):
@@ -201,12 +186,12 @@ plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 # ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[1:2]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[0:1]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatment_labels=["m2_hard"],
+        treatment_labels=["m2_easy"],
         save=False,
         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
         # temporal_subwindow_params=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
