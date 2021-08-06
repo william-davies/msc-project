@@ -38,7 +38,7 @@ def get_temporal_subwindow_of_signal(df, window_start, window_end):
         value=1, unit="ns"
     )  # timedelta precision is truncated to nanosecond
     central = df[start : end - eps]
-    central.index = central.index - start
+    # central.index = central.index - start
     return central
 
 
@@ -93,14 +93,21 @@ def get_treatment_noisy_mask(treatment_df):
 # %%
 
 
-def get_window_columns():
+def get_window_columns(offset, step_duration):
+    """
+
+    :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes.
+    :param step_duration: seconds
+    :return:
+    """
     dummy_windows = sliding_window_view(
         downsampled.iloc[:, 0], axis=0, window_shape=window_size
     )[::step_size]
     num_windows = len(dummy_windows)
+    final_window_end = offset + num_windows * step_duration
+    window_starts = np.arange(offset, final_window_end, step_duration)
     window_columns = [
-        f"{start*step_duration}sec_to_{start*step_duration+window_duration}sec"
-        for start in range(num_windows)
+        f"{start}sec_to_{start+window_duration}sec" for start in window_starts
     ]
     return window_columns
 
@@ -137,7 +144,9 @@ def get_windowed_df(
         non_windowed_data, axis=0, window_shape=window_size
     )[::step_size]
     windowed_data = windowed_data.reshape((window_size, -1), order="C")
-    window_index = get_timedelta_index(duration=window_duration, frequency=frequency)
+    window_index = get_timedelta_index(
+        start_time=0, end_time=window_duration, frequency=frequency
+    )
     windowed_df = pd.DataFrame(
         data=windowed_data, index=window_index, columns=windowed_multiindex
     )
@@ -162,7 +171,9 @@ def get_correct_noisy_mask(
     :param duration:
     :return:
     """
-    index = get_timedelta_index(duration=duration, frequency=downsampled_frequency)
+    index = get_timedelta_index(
+        start_time=0, end_time=5 * SECONDS_IN_MINUTE, frequency=downsampled_frequency
+    )
     correct_noisy_mask = pd.Series(False, index=index, dtype=bool)
 
     span_idxs = [
@@ -206,7 +217,9 @@ if __name__ == "__main__":
     window_size = window_duration * downsampled_frequency
     step_size = step_duration * downsampled_frequency
 
-    window_columns = get_window_columns()
+    window_columns = get_window_columns(
+        offset=downsampled.index[0].total_seconds(), step_duration=step_duration
+    )
 
     windowed_multiindex = get_windowed_multiindex()
 
@@ -225,8 +238,9 @@ if __name__ == "__main__":
         windowed_multiindex=windowed_multiindex,
     )
 
-    signal = "bvp"
+    #### TESTING ####
 
+    signal = "bvp"
     participant = "0720202421P1_608"
     treatment = "m2_easy"
     correct = get_correct_noisy_mask(
