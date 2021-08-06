@@ -14,6 +14,7 @@ from msc_project.constants import (
     PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_NUMBER_GROUP_IDX,
     TREATMENT_LABEL_PATTERN,
+    BASE_DIR,
 )
 from msc_project.scripts.get_all_participants_df import get_timedelta_index
 from msc_project.scripts.preprocess_data import downsample
@@ -33,15 +34,6 @@ def get_central_3_minutes(df):
     return central
 
 
-all_participants_df = pd.read_pickle(
-    os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
-)
-central_3_minutes = get_central_3_minutes(all_participants_df)
-central_3_minutes = central_3_minutes.drop(
-    columns=["resp", "frames"], level="signal_name"
-)
-
-
 def downsample(original_data, original_rate, downsampled_rate):
     """
     Downsample signal.
@@ -51,9 +43,7 @@ def downsample(original_data, original_rate, downsampled_rate):
     :param downsampled_rate: scalar: Hz
     :return: pd.DataFrame:
     """
-    # num = 2880
     num = len(original_data) * downsampled_rate / original_rate
-    # num = num + 1
     assert num.is_integer()
     num = int(num)
 
@@ -66,11 +56,6 @@ def downsample(original_data, original_rate, downsampled_rate):
     )
     return downsampled_df
 
-
-downsampled_frequency = 16
-downsampled = downsample(
-    central_3_minutes, original_rate=256, downsampled_rate=downsampled_frequency
-)
 
 # %%
 # plt.plot(central_3_minutes.iloc[:, 0], label="original")
@@ -97,19 +82,7 @@ def get_treatment_noisy_mask(treatment_df):
     return noisy_mask
 
 
-noisy_mask = pd.DataFrame(False, index=downsampled.index, columns=downsampled.columns)
-for idx, treatment_df in downsampled.groupby(
-    axis=1, level=["participant", "treatment_label", "signal_name"]
-):
-    treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
-    noisy_mask.loc[:, idx] = treatment_noisy_mask.values
-
-
 # %%
-window_duration = 10
-step_duration = 1
-window_size = window_duration * downsampled_frequency
-step_size = step_duration * downsampled_frequency
 
 
 def get_window_columns():
@@ -124,9 +97,6 @@ def get_window_columns():
     return window_columns
 
 
-window_columns = get_window_columns()
-
-
 def get_windowed_multiindex():
     tuples = []
     for signal_multiindex in downsampled.columns.values:
@@ -139,25 +109,26 @@ def get_windowed_multiindex():
     return multiindex
 
 
-windowed_multiindex = get_windowed_multiindex()
-
-
 def get_windowed_df(
-    non_windowed_data, window_size, window_duration, frequency, windowed_multiindex
-):
+    non_windowed_data: pd.DataFrame,
+    window_size: int,
+    window_duration,
+    frequency,
+    windowed_multiindex,
+) -> pd.DataFrame:
     """
-    We will assign windows to this blank slate later.
+
+    :param non_windowed_data: names=['participant', 'treatment_label', 'signal_name']
     :param window_size: frames
     :param window_duration: seconds
     :param frequency: Hz
     :param windowed_multiindex:
-    :param dtype:
-    :return:
+    :return: names=['participant', 'treatment_label', 'signal_name', 'window]
     """
     windowed_data = sliding_window_view(
         non_windowed_data, axis=0, window_shape=window_size
-    )[::step_size].T
-    windowed_data = windowed_data.reshape(window_size, -1)
+    )[::step_size]
+    windowed_data = windowed_data.reshape((window_size, -1), order="C")
     window_index = get_timedelta_index(duration=window_duration, frequency=frequency)
     windowed_df = pd.DataFrame(
         data=windowed_data, index=window_index, columns=windowed_multiindex
@@ -165,46 +136,12 @@ def get_windowed_df(
     return windowed_df
 
 
-windowed_data = get_windowed_df(
-    non_windowed_data=downsampled,
-    window_size=window_size,
-    window_duration=window_duration,
-    frequency=downsampled_frequency,
-    windowed_multiindex=windowed_multiindex,
-)
-windowed_noisy_mask = get_windowed_df(
-    non_windowed_data=noisy_mask,
-    window_size=window_size,
-    window_duration=window_duration,
-    frequency=downsampled_frequency,
-    windowed_multiindex=windowed_multiindex,
-)
-
-
-def assign_windows(non_windowed_data, windowed_data):
-    """
-
-    :param non_windowed_data: MultiIndex['participant', 'treatment_label', 'signal_name']. For entire dataset
-    :param windowed_data: blank slate. MultiIndex['participant', 'treatment_label', 'signal_name', 'window']
-    :return: window_data: MultiIndex['participant', 'treatment_label', 'signal_name', 'window']
-    """
-    for index, signal in non_windowed_data.groupby(
-        axis=1, level=["participant", "treatment_label", "signal_name"]
-    ):
-        windows = sliding_window_view(
-            signal.squeeze(), axis=0, window_shape=window_size
-        )[::step_size].T
-        windowed_data.loc[:, index] = windows
-    return windowed_data
-
-
-small_windowed_data = assign_windows(
-    non_windowed_data=downsampled, windowed_data=windowed_data
-)
-small_windowed_noisy_mask = assign_windows(
-    non_windowed_data=noisy_mask, windowed_data=windowed_noisy_mask
-)
 breakpoint = 1
+
+# %%
+# windowed_data.to_pickle(os.path.join(BASE_DIR, 'data', 'Stress Dataset', 'dataframes', 'windowed_data.pkl'))
+# windowed_noisy_mask.to_pickle(os.path.join(BASE_DIR, 'data', 'Stress Dataset', 'dataframes', 'windowed_noisy_mask.pkl'))
+
 # %%
 # tests
 def get_correct_noisy_mask(
@@ -229,28 +166,77 @@ def get_correct_noisy_mask(
     return correct_noisy_mask
 
 
-signal = "bvp"
+if __name__ == "__main__":
+    all_participants_df = pd.read_pickle(
+        os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
+    )
+    central_3_minutes = get_central_3_minutes(all_participants_df)
+    central_3_minutes = central_3_minutes.drop(
+        columns=["resp", "frames"], level="signal_name"
+    )
 
-participant = "0720202421P1_608"
-treatment = "m2_easy"
-correct = get_correct_noisy_mask(downsampled_frequency=16, noisy_spans=[], duration=180)
-mask = noisy_mask[participant][treatment][signal]
-pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+    downsampled_frequency = 16
+    downsampled = downsample(
+        central_3_minutes, original_rate=256, downsampled_rate=downsampled_frequency
+    )
 
-participant = "0725114340P3_608"
-treatment = "r3"
-correct = get_correct_noisy_mask(
-    downsampled_frequency=16, noisy_spans=[(10.5, 12)], duration=180
-)
-mask = noisy_mask[participant][treatment][signal]
-pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+    noisy_mask = pd.DataFrame(
+        False, index=downsampled.index, columns=downsampled.columns
+    )
+    for idx, treatment_df in downsampled.groupby(
+        axis=1, level=["participant", "treatment_label", "signal_name"]
+    ):
+        treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
+        noisy_mask.loc[:, idx] = treatment_noisy_mask.values
 
-participant = "0727120212P10_lamp"
-treatment = "r5"
-correct = get_correct_noisy_mask(
-    downsampled_frequency=16,
-    noisy_spans=[(0, 2), (225, 226), (253, 255.5)],
-    duration=180,
-)
-mask = noisy_mask[participant][treatment][signal]
-pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+    window_duration = 10
+    step_duration = 1
+    window_size = window_duration * downsampled_frequency
+    step_size = step_duration * downsampled_frequency
+
+    window_columns = get_window_columns()
+
+    windowed_multiindex = get_windowed_multiindex()
+
+    windowed_data = get_windowed_df(
+        non_windowed_data=downsampled,
+        window_size=window_size,
+        window_duration=window_duration,
+        frequency=downsampled_frequency,
+        windowed_multiindex=windowed_multiindex,
+    )
+    windowed_noisy_mask = get_windowed_df(
+        non_windowed_data=noisy_mask,
+        window_size=window_size,
+        window_duration=window_duration,
+        frequency=downsampled_frequency,
+        windowed_multiindex=windowed_multiindex,
+    )
+
+    signal = "bvp"
+
+    participant = "0720202421P1_608"
+    treatment = "m2_easy"
+    correct = get_correct_noisy_mask(
+        downsampled_frequency=16, noisy_spans=[], duration=180
+    )
+    mask = noisy_mask[participant][treatment][signal]
+    pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+    participant = "0725114340P3_608"
+    treatment = "r3"
+    correct = get_correct_noisy_mask(
+        downsampled_frequency=16, noisy_spans=[(10.5, 12)], duration=180
+    )
+    mask = noisy_mask[participant][treatment][signal]
+    pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+    participant = "0727120212P10_lamp"
+    treatment = "r5"
+    correct = get_correct_noisy_mask(
+        downsampled_frequency=16,
+        noisy_spans=[(0, 2), (225, 226), (253, 255.5)],
+        duration=180,
+    )
+    mask = noisy_mask[participant][treatment][signal]
+    pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
