@@ -19,7 +19,7 @@ from msc_project.constants import (
 from matplotlib.ticker import MultipleLocator
 
 # %%
-from msc_project.scripts.get_windows import get_central_3_minutes
+from msc_project.scripts.get_windows import get_temporal_subwindow_of_signal
 from utils import get_final_recorded_idx, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
@@ -55,7 +55,7 @@ class PhysiologicalTimeseriesPlotter:
         signals,
         treatment_labels,
         save,
-        time_range,
+        temporal_subwindow_params,
     ):
         """
         Plot graphs of {signals} vs time for each {treatments} of a single participant.
@@ -67,7 +67,7 @@ class PhysiologicalTimeseriesPlotter:
         :param save: bool:
         :return:
         """
-        self.time_range = time_range
+        self.temporal_subwindow_params = temporal_subwindow_params
         participant_info_match = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname)
         (
             participant_id,
@@ -92,7 +92,7 @@ class PhysiologicalTimeseriesPlotter:
                     treatment_position=treatment_label[:2],
                 )
                 noisy_spans = normalize_noisy_spans(
-                    noisy_spans, time_range_start=self.time_range[0]
+                    noisy_spans, time_range_start=self.temporal_subwindow_params[0]
                 )
 
                 self.build_single_timeseries_figure(
@@ -147,15 +147,21 @@ class PhysiologicalTimeseriesPlotter:
         # plt.xticks(np.arange(0, 300, 1))
         signal_timeseries = self.get_time_range_signal(signal_timeseries)
         plt.plot(signal_timeseries.index.total_seconds(), signal_timeseries)
+        plt.xlim(
+            0, self.temporal_subwindow_params[1] - self.temporal_subwindow_params[0]
+        )
         self.plot_noisy_spans(noisy_spans)
 
     def get_time_range_signal(self, signal_timeseries):
         """
-        Atm only works for central 3 minutes.
         :param signal_timeseries:
         :return:
         """
-        return get_central_3_minutes(signal_timeseries)
+        return get_temporal_subwindow_of_signal(
+            signal_timeseries,
+            window_start=self.temporal_subwindow_params[0],
+            window_end=self.temporal_subwindow_params[1],
+        )
 
     def plot_noisy_spans(self, noisy_spans):
         for span in noisy_spans:
@@ -202,8 +208,8 @@ for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[1:2]:
         signals=["bvp"],
         treatment_labels=["m2_hard"],
         save=False,
-        # time_range=[1*SECONDS_IN_MINUTE, 4*SECONDS_IN_MINUTE],
-        time_range=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
+        temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+        # temporal_subwindow_params=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
     )
 
 # %%

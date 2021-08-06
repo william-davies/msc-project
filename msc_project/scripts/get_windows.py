@@ -15,6 +15,7 @@ from msc_project.constants import (
     PARTICIPANT_NUMBER_GROUP_IDX,
     TREATMENT_LABEL_PATTERN,
     BASE_DIR,
+    SECONDS_IN_MINUTE,
 )
 from msc_project.scripts.get_all_participants_df import get_timedelta_index
 from msc_project.scripts.preprocess_data import downsample
@@ -23,9 +24,16 @@ from msc_project.scripts.utils import get_noisy_spans
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
 
 
-def get_central_3_minutes(df):
-    start = pd.Timedelta(value=1, unit="minute")
-    end = pd.Timedelta(value=4, unit="minute")
+def get_temporal_subwindow_of_signal(df, window_start, window_end):
+    """
+
+    :param df:
+    :param window_start: seconds
+    :param window_end: seconds
+    :return:
+    """
+    start = pd.Timedelta(value=window_start, unit="second")
+    end = pd.Timedelta(value=window_end, unit="second")
     eps = pd.Timedelta(
         value=1, unit="ns"
     )  # timedelta precision is truncated to nanosecond
@@ -170,7 +178,11 @@ if __name__ == "__main__":
     all_participants_df = pd.read_pickle(
         os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
     )
-    central_3_minutes = get_central_3_minutes(all_participants_df)
+    central_3_minutes = get_temporal_subwindow_of_signal(
+        all_participants_df,
+        window_start=1 * SECONDS_IN_MINUTE,
+        window_end=4 * SECONDS_IN_MINUTE,
+    )
     central_3_minutes = central_3_minutes.drop(
         columns=["resp", "frames"], level="signal_name"
     )
