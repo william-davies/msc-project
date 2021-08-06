@@ -143,7 +143,8 @@ def get_windowed_df(
     windowed_data = sliding_window_view(
         non_windowed_data, axis=0, window_shape=window_size
     )[::step_size]
-    windowed_data = windowed_data.reshape((window_size, -1), order="C")
+    windowed_data = np.transpose(windowed_data, (2, 0, 1))
+    windowed_data = windowed_data.reshape((window_size, -1), order="F")
     window_index = get_timedelta_index(
         start_time=0, end_time=window_duration, frequency=frequency
     )
@@ -162,7 +163,10 @@ breakpoint = 1
 # %%
 # tests
 def get_correct_noisy_mask(
-    downsampled_frequency: int, noisy_spans: List[tuple], duration: float
+    downsampled_frequency: int,
+    noisy_spans: List[tuple],
+    start_time: float = 1 * SECONDS_IN_MINUTE,
+    end_time: float = 4 * SECONDS_IN_MINUTE,
 ):
     """
 
@@ -172,16 +176,25 @@ def get_correct_noisy_mask(
     :return:
     """
     index = get_timedelta_index(
-        start_time=0, end_time=5 * SECONDS_IN_MINUTE, frequency=downsampled_frequency
+        start_time=start_time, end_time=end_time, frequency=downsampled_frequency
     )
     correct_noisy_mask = pd.Series(False, index=index, dtype=bool)
 
+    offset_normalized_spans = [
+        (span[0] - start_time, span[1] - start_time) for span in noisy_spans
+    ]
+
     span_idxs = [
         (int(span[0] * downsampled_frequency), int(span[1] * downsampled_frequency))
-        for span in noisy_spans
+        for span in offset_normalized_spans
     ]
     for span_idx in span_idxs:
-        correct_noisy_mask[span_idx[0] : span_idx[1] + 1] = True
+        if (
+            span_idx[0] >= 0
+            and span_idx[1] >= 0
+            and span_idx[0] < len(correct_noisy_mask)
+        ):
+            correct_noisy_mask[span_idx[0] : span_idx[1] + 1] = True
     return correct_noisy_mask
 
 
@@ -240,29 +253,180 @@ if __name__ == "__main__":
 
     #### TESTING ####
 
+    # all clean
     signal = "bvp"
     participant = "0720202421P1_608"
     treatment = "m2_easy"
     correct = get_correct_noisy_mask(
-        downsampled_frequency=16, noisy_spans=[], duration=180
+        downsampled_frequency=16,
+        noisy_spans=[],
     )
     mask = noisy_mask[participant][treatment][signal]
     pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
 
+    # 1 span before central 3 minutes
     participant = "0725114340P3_608"
     treatment = "r3"
     correct = get_correct_noisy_mask(
-        downsampled_frequency=16, noisy_spans=[(10.5, 12)], duration=180
+        downsampled_frequency=16,
+        noisy_spans=[(10.5, 12)],
     )
     mask = noisy_mask[participant][treatment][signal]
     pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
 
+    # 1 span entirely during central 3 minutes
+    participant = "0725135216P4_608"
+    treatment = "r1"
+    correct = get_correct_noisy_mask(
+        downsampled_frequency=16,
+        noisy_spans=[(200, 207)],
+    )
+    mask = noisy_mask[participant][treatment][signal]
+    pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+    # 1 span before central 3 minutes, 1 span entirely during central 3 minutes, 1 span after central 3 minutes
     participant = "0727120212P10_lamp"
     treatment = "r5"
     correct = get_correct_noisy_mask(
         downsampled_frequency=16,
         noisy_spans=[(0, 2), (225, 226), (253, 255.5)],
-        duration=180,
     )
     mask = noisy_mask[participant][treatment][signal]
     pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+    # only spans after central 3 minutes
+    participant = "0726174523P8_609"
+    treatment = "r3"
+    correct = get_correct_noisy_mask(
+        downsampled_frequency=16,
+        noisy_spans=[(252, 254), (256.5, 257)],
+    )
+    mask = noisy_mask[participant][treatment][signal]
+    pd.testing.assert_series_equal(correct, mask, check_index=True, check_names=False)
+
+    # %%
+    signal_name = "bvp"
+
+    # window at start of treatment
+    participant_dirname = "0720202421P1_608"
+    treatment_label = "m2_easy"
+
+    window_start = float(60)
+    window_end = float(70)
+    window = windowed_data[participant_dirname][treatment_label][signal_name][
+        f"{window_start}sec_to_{window_end}sec"
+    ]
+    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+        signal_name
+    ]
+    correct_window = full_treatment_signal.iloc[
+        int((window_start - SECONDS_IN_MINUTE) * 16) : int(
+            (window_end - SECONDS_IN_MINUTE) * 16
+        )
+    ]
+
+    plt.figure()
+    plt.title("from windowed")
+    plt.plot(window.index.total_seconds(), window)
+    plt.show()
+    plt.figure()
+    plt.title("correct")
+    plt.plot(correct_window.index.total_seconds(), correct_window)
+    plt.show()
+
+    pd.testing.assert_series_equal(
+        correct_window, window, check_index=False, check_names=False
+    )
+
+    # window in middle of treatment
+    participant_dirname = "0725095437P2_608"
+    treatment_label = "r3"
+
+    window_start = float(152)
+    window_end = float(162)
+
+    window = windowed_data[participant_dirname][treatment_label][signal_name][
+        f"{window_start}sec_to_{window_end}sec"
+    ]
+    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+        signal_name
+    ]
+    correct_window = full_treatment_signal.iloc[
+        int((window_start - SECONDS_IN_MINUTE) * 16) : int(
+            (window_end - SECONDS_IN_MINUTE) * 16
+        )
+    ]
+
+    plt.figure()
+    plt.title("from windowed")
+    plt.plot(window.index.total_seconds(), window)
+    plt.show()
+    plt.figure()
+    plt.title("correct")
+    plt.plot(correct_window.index.total_seconds(), correct_window)
+    plt.show()
+
+    pd.testing.assert_series_equal(
+        correct_window, window, check_index=False, check_names=False
+    )
+
+    # window in middle of treatment
+    participant_dirname = "0729165929P16_natural"
+    treatment_label = "m2_hard"
+    window_start = float(200)
+    window_end = float(210)
+    window = windowed_data[participant_dirname][treatment_label][signal_name][
+        f"{window_start}sec_to_{window_end}sec"
+    ]
+    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+        signal_name
+    ]
+    correct_window = full_treatment_signal.iloc[
+        int((window_start - SECONDS_IN_MINUTE) * 16) : int(
+            (window_end - SECONDS_IN_MINUTE) * 16
+        )
+    ]
+
+    plt.figure()
+    plt.title("from windowed")
+    plt.plot(window.index.total_seconds(), window)
+    plt.show()
+    plt.figure()
+    plt.title("correct")
+    plt.plot(correct_window.index.total_seconds(), correct_window)
+    plt.show()
+
+    pd.testing.assert_series_equal(
+        correct_window, window, check_index=False, check_names=False
+    )
+
+    # window at end of treatment
+    participant_dirname = "0802184155P23_natural"
+    treatment_label = "r5"
+
+    window_start = float(230)
+    window_end = float(240)
+    window = windowed_data[participant_dirname][treatment_label][signal_name][
+        f"{window_start}sec_to_{window_end}sec"
+    ]
+    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+        signal_name
+    ]
+    correct_window = full_treatment_signal.iloc[
+        int((window_start - SECONDS_IN_MINUTE) * 16) : int(
+            (window_end - SECONDS_IN_MINUTE) * 16
+        )
+    ]
+
+    plt.figure()
+    plt.title("from windowed")
+    plt.plot(window.index.total_seconds(), window)
+    plt.show()
+    plt.figure()
+    plt.title("correct")
+    plt.plot(correct_window.index.total_seconds(), correct_window)
+    plt.show()
+
+    pd.testing.assert_series_equal(
+        correct_window, window, check_index=False, check_names=False
+    )
