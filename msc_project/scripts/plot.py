@@ -1,3 +1,4 @@
+import copy
 import os
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,10 +14,12 @@ from msc_project.constants import (
     RECORDED_SIGNAL_ID_PATTERN,
     RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX,
     BASE_DIR,
+    SECONDS_IN_MINUTE,
 )
 from matplotlib.ticker import MultipleLocator
 
 # %%
+from msc_project.scripts.get_windows import get_central_3_minutes
 from utils import get_final_recorded_idx, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
@@ -32,11 +35,27 @@ def get_freq(index):
     return Hz
 
 
+def normalize_noisy_spans(noisy_spans, time_range_start):
+    normalized_spans = []
+    for span in noisy_spans:
+        normalized_span = copy.copy(span)
+        normalized_span.start -= time_range_start
+        normalized_span.end -= time_range_start
+        normalized_spans.append(normalized_span)
+    return normalized_spans
+
+
 class PhysiologicalTimeseriesPlotter:
     spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
 
     def plot_multiple_timeseries(
-        self, participant_dirname, sheet_name, signals, treatment_labels, save
+        self,
+        participant_dirname,
+        sheet_name,
+        signals,
+        treatment_labels,
+        save,
+        time_range,
     ):
         """
         Plot graphs of {signals} vs time for each {treatments} of a single participant.
@@ -48,6 +67,7 @@ class PhysiologicalTimeseriesPlotter:
         :param save: bool:
         :return:
         """
+        self.time_range = time_range
         participant_info_match = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname)
         (
             participant_id,
@@ -70,6 +90,9 @@ class PhysiologicalTimeseriesPlotter:
                 noisy_spans = self.get_noisy_spans(
                     participant_number=participant_number,
                     treatment_position=treatment_label[:2],
+                )
+                noisy_spans = normalize_noisy_spans(
+                    noisy_spans, time_range_start=self.time_range[0]
                 )
 
                 self.build_single_timeseries_figure(
@@ -121,9 +144,18 @@ class PhysiologicalTimeseriesPlotter:
 
         plt.xlabel("Time (s)")
         plt.ylabel(signal_timeseries.name)
-        plt.xticks(np.arange(0, 300, 1))
+        # plt.xticks(np.arange(0, 300, 1))
+        signal_timeseries = self.get_time_range_signal(signal_timeseries)
         plt.plot(signal_timeseries.index.total_seconds(), signal_timeseries)
         self.plot_noisy_spans(noisy_spans)
+
+    def get_time_range_signal(self, signal_timeseries):
+        """
+        Atm only works for central 3 minutes.
+        :param signal_timeseries:
+        :return:
+        """
+        return get_central_3_minutes(signal_timeseries)
 
     def plot_noisy_spans(self, noisy_spans):
         for span in noisy_spans:
@@ -163,13 +195,15 @@ plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 # ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[2:3]:
+for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[1:2]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatment_labels=["m4_hard"],
+        treatment_labels=["m2_hard"],
         save=False,
+        # time_range=[1*SECONDS_IN_MINUTE, 4*SECONDS_IN_MINUTE],
+        time_range=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
     )
 
 # %%
