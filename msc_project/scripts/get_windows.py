@@ -106,10 +106,7 @@ def get_window_columns(offset, step_duration):
     num_windows = len(dummy_windows)
     final_window_end = offset + num_windows * step_duration
     window_starts = np.arange(offset, final_window_end, step_duration)
-    window_columns = [
-        f"{start}sec_to_{start+window_duration}sec" for start in window_starts
-    ]
-    return window_columns
+    return window_starts
 
 
 def get_windowed_multiindex():
@@ -119,7 +116,7 @@ def get_windowed_multiindex():
             (*signal_multiindex, window_index) for window_index in window_columns
         ]
         tuples.extend(signal_window_multiindexes)
-    multiindex_names = [*downsampled.columns.names, "window"]
+    multiindex_names = [*downsampled.columns.names, "window_start"]
     multiindex = pd.MultiIndex.from_tuples(tuples=tuples, names=multiindex_names)
     return multiindex
 
@@ -157,8 +154,6 @@ def get_windowed_df(
 breakpoint = 1
 
 # %%
-# windowed_data.to_pickle(os.path.join(BASE_DIR, 'data', 'Stress Dataset', 'dataframes', 'windowed_data.pkl'))
-# windowed_noisy_mask.to_pickle(os.path.join(BASE_DIR, 'data', 'Stress Dataset', 'dataframes', 'windowed_noisy_mask.pkl'))
 
 # %%
 # tests
@@ -249,6 +244,25 @@ if __name__ == "__main__":
         window_duration=window_duration,
         frequency=downsampled_frequency,
         windowed_multiindex=windowed_multiindex,
+    )
+
+    windowed_data.to_pickle(
+        os.path.join(
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            "dataframes",
+            "windowed_data_window_start.pkl",
+        )
+    )
+    windowed_noisy_mask.to_pickle(
+        os.path.join(
+            BASE_DIR,
+            "data",
+            "Stress Dataset",
+            "dataframes",
+            "windowed_noisy_mask_window_start.pkl",
+        )
     )
 
     #### TESTING ####

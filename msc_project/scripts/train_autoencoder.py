@@ -16,7 +16,6 @@ from msc_project.constants import (
 )
 from msc_project.models.denoising_autoencoder import create_autoencoder
 
-from utils import read_dataset_csv
 from wandb.keras import WandbCallback
 
 import tensorflow as tf
@@ -28,21 +27,14 @@ class DatasetPreparer:
     Reads preprocessed signal data. Splits it into train, val, noisy.
     """
 
-    def __init__(self, data_dirname, noisy_tolerance):
-        self.data_dirname = data_dirname
-        self.noisy_tolerance = noisy_tolerance
+    def __init__(self, noise_tolerance, signals, noisy_mask):
+        self.noise_tolerance = noise_tolerance
+        self.signals = signals
+        self.noisy_mask = noisy_mask
 
     def get_dataset(self):
-        signals_fp = os.path.join(
-            BASE_DIR,
-            "data",
-            "Stress Dataset",
-            "dataframes",
-            "windowed_data.pkl",
-        )
-        signals = pd.read_pickle(signals_fp)
-        signals = self.normalize_windows(signals)
-        clean_signals, noisy_signals = self.split_into_clean_and_noisy(signals=signals)
+        self.signals = self.normalize_windows(self.signals)
+        clean_signals, noisy_signals = self.split_into_clean_and_noisy()
 
         validation_participants = self.get_validation_participants()
 
@@ -76,53 +68,44 @@ class DatasetPreparer:
         )
         return validation_participants
 
-    def split_into_clean_and_noisy(self, signals):
+    def split_into_clean_and_noisy(self):
         """
         Split signals into 2 DataFrame. 1 is clean signals. 1 is noisy (as determined by self.noisy_tolerance) signals.
         :return:
         """
-        noisy_mask_fp = os.path.join(
-            BASE_DIR,
-            "data",
-            "Stress Dataset",
-            "dataframes",
-            "windowed_noisy_mask.pkl",
-        )
-        noisy_mask = pd.read_pickle(noisy_mask_fp)
-        noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
+        noisy_proportions = self.noisy_mask.sum(axis=0) / self.noisy_mask.shape[0]
 
-        is_clean = noisy_proportions <= self.noisy_tolerance
+        is_clean = noisy_proportions <= self.noise_tolerance
         clean_idxs = is_clean.index[is_clean]
         noisy_idxs = is_clean.index[~is_clean]
 
-        clean_signals = signals[clean_idxs]
-        noisy_signals = signals[noisy_idxs]
+        clean_signals = self.signals[clean_idxs]
+        noisy_signals = self.signals[noisy_idxs]
 
         # tests
-        # no noisy span
-        with unittest.TestCase().assertRaises(KeyError):
-            noisy_signals.xs(("0720202421P1_608", "r1"), axis=1, level="participant")
-
-        # 1 noisy span
-        noisy_windows = noisy_signals.xs(
-            ("0725114340P3_608", "r3"), axis=1, level="participant"
-        ).columns.values
-        tuples = [
-            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(1, 13)],
-        ]
-        correct_noisy_windows = np.array(tuples, dtype="U3,U16")
-        np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
-
-        # 2 noisy spans
-        noisy_windows = noisy_signals.xs(
-            ("0725095437P2_608", "m2_hard"), axis=1, level="participant"
-        ).columns.values
-        tuples = [
-            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(29, 40)],
-            *[("bvp", f"{start}sec_to_{start+10}sec") for start in range(120, 131)],
-        ]
-        correct_noisy_windows = np.array(tuples, dtype="U3,U16")
-        np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
+        # all clean
+        # with unittest.TestCase().assertRaises(KeyError):
+        #     noisy_signals.xs(("0725095437P2_608", "r1"), axis=1)
+        #
+        # # 1 span entirely during central 3 minutes
+        # noisy_windows = noisy_signals.xs(
+        #     ("0725135216P4_608", "r1"), axis=1, level="participant"
+        # ).columns.values
+        # tuples = [
+        #     *[("bvp", f"{float(start)}sec_to_{float(start+10)}sec") for start in range(200-(10-1), 207+1)],
+        # ]
+        # correct_noisy_windows = np.array(tuples, dtype="U3,U20")
+        # np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
+        #
+        # # 1 span before central 3 minutes, 1 span entirely during central 3 minutes, 1 span after central 3 minutes
+        # noisy_windows = noisy_signals.xs(
+        #     ("0727120212P10_lamp", "r5"), axis=1, level="participant"
+        # ).columns.values
+        # tuples = [
+        #     *[("bvp", f"{float(start)}sec_to_{float(start+10)}sec") for start in range(225-(10-1), 226+1)],
+        # ]
+        # correct_noisy_windows = np.array(tuples, dtype="U3,U20")
+        # np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
 
         return clean_signals, noisy_signals
 
@@ -160,8 +143,8 @@ def train_autoencoder(
     project_name = "denoising-autoencoder"
     early_stop = tf.keras.callbacks.EarlyStopping(
         monitor="val_loss",
-        min_delta=1e-2,
-        patience=200,
+        min_delta=1e-3,
+        patience=1000,
         verbose=0,
         mode="auto",
         baseline=None,
@@ -216,7 +199,7 @@ def train_autoencoder(
             epochs=wandb.config.epoch,
             batch_size=wandb.config.batch_size,
             validation_data=(val_signals, val_signals),
-            callbacks=[wandbcallback],
+            callbacks=[wandbcallback, early_stop],
             shuffle=True,
             initial_epoch=wandb.run.step,
         )
@@ -237,7 +220,7 @@ def train_autoencoder(
             epochs=wandb.config.epoch,
             batch_size=wandb.config.batch_size,
             validation_data=(val_signals, val_signals),
-            callbacks=[wandbcallback],
+            callbacks=[wandbcallback, early_stop],
             shuffle=True,
         )
     wandb.finish()
@@ -247,8 +230,7 @@ def train_autoencoder(
 # %%
 if __name__ == "__main__":
     dataset_preparer = DatasetPreparer(
-        data_dirname="/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/preprocessed_data/noisy_labelled",
-        noisy_tolerance=0,
+        noise_tolerance=0,
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
@@ -260,6 +242,9 @@ if __name__ == "__main__":
     #     epoch=12999 - 12627,
     # )
 
-    # autoencoder, history = train_autoencoder(
-    #     resume=False, train_signals=train_signals.T, val_signals=val_signals.T, epoch=10
-    # )
+    autoencoder, history = train_autoencoder(
+        resume=False,
+        train_signals=train_signals.T,
+        val_signals=val_signals.T,
+        epoch=2000,
+    )
