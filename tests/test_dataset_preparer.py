@@ -46,43 +46,48 @@ class TestDatasetPreparer:
         )
         return clean_and_noisy_signals
 
+    def test_no_overlap(self, clean_and_noisy_signals):
+        """
+        A window can be clean XOR noisy
+        :param clean_and_noisy_signals:
+        :return:
+        """
+        clean_signals = clean_and_noisy_signals.clean_signals
+        noisy_signals = clean_and_noisy_signals.noisy_signals
+
+        in_clean_not_in_noisy = clean_signals.columns.difference(noisy_signals.columns)
+        in_noisy_not_in_clean = noisy_signals.columns.difference(clean_signals.columns)
+
+        pd.testing.assert_index_equal(in_clean_not_in_noisy, clean_signals.columns)
+        pd.testing.assert_index_equal(in_noisy_not_in_clean, noisy_signals.columns)
+
     def test_all_clean_present_in_clean_signals(self, signals, clean_and_noisy_signals):
         """
 
         :return:
         """
         pd.testing.assert_frame_equal(
-            clean_and_noisy_signals.clean_signals["0720202421P1_608"]["r1"],
-            signals["0720202421P1_608"]["r1"],
+            clean_and_noisy_signals.clean_signals["0720202421P1_608", "r1"],
+            signals["0720202421P1_608", "r1"],
         )
 
     def test_all_clean_not_present_in_noisy_signals(self, clean_and_noisy_signals):
+        participant = clean_and_noisy_signals.noisy_signals["0725095437P2_608"]
         with pytest.raises(KeyError):
-            clean_and_noisy_signals.noisy_signals.xs(("0725095437P2_608", "r1"), axis=1)
+            participant["r1"]
 
     def test_one_noisy_span_entirely_during_central_3_minutes_in_noisy_signals(
         self, signals, clean_and_noisy_signals
     ):
-        breakpoint()
+        # breakpoint()
         noisy_windows = clean_and_noisy_signals.noisy_signals.xs(
-            ("0725135216P4_608", "r1", "bvp"), axis=1
-        ).columns.values
-        signals["0725135216P4_608", "r1", "bvp"][
-            "191.0sec_to_201.0sec":"207.0sec_to_217.0sec"
-        ]
-        signals.loc[("0725135216P4_608", "r1", "bvp", slice(1, 3))]
-        signals.xs("")
+            ("0725135216P4_608", "r1", "bvp"), axis=1, drop_level=False
+        )
 
-        signals.loc[
-            :,
-            ("0725135216P4_608", "r1", "bvp", "61.0sec_to_71.0sec"):(
-                "0725135216P4_608",
-                "r1",
-                "bvp",
-                "229.0sec_to_239.0sec",
-            ),
+        start = 200 - (10 - 1)
+        end = 207
+        correct_noisy_windows = signals.loc[
+            :, ("0725135216P4_608", "r1", "bvp", slice(start, end))
         ]
-        sorted_signals = signals.copy()
-        sorted_signals.columns = signals.columns.sortlevel(level="window")[0]
 
-        signals.loc[:, ("0725135216P4_608", "r1", "bvp", slice(61.0, 66.0))]
+        pd.testing.assert_frame_equal(noisy_windows, correct_noisy_windows)
