@@ -82,31 +82,6 @@ class DatasetPreparer:
         clean_signals = self.signals[clean_idxs]
         noisy_signals = self.signals[noisy_idxs]
 
-        # tests
-        # all clean
-        # with unittest.TestCase().assertRaises(KeyError):
-        #     noisy_signals.xs(("0725095437P2_608", "r1"), axis=1)
-        #
-        # # 1 span entirely during central 3 minutes
-        # noisy_windows = noisy_signals.xs(
-        #     ("0725135216P4_608", "r1"), axis=1, level="participant"
-        # ).columns.values
-        # tuples = [
-        #     *[("bvp", f"{float(start)}sec_to_{float(start+10)}sec") for start in range(200-(10-1), 207+1)],
-        # ]
-        # correct_noisy_windows = np.array(tuples, dtype="U3,U20")
-        # np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
-        #
-        # # 1 span before central 3 minutes, 1 span entirely during central 3 minutes, 1 span after central 3 minutes
-        # noisy_windows = noisy_signals.xs(
-        #     ("0727120212P10_lamp", "r5"), axis=1, level="participant"
-        # ).columns.values
-        # tuples = [
-        #     *[("bvp", f"{float(start)}sec_to_{float(start+10)}sec") for start in range(225-(10-1), 226+1)],
-        # ]
-        # correct_noisy_windows = np.array(tuples, dtype="U3,U20")
-        # np.testing.assert_array_equal(noisy_windows, correct_noisy_windows)
-
         return clean_signals, noisy_signals
 
     def split_into_train_and_val(
@@ -231,6 +206,12 @@ def train_autoencoder(
 if __name__ == "__main__":
     dataset_preparer = DatasetPreparer(
         noise_tolerance=0,
+        signals=pd.read_pickle(
+            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/windowed_data_window_start.pkl"
+        ),
+        noisy_mask=pd.read_pickle(
+            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/windowed_noisy_mask_window_start.pkl"
+        ),
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 

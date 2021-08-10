@@ -79,15 +79,45 @@ class TestDatasetPreparer:
     def test_one_noisy_span_entirely_during_central_3_minutes_in_noisy_signals(
         self, signals, clean_and_noisy_signals
     ):
-        # breakpoint()
+        participant = "0725135216P4_608"
+        treatment_label = "r1"
         noisy_windows = clean_and_noisy_signals.noisy_signals.xs(
-            ("0725135216P4_608", "r1", "bvp"), axis=1, drop_level=False
+            (participant, treatment_label, "bvp"), axis=1, drop_level=False
         )
 
         start = 200 - (10 - 1)
         end = 207
         correct_noisy_windows = signals.loc[
-            :, ("0725135216P4_608", "r1", "bvp", slice(start, end))
+            :, (participant, treatment_label, "bvp", slice(start, end))
         ]
 
+        pd.testing.assert_frame_equal(noisy_windows, correct_noisy_windows)
+
+    def test_one_noisy_span_before_central_3_minutes_not_in_noisy_signals(
+        self, clean_and_noisy_signals
+    ):
+        participant_signals = clean_and_noisy_signals.noisy_signals["0725114340P3_608"]
+        with pytest.raises(KeyError):
+            participant_signals["r3"]
+
+    def test_one_noisy_span_before_during_and_after_central_3_minutes_appropriately_included_in_noisy_signals(
+        self, signals, clean_and_noisy_signals
+    ):
+        """
+
+        :param signals:
+        :param clean_and_noisy_signals:
+        :return:
+        """
+        participant = "0727120212P10_lamp"
+        treatment_label = "r5"
+        noisy_windows = clean_and_noisy_signals.noisy_signals.xs(
+            (participant, treatment_label), axis=1, drop_level=False
+        )
+
+        start = 225 - (10 - 1)
+        end = 226
+        correct_noisy_windows = signals.loc[
+            :, (participant, treatment_label, "bvp", slice(start, end))
+        ]
         pd.testing.assert_frame_equal(noisy_windows, correct_noisy_windows)
