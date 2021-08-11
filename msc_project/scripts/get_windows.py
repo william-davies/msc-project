@@ -101,7 +101,7 @@ def get_window_columns(offset, step_duration):
     :return:
     """
     dummy_windows = sliding_window_view(
-        downsampled.iloc[:, 0], axis=0, window_shape=window_size
+        non_windowed_data.iloc[:, 0], axis=0, window_shape=window_size
     )[::step_size]
     num_windows = len(dummy_windows)
     final_window_end = offset + num_windows * step_duration
@@ -109,14 +109,18 @@ def get_window_columns(offset, step_duration):
     return window_starts
 
 
-def get_windowed_multiindex():
+def get_windowed_multiindex(non_windowed_data, window_columns):
+    """
+
+    :return:
+    """
     tuples = []
-    for signal_multiindex in downsampled.columns.values:
+    for signal_multiindex in non_windowed_data.columns.values:
         signal_window_multiindexes = [
             (*signal_multiindex, window_index) for window_index in window_columns
         ]
         tuples.extend(signal_window_multiindexes)
-    multiindex_names = [*downsampled.columns.names, "window_start"]
+    multiindex_names = [*non_windowed_data.columns.names, "window_start"]
     multiindex = pd.MultiIndex.from_tuples(tuples=tuples, names=multiindex_names)
     return multiindex
 
@@ -210,11 +214,13 @@ if __name__ == "__main__":
     downsampled = downsample(
         central_3_minutes, original_rate=256, downsampled_rate=downsampled_frequency
     )
+    non_windowed_data = downsampled
 
+    # window stuff
     noisy_mask = pd.DataFrame(
-        False, index=downsampled.index, columns=downsampled.columns
+        False, index=non_windowed_data.index, columns=non_windowed_data.columns
     )
-    for idx, treatment_df in downsampled.groupby(
+    for idx, treatment_df in non_windowed_data.groupby(
         axis=1, level=["participant", "treatment_label", "signal_name"]
     ):
         treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
@@ -226,13 +232,13 @@ if __name__ == "__main__":
     step_size = step_duration * downsampled_frequency
 
     window_columns = get_window_columns(
-        offset=downsampled.index[0].total_seconds(), step_duration=step_duration
+        offset=non_windowed_data.index[0].total_seconds(), step_duration=step_duration
     )
 
-    windowed_multiindex = get_windowed_multiindex()
+    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_columns)
 
     windowed_data = get_windowed_df(
-        non_windowed_data=downsampled,
+        non_windowed_data=non_windowed_data,
         window_size=window_size,
         window_duration=window_duration,
         frequency=downsampled_frequency,
@@ -246,24 +252,24 @@ if __name__ == "__main__":
         windowed_multiindex=windowed_multiindex,
     )
 
-    windowed_data.to_pickle(
-        os.path.join(
-            BASE_DIR,
-            "data",
-            "Stress Dataset",
-            "dataframes",
-            "windowed_data_window_start.pkl",
-        )
-    )
-    windowed_noisy_mask.to_pickle(
-        os.path.join(
-            BASE_DIR,
-            "data",
-            "Stress Dataset",
-            "dataframes",
-            "windowed_noisy_mask_window_start.pkl",
-        )
-    )
+    # windowed_data.to_pickle(
+    #     os.path.join(
+    #         BASE_DIR,
+    #         "data",
+    #         "Stress Dataset",
+    #         "dataframes",
+    #         "windowed_data_window_start.pkl",
+    #     )
+    # )
+    # windowed_noisy_mask.to_pickle(
+    #     os.path.join(
+    #         BASE_DIR,
+    #         "data",
+    #         "Stress Dataset",
+    #         "dataframes",
+    #         "windowed_noisy_mask_window_start.pkl",
+    #     )
+    # )
 
     #### TESTING ####
 
@@ -328,9 +334,9 @@ if __name__ == "__main__":
     window_start = float(60)
     window_end = float(70)
     window = windowed_data[participant_dirname][treatment_label][signal_name][
-        f"{window_start}sec_to_{window_end}sec"
+        window_start
     ]
-    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -360,9 +366,9 @@ if __name__ == "__main__":
     window_end = float(162)
 
     window = windowed_data[participant_dirname][treatment_label][signal_name][
-        f"{window_start}sec_to_{window_end}sec"
+        window_start
     ]
-    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -390,9 +396,9 @@ if __name__ == "__main__":
     window_start = float(200)
     window_end = float(210)
     window = windowed_data[participant_dirname][treatment_label][signal_name][
-        f"{window_start}sec_to_{window_end}sec"
+        window_start
     ]
-    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -421,9 +427,9 @@ if __name__ == "__main__":
     window_start = float(230)
     window_end = float(240)
     window = windowed_data[participant_dirname][treatment_label][signal_name][
-        f"{window_start}sec_to_{window_end}sec"
+        window_start
     ]
-    full_treatment_signal = downsampled[participant_dirname][treatment_label][
+    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
