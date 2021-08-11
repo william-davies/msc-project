@@ -5,7 +5,7 @@ from typing import List, Iterable
 
 import numpy as np
 import pandas as pd
-import scipy
+import scipy.signal
 import matplotlib.pyplot as plt
 import wandb
 from numpy.lib.stride_tricks import sliding_window_view
@@ -411,10 +411,12 @@ if __name__ == "__main__":
 
     testing = False
 
-    raw_data_pickle = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
-    raw_data_pickle = raw_data_pickle.download(root=ARTIFACTS_ROOT)
+    raw_data_artifact = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
+    raw_data_artifact = raw_data_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, raw_data_artifact.type)
+    )
     all_participants_df = pd.read_pickle(
-        os.path.join(raw_data_pickle, "all_participants.pkl")
+        os.path.join(raw_data_artifact, "all_participants.pkl")
     )
 
     metadata = {

@@ -87,7 +87,7 @@ if __name__ == "__main__":
         PREPROCESSED_DATA_ARTEFACT + ":latest"
     )
     preprocessed_data_artefact = preprocessed_data_artefact.download(
-        root=ARTIFACTS_ROOT
+        root=os.path.join(ARTIFACTS_ROOT, preprocessed_data_artefact.type)
     )
     signals = pd.read_pickle(
         os.path.join(preprocessed_data_artefact, "windowed_data.pkl")
