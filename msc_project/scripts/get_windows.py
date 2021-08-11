@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from typing import List
+from typing import List, Iterable
 
 import numpy as np
 import pandas as pd
@@ -74,14 +74,23 @@ def downsample(original_data, original_rate, downsampled_rate):
 # plt.show()
 
 # %%
-def get_treatment_noisy_mask(treatment_df):
+def get_treatment_noisy_mask(treatment_df, excel_sheet_filepath):
+    """
+
+    :param treatment_df:
+    :return:
+    """
     participant_dirname = treatment_df.columns.get_level_values("participant").values[0]
     participant_number = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
         PARTICIPANT_NUMBER_GROUP_IDX
     )
     treatment_label = treatment_df.columns.get_level_values("treatment_label").values[0]
     treatment_position = TREATMENT_LABEL_PATTERN.search(treatment_label).group(2)
-    noisy_spans = get_noisy_spans(participant_number, treatment_position)
+    noisy_spans = get_noisy_spans(
+        participant_number,
+        treatment_position,
+        excel_sheet_filepath=excel_sheet_filepath,
+    )
 
     noisy_mask = pd.Series(data=False, index=treatment_df.index, dtype=bool)
     for span in noisy_spans:
@@ -95,12 +104,12 @@ def get_treatment_noisy_mask(treatment_df):
 # %%
 
 
-def get_window_columns(offset, step_duration):
+def get_window_columns(offset, step_duration) -> Iterable:
     """
 
     :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes.
     :param step_duration: seconds
-    :return:
+    :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
     dummy_windows = sliding_window_view(
         non_windowed_data.iloc[:, 0], axis=0, window_shape=window_size
@@ -111,9 +120,9 @@ def get_window_columns(offset, step_duration):
     return window_starts
 
 
-def get_windowed_multiindex(non_windowed_data, window_columns):
+def get_windowed_multiindex(non_windowed_data, window_columns) -> pd.MultiIndex:
     """
-
+    Make a Multiindex with levels: participant, treatment, signal, window
     :return:
     """
     tuples = []
@@ -211,95 +220,7 @@ def normalize_windows(windows: pd.DataFrame):
     return normalized
 
 
-# %%
-
-if __name__ == "__main__":
-    all_participants_df = pd.read_pickle(
-        os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
-    )
-    central_3_minutes = get_temporal_subwindow_of_signal(
-        all_participants_df,
-        window_start=1 * SECONDS_IN_MINUTE,
-        window_end=4 * SECONDS_IN_MINUTE,
-    )
-    central_3_minutes = central_3_minutes.drop(
-        columns=["resp", "frames"], level="signal_name"
-    )
-
-    downsampled_frequency = 16
-    downsampled = downsample(
-        central_3_minutes, original_rate=256, downsampled_rate=downsampled_frequency
-    )
-    non_windowed_data = downsampled
-
-    # window stuff
-    noisy_mask = pd.DataFrame(
-        False, index=non_windowed_data.index, columns=non_windowed_data.columns
-    )
-    for idx, treatment_df in non_windowed_data.groupby(
-        axis=1, level=["participant", "treatment_label", "signal_name"]
-    ):
-        treatment_noisy_mask = get_treatment_noisy_mask(treatment_df)
-        noisy_mask.loc[:, idx] = treatment_noisy_mask.values
-
-    window_duration = 10
-    step_duration = 1
-    window_size = window_duration * downsampled_frequency
-    step_size = step_duration * downsampled_frequency
-
-    window_columns = get_window_columns(
-        offset=non_windowed_data.index[0].total_seconds(), step_duration=step_duration
-    )
-
-    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_columns)
-
-    windowed_data = get_windowed_df(
-        non_windowed_data=non_windowed_data,
-        window_size=window_size,
-        window_duration=window_duration,
-        frequency=downsampled_frequency,
-        windowed_multiindex=windowed_multiindex,
-    )
-
-    windowed_noisy_mask = get_windowed_df(
-        non_windowed_data=noisy_mask,
-        window_size=window_size,
-        window_duration=window_duration,
-        frequency=downsampled_frequency,
-        windowed_multiindex=windowed_multiindex,
-    )
-
-    # normalized_window_data.to_pickle(
-    #     os.path.join(
-    #         BASE_DIR,
-    #         "data",
-    #         "Stress Dataset",
-    #         "dataframes",
-    #         "windowed_data_window_start.pkl",
-    #     )
-    # )
-    # windowed_noisy_mask.to_pickle(
-    #     os.path.join(
-    #         BASE_DIR,
-    #         "data",
-    #         "Stress Dataset",
-    #         "dataframes",
-    #         "windowed_noisy_mask_window_start.pkl",
-    #     )
-    # )
-
-    # run = wandb.init(
-    #     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
-    # )
-    # raw_data_artifact = wandb.Artifact(
-    #     "all_participants_raw_data",
-    #     type="raw_data",
-    #     description="Non recorded values have been set to NaN",
-    # )
-    # raw_data_artifact.add_file(save_fp)
-    # run.log_artifact(raw_data_artifact)
-    # run.finish()
-
+def do_tests():
     #### TESTING ####
 
     # all clean
@@ -480,4 +401,119 @@ if __name__ == "__main__":
         correct_window, window, check_index=False, check_names=False
     )
 
+
+# %%
+
+if __name__ == "__main__":
+    testing = True
+
+    all_participants_df = pd.read_pickle(
+        os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
+    )
+
+    metadata = {
+        "start_of_central_cropped_window": 1 * SECONDS_IN_MINUTE,
+        "end_of_central_cropped_window": 4 * SECONDS_IN_MINUTE,
+        "downsampled_frequency": 16,
+        "window_duration": 10,
+        "step_duration": 1,
+    }
+
+    central_cropped_window = get_temporal_subwindow_of_signal(
+        all_participants_df,
+        window_start=metadata["start_of_central_cropped_window"],
+        window_end=metadata["end_of_central_cropped_window"],
+    )
+    central_cropped_window = central_cropped_window.drop(
+        columns=["resp", "frames"], level="signal_name"
+    )
+
+    non_windowed_data = downsample(
+        central_cropped_window,
+        original_rate=256,
+        downsampled_rate=metadata["downsampled_frequency"],
+    )
+
+    # window stuff
+    noisy_labels_excel_sheet_filepath = os.path.join(
+        BASE_DIR, "data", "Stress Dataset", "labelling-dataset-less-strict.xlsx"
+    )
+    noisy_mask = pd.DataFrame(
+        False, index=non_windowed_data.index, columns=non_windowed_data.columns
+    )
+    for idx, treatment_df in non_windowed_data.groupby(
+        axis=1, level=["participant", "treatment_label", "signal_name"]
+    ):
+        treatment_noisy_mask = get_treatment_noisy_mask(
+            treatment_df, excel_sheet_filepath=noisy_labels_excel_sheet_filepath
+        )
+        noisy_mask.loc[:, idx] = treatment_noisy_mask.values
+
+    window_size = metadata["window_duration"] * metadata["downsampled_frequency"]
+    step_size = metadata["step_duration"] * metadata["downsampled_frequency"]
+
+    window_columns = get_window_columns(
+        offset=non_windowed_data.index[0].total_seconds(),
+        step_duration=metadata["step_duration"],
+    )
+
+    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_columns)
+
+    windowed_data = get_windowed_df(
+        non_windowed_data=non_windowed_data,
+        window_size=window_size,
+        window_duration=metadata["window_duration"],
+        frequency=metadata["downsampled_frequency"],
+        windowed_multiindex=windowed_multiindex,
+    )
+
+    windowed_noisy_mask = get_windowed_df(
+        non_windowed_data=noisy_mask,
+        window_size=window_size,
+        window_duration=metadata["window_duration"],
+        frequency=metadata["downsampled_frequency"],
+        windowed_multiindex=windowed_multiindex,
+    )
+
+    if testing:
+        do_tests()
+
     windowed_data = normalize_windows(windowed_data)
+
+    windowed_data_fp = os.path.join(
+        BASE_DIR,
+        "data",
+        "Stress Dataset",
+        "dataframes",
+        "windowed_data_window_start.pkl",
+    )
+    windowed_data.to_pickle(windowed_data_fp)
+
+    windowed_noisy_mask_fp = os.path.join(
+        BASE_DIR,
+        "data",
+        "Stress Dataset",
+        "dataframes",
+        "windowed_noisy_mask_window_start.pkl",
+    )
+    windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
+
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+    )
+
+    preprocessed_data_artifact = wandb.Artifact(
+        "preprocessed_data",
+        type="preprocessed_data",
+        metadata=metadata,
+        description="No smoothing",
+    )
+    preprocessed_data_artifact.add_file(windowed_data_fp, "windowed_data.pkl")
+    preprocessed_data_artifact.add_file(
+        windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
+    )
+    preprocessed_data_artifact.add_file(
+        noisy_labels_excel_sheet_filepath, "noisy-labels.xlsx"
+    )
+    run.log_artifact(preprocessed_data_artifact)
+    run.finish()
