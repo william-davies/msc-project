@@ -8,9 +8,10 @@ import wandb
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
     DENOISING_AUTOENCODER_PROJECT_NAME,
-    PREPROCESSED_DATA_ARTEFACT,
+    PREPROCESSED_DATA_ARTIFACT,
     ARTIFACTS_ROOT,
     BASE_DIR,
+    DATA_SPLIT_ARTIFACT,
 )
 
 
@@ -33,7 +34,8 @@ class DatasetPreparer:
             clean_signals, validation_participants
         )
 
-        return train_signals, val_signals, noisy_signals
+        # transpose so the rows axis is examples
+        return train_signals.T, val_signals.T, noisy_signals.T
 
     def get_validation_participants(self):
         """
@@ -83,17 +85,17 @@ if __name__ == "__main__":
 
     metadata = {"noise_tolerance": 0}
 
-    preprocessed_data_artefact = run.use_artifact(
-        PREPROCESSED_DATA_ARTEFACT + ":latest"
+    preprocessed_data_artifact = run.use_artifact(
+        PREPROCESSED_DATA_ARTIFACT + ":latest"
     )
-    preprocessed_data_artefact = preprocessed_data_artefact.download(
-        root=os.path.join(ARTIFACTS_ROOT, preprocessed_data_artefact.type)
+    preprocessed_data_artifact = preprocessed_data_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, preprocessed_data_artifact.type)
     )
     signals = pd.read_pickle(
-        os.path.join(preprocessed_data_artefact, "windowed_data.pkl")
+        os.path.join(preprocessed_data_artifact, "windowed_data.pkl")
     )
     noisy_mask = pd.read_pickle(
-        os.path.join(preprocessed_data_artefact, "windowed_noisy_mask.pkl")
+        os.path.join(preprocessed_data_artifact, "windowed_noisy_mask.pkl")
     )
 
     dataset_preparer = DatasetPreparer(
@@ -104,7 +106,7 @@ if __name__ == "__main__":
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
     data_split_artifact = wandb.Artifact(
-        name="data_split", type="data_split", metadata=metadata
+        name=DATA_SPLIT_ARTIFACT, type=DATA_SPLIT_ARTIFACT, metadata=metadata
     )
 
     train_signals_fp = os.path.join(BASE_DIR, "data", "preprocessed_data", "train.pkl")
