@@ -1,7 +1,13 @@
 import json
+import os
 
 import wandb
 
+from msc_project.constants import (
+    DENOISING_AUTOENCODER_PROJECT_NAME,
+    DATA_SPLIT_ARTIFACT,
+    ARTIFACTS_ROOT,
+)
 from msc_project.models.denoising_autoencoder import create_autoencoder
 
 from wandb.keras import WandbCallback
@@ -119,16 +125,14 @@ def train_autoencoder(
 
 # %%
 if __name__ == "__main__":
-    dataset_preparer = DatasetPreparer(
-        noise_tolerance=0,
-        signals=pd.read_pickle(
-            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/windowed_data_window_start.pkl"
-        ),
-        noisy_mask=pd.read_pickle(
-            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/windowed_noisy_mask_window_start.pkl"
-        ),
+    run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_train")
+
+    data_split_artifact = run.use_artifact(DATA_SPLIT_ARTIFACT + ":latest")
+    data_split_artifact = data_split_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT.data_split_artifact.type)
     )
-    train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
+    train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
+    val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
 
     # autoencoder, history = train_autoencoder(
     #     resume=True,
@@ -140,7 +144,7 @@ if __name__ == "__main__":
 
     autoencoder, history = train_autoencoder(
         resume=False,
-        train_signals=train_signals.T,
-        val_signals=val_signals.T,
-        epoch=2000,
+        train_signals=train,
+        val_signals=val,
+        epoch=100,
     )
