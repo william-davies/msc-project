@@ -18,6 +18,7 @@ from msc_project.constants import (
     BASE_DIR,
     SECONDS_IN_MINUTE,
     DENOISING_AUTOENCODER_PROJECT_NAME,
+    RAW_DATA_ARTEFACT,
 )
 from msc_project.scripts.get_all_participants_df import get_timedelta_index
 from msc_project.scripts.preprocess_data import downsample
@@ -405,10 +406,16 @@ def do_tests():
 # %%
 
 if __name__ == "__main__":
-    testing = True
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+    )
 
+    testing = False
+
+    raw_data_pickle = run.use_artifact(RAW_DATA_ARTEFACT + ":latest")
+    raw_data_pickle = raw_data_pickle.download(root="wandb_artefacts")
     all_participants_df = pd.read_pickle(
-        os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
+        os.path.join(raw_data_pickle, "all_participants.pkl")
     )
 
     metadata = {
@@ -497,10 +504,6 @@ if __name__ == "__main__":
         "windowed_noisy_mask_window_start.pkl",
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
-
-    run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
-    )
 
     preprocessed_data_artifact = wandb.Artifact(
         "preprocessed_data",
