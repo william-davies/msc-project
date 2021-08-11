@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
-    PARTICIPANT_INFO_PATTERN,
+    PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_ID_GROUP_IDX,
 )
 
@@ -48,7 +48,7 @@ class ExcelToCSVConverter:
         :return: dict: dict['sheet_name'] = pd.DataFrame:
         """
         participant_dirpath = os.path.join("../Stress Dataset", participant_dirname)
-        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+        participant_id = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
             PARTICIPANT_ID_GROUP_IDX
         )
 
@@ -76,7 +76,7 @@ class ExcelToCSVConverter:
         :return:
         """
         participant_dirpath = os.path.join("../Stress Dataset", participant_dirname)
-        participant_id = PARTICIPANT_INFO_PATTERN.search(participant_dirname).group(
+        participant_id = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
             PARTICIPANT_ID_GROUP_IDX
         )
         csvs_dirpath = os.path.join(participant_dirpath, "preprocessed_csvs")

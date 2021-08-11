@@ -1,3 +1,4 @@
+import os
 import re
 
 # Exclude P7, P14, P15
@@ -21,7 +22,7 @@ PARTICIPANT_DIRNAMES_WITH_EXCEL = [
     "0802184155P23_natural",
 ]
 
-PARTICPANT_NUMBERS_WITH_EXCEL = [
+PARTICIPANT_NUMBERS_WITH_EXCEL = [
     "1",
     "2",
     "3",
@@ -41,7 +42,7 @@ PARTICPANT_NUMBERS_WITH_EXCEL = [
     "23",
 ]
 
-PARTICIPANT_INFO_PATTERN = re.compile("^(\d{10}P(\d{1,2}))_(\S{3,7})$")
+PARTICIPANT_DIRNAME_PATTERN = re.compile("^(\d{10}P(\d{1,2}))_(\S{3,7})$")
 PARTICIPANT_ID_GROUP_IDX = 1
 PARTICIPANT_NUMBER_GROUP_IDX = 2
 PARTICIPANT_ENVIRONMENT_GROUP_IDX = 3
@@ -59,6 +60,7 @@ XLSX_CONVERTED_TO_CSV = "xlsx_converted_to_csv"
 
 # absolute path of repo directory
 BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project"
+DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # not full identifier because doesn't include easy/hard
 TREATMENT_POSITION_NAMES = ["r1", "m2", "r3", "m4", "r5"]
@@ -71,3 +73,9 @@ TREATMENT_LABEL_GROUP_IDX = 1
 TREATMENT_POSITION_GROUP_IDX = 2
 
 SPAN_PATTERN = re.compile("^([\d.]+)-([\d.]+)$")
+
+# wandb
+DENOISING_AUTOENCODER_PROJECT_NAME = "denoising-autoencoder"
+RAW_DATA_ARTIFACT = "all_participants_raw_data"
+PREPROCESSED_DATA_ARTEFACT = "preprocessed_data"
+ARTIFACTS_ROOT = "wandb_artefacts"

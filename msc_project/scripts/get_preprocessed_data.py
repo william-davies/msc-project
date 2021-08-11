@@ -18,10 +18,10 @@ from msc_project.constants import (
     BASE_DIR,
     SECONDS_IN_MINUTE,
     DENOISING_AUTOENCODER_PROJECT_NAME,
-    RAW_DATA_ARTEFACT,
+    RAW_DATA_ARTIFACT,
+    ARTIFACTS_ROOT,
 )
-from msc_project.scripts.get_all_participants_df import get_timedelta_index
-from msc_project.scripts.preprocess_data import downsample
+from msc_project.scripts.get_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_noisy_spans
 
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
@@ -41,7 +41,6 @@ def get_temporal_subwindow_of_signal(df, window_start, window_end):
         value=1, unit="ns"
     )  # timedelta precision is truncated to nanosecond
     central = df[start : end - eps]
-    # central.index = central.index - start
     return central
 
 
@@ -412,8 +411,8 @@ if __name__ == "__main__":
 
     testing = False
 
-    raw_data_pickle = run.use_artifact(RAW_DATA_ARTEFACT + ":latest")
-    raw_data_pickle = raw_data_pickle.download(root="wandb_artefacts")
+    raw_data_pickle = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
+    raw_data_pickle = raw_data_pickle.download(root=ARTIFACTS_ROOT)
     all_participants_df = pd.read_pickle(
         os.path.join(raw_data_pickle, "all_participants.pkl")
     )
@@ -490,8 +489,7 @@ if __name__ == "__main__":
     windowed_data_fp = os.path.join(
         BASE_DIR,
         "data",
-        "Stress Dataset",
-        "dataframes",
+        "preprocessed_data",
         "windowed_data_window_start.pkl",
     )
     windowed_data.to_pickle(windowed_data_fp)
@@ -499,8 +497,7 @@ if __name__ == "__main__":
     windowed_noisy_mask_fp = os.path.join(
         BASE_DIR,
         "data",
-        "Stress Dataset",
-        "dataframes",
+        "preprocessed_data",
         "windowed_noisy_mask_window_start.pkl",
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
