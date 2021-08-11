@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import scipy
 import matplotlib.pyplot as plt
+import wandb
 from numpy.lib.stride_tricks import sliding_window_view
 
 from msc_project.constants import (
@@ -16,6 +17,7 @@ from msc_project.constants import (
     TREATMENT_LABEL_PATTERN,
     BASE_DIR,
     SECONDS_IN_MINUTE,
+    DENOISING_AUTOENCODER_PROJECT_NAME,
 )
 from msc_project.scripts.get_all_participants_df import get_timedelta_index
 from msc_project.scripts.preprocess_data import downsample
@@ -197,6 +199,20 @@ def get_correct_noisy_mask(
     return correct_noisy_mask
 
 
+def normalize_windows(windows: pd.DataFrame):
+    """
+    Normalize each window individually. Each window will span from 0 to 1 inclusive.
+    :param windows:
+    :return:
+    """
+    min_vals = windows.min(axis=0)
+    max_vals = windows.max(axis=0)
+    normalized = (windows - min_vals) / (max_vals - min_vals)
+    return normalized
+
+
+# %%
+
 if __name__ == "__main__":
     all_participants_df = pd.read_pickle(
         os.path.join(DATA_DIR, "Stress Dataset", "dataframes", "all_participants.pkl")
@@ -270,6 +286,18 @@ if __name__ == "__main__":
     #         "windowed_noisy_mask_window_start.pkl",
     #     )
     # )
+
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+    )
+    raw_data_artifact = wandb.Artifact(
+        "all_participants_raw_data",
+        type="raw_data",
+        description="Non recorded values have been set to NaN",
+    )
+    raw_data_artifact.add_file(save_fp)
+    run.log_artifact(raw_data_artifact)
+    run.finish()
 
     #### TESTING ####
 
