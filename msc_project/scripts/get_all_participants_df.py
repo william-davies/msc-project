@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import wandb
 
 from msc_project.constants import (
     PARTICIPANT_DIRNAMES_WITH_EXCEL,
@@ -16,6 +17,7 @@ from msc_project.constants import (
     PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_ID_GROUP_IDX,
     PARTICIPANT_NUMBERS_WITH_EXCEL,
+    DENOISING_AUTOENCODER_PROJECT_NAME,
 )
 from msc_project.scripts.utils import split_data_into_treatments
 
@@ -41,14 +43,16 @@ def get_treatment_labels(inf_data):
     return treatment_labels
 
 
-def get_timedelta_index(duration, frequency):
+def get_timedelta_index(start_time, end_time, frequency):
     """
+    Exclusive of end time.
 
-    :param duration: seconds
+    :param start_time: seconds
+    :param end_time: seconds
     :param frequency: Hz
     :return:
     """
-    seconds_index = np.arange(0, np.nextafter(duration, duration + 1), 1 / frequency)
+    seconds_index = np.arange(start_time, end_time, 1 / frequency)
     timedelta_index = pd.to_timedelta(seconds_index, unit="second")
     return timedelta_index
 
@@ -112,7 +116,7 @@ def make_multiindex_df(inf_data):
 
     sample_rate = inf_data.sample_rate_Hz[0]
     timedelta_index = get_timedelta_index(
-        duration=SECONDS_IN_MINUTE * 5, frequency=sample_rate
+        start_time=0, end_time=5 * SECONDS_IN_MINUTE, frequency=sample_rate
     )
     multiindex_df = set_timedelta_index(multiindex_df, timedelta_index)
     multiindex_df = multiindex_df.sort_index(axis=1, level=0, sort_remaining=True)
@@ -170,13 +174,31 @@ def save_participant_df(df, participant_dirname):
     df.to_pickle(complete_fp)
 
 
-# %%
-participant_dfs = []
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-    participant_df = get_participant_df(participant_dirname)
-    participant_dfs.append(participant_df)
+if __name__ == "__main__":
 
-inter_participant_multiindex_df = pd.concat(
-    participant_dfs, axis=1, keys=PARTICIPANT_DIRNAMES_WITH_EXCEL
-)
-breakpoint = 1
+    # %%
+    participant_dfs = []
+    for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+        participant_df = get_participant_df(participant_dirname)
+        participant_dfs.append(participant_df)
+
+    names = ["participant", *participant_df.columns.names]
+
+    inter_participant_multiindex_df = pd.concat(
+        participant_dfs, axis=1, keys=PARTICIPANT_DIRNAMES_WITH_EXCEL, names=names
+    )
+
+    # %%
+    save_fp = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/all_participants.pkl"
+    inter_participant_multiindex_df.to_pickle(save_fp)
+
+    run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="upload")
+    raw_data_artifact = wandb.Artifact(
+        "all_participants_raw_data",
+        type="raw_data",
+        description="Non recorded values have been set to NaN",
+    )
+    raw_data_artifact.add_file(save_fp)
+    run.log_artifact(raw_data_artifact)
+    run.finish()
+    breakpoint = 1
