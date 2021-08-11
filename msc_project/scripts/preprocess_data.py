@@ -26,7 +26,7 @@ from msc_project.constants import (
     SIGNAL_SERIES_NAME_PATTERN,
     TREATMENT_POSITION_GROUP_IDX,
     TREATMENT_POSITION_NAMES,
-    PARTICPANT_NUMBERS_WITH_EXCEL,
+    PARTICIPANT_NUMBERS_WITH_EXCEL,
 )
 from scipy import signal
 
@@ -258,7 +258,7 @@ class DatasetWrapper:
         window_id_to_noise_proportion = {}
         window_size = int(self.window_size * self.downsampled_sampling_rate)
         step_size = int(self.step_size * self.downsampled_sampling_rate)
-        participant_idx = PARTICPANT_NUMBERS_WITH_EXCEL.index(participant_number)
+        participant_idx = PARTICIPANT_NUMBERS_WITH_EXCEL.index(participant_number)
 
         for treatment_idx in range(len(treatment_series_list)):
             treatment_series = treatment_series_list[treatment_idx]
@@ -459,6 +459,9 @@ class DatasetWrapper:
         )
 
         return signal.squeeze()
+
+
+# %%
 
 
 # %%
