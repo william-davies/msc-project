@@ -201,7 +201,7 @@ def get_correct_noisy_mask(
 
 def normalize_windows(windows: pd.DataFrame):
     """
-    Normalize each window individually. Each window will span from 0 to 1 inclusive.
+    Normalize each window individually. Each window will be in domain (0,1).
     :param windows:
     :return:
     """
@@ -260,6 +260,7 @@ if __name__ == "__main__":
         frequency=downsampled_frequency,
         windowed_multiindex=windowed_multiindex,
     )
+
     windowed_noisy_mask = get_windowed_df(
         non_windowed_data=noisy_mask,
         window_size=window_size,
@@ -268,7 +269,7 @@ if __name__ == "__main__":
         windowed_multiindex=windowed_multiindex,
     )
 
-    # windowed_data.to_pickle(
+    # normalized_window_data.to_pickle(
     #     os.path.join(
     #         BASE_DIR,
     #         "data",
@@ -287,17 +288,17 @@ if __name__ == "__main__":
     #     )
     # )
 
-    run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
-    )
-    raw_data_artifact = wandb.Artifact(
-        "all_participants_raw_data",
-        type="raw_data",
-        description="Non recorded values have been set to NaN",
-    )
-    raw_data_artifact.add_file(save_fp)
-    run.log_artifact(raw_data_artifact)
-    run.finish()
+    # run = wandb.init(
+    #     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+    # )
+    # raw_data_artifact = wandb.Artifact(
+    #     "all_participants_raw_data",
+    #     type="raw_data",
+    #     description="Non recorded values have been set to NaN",
+    # )
+    # raw_data_artifact.add_file(save_fp)
+    # run.log_artifact(raw_data_artifact)
+    # run.finish()
 
     #### TESTING ####
 
@@ -478,3 +479,5 @@ if __name__ == "__main__":
     pd.testing.assert_series_equal(
         correct_window, window, check_index=False, check_names=False
     )
+
+    windowed_data = normalize_windows(windowed_data)
