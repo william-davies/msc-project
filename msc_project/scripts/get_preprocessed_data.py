@@ -20,6 +20,7 @@ from msc_project.constants import (
     DENOISING_AUTOENCODER_PROJECT_NAME,
     RAW_DATA_ARTIFACT,
     ARTIFACTS_ROOT,
+    PREPROCESSED_DATA_ARTIFACT,
 )
 from msc_project.scripts.get_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_noisy_spans
@@ -402,6 +403,16 @@ def do_tests():
     )
 
 
+def smooth_moving_average(data: pd.DataFrame, window_duration: float) -> pd.DataFrame:
+    time_between_frames = pd.infer_freq(data.index)
+    time_between_frames = pd.to_timedelta(time_between_frames)
+    window_duration_timedelta = pd.Timedelta(value=window_duration, units="seconds")
+    window_size = window_duration_timedelta / time_between_frames
+    assert window_size.is_integer()
+    window_size = int(window_size)
+    data.rolling(window_size)
+
+
 # %%
 
 if __name__ == "__main__":
@@ -505,8 +516,8 @@ if __name__ == "__main__":
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
     preprocessed_data_artifact = wandb.Artifact(
-        "preprocessed_data",
-        type="preprocessed_data",
+        PREPROCESSED_DATA_ARTIFACT,
+        type=PREPROCESSED_DATA_ARTIFACT,
         metadata=metadata,
         description="No smoothing",
     )
