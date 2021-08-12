@@ -411,6 +411,39 @@ def moving_average(
     return smoothed
 
 
+def plot_example(
+    non_averaged_data: pd.DataFrame, averaged_data: pd.DataFrame, example_idx: int
+):
+    window_starts = non_averaged_data.columns.get_level_values(level="window_start")
+    window_start = window_starts[example_idx]
+    time = pd.Timedelta(value=window_start, unit="second") + non_averaged_data.index
+    time = time.total_seconds()
+
+    window_label = windowed_data.iloc[:, example_idx].name
+
+    non_averaged_example = non_averaged_data.iloc[:, example_idx]
+    averaged_example = averaged_data.iloc[:, example_idx]
+
+    plt.title(
+        f"{window_label}\nsmoothing window duration: {window_duration}s\ncentre: {center}"
+    )
+    plt.xlabel("time (s)")
+    plt.plot(
+        time,
+        non_averaged_example,
+        "r",
+        label="non averaged",
+        alpha=0.5,
+    )
+    plt.plot(
+        time,
+        averaged_example,
+        "b",
+        label="averaged",
+    )
+    plt.legend()
+
+
 # %%
 
 if __name__ == "__main__":
@@ -449,6 +482,17 @@ if __name__ == "__main__":
         central_cropped_window,
         original_rate=256,
         downsampled_rate=metadata["downsampled_frequency"],
+    )
+    window_duration = 0.3
+    center = True
+    moving_averaged_data = moving_average(
+        data=non_windowed_data, window_duration=window_duration, center=center
+    )
+
+    plot_example(
+        non_averaged_data=non_windowed_data,
+        averaged_data=moving_averaged_data,
+        example_idx=0,
     )
 
     # window stuff
@@ -502,28 +546,20 @@ if __name__ == "__main__":
         data=windowed_data, window_duration=window_duration, center=center
     )
 
-    non_averaged_example = windowed_data["0720202421P1_608", "m2_easy", "bvp", 60.0]
-    averaged_example = moving_averaged_data["0720202421P1_608", "m2_easy", "bvp", 60.0]
-
-    # pd.testing.assert_series_equal(non_averaged_example, averaged_example)
+    dirpath = os.path.join(
+        BASE_DIR,
+        "plots",
+        "moving_average",
+        f'{window_duration}s_{"centred" if center else "not_centered"}',
+    )
+    os.makedirs(dirpath, exist_ok=True)
     plt.figure()
-    plt.title(f"window duration: {window_duration}s\ncentre: {center}")
-    plt.xlabel("time (s)")
-    plt.plot(
-        non_averaged_example.index.total_seconds(),
-        non_averaged_example,
-        "r",
-        label="non averaged",
-        alpha=0.5,
-    )
-    plt.plot(
-        non_averaged_example.index.total_seconds(),
-        averaged_example,
-        "b",
-        label="averaged",
-    )
-    plt.legend()
-    plt.show()
+    for example_idx in np.arange(0, windowed_data.shape[1], 100):
+        plot_example(non_averaged_data=windowed_data, example_idx=example_idx)
+        window_label = windowed_data.iloc[:, example_idx].name
+        signal_label = "-".join(window_label[:-1])
+        plt.savefig(os.path.join(dirpath, signal_label))
+        plt.clf()
 
     windowed_data_fp = os.path.join(
         BASE_DIR,
