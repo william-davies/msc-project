@@ -16,9 +16,12 @@ from msc_project.constants import (
     TRAINED_MODEL_ARTIFACT,
     ARTIFACTS_ROOT,
     DATA_SPLIT_ARTIFACT,
+    MODEL_EVALUATION_ARTIFACT,
 )
 
 # %%
+upload_plots_to_wandb: bool = False
+
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
@@ -53,7 +56,7 @@ def plot_examples(
     num_examples: int = 5,
     example_idxs: np.typing.ArrayLike = None,
     exist_ok: bool = False,
-):
+) -> str:
     """
 
     :param original_data:
@@ -75,9 +78,9 @@ def plot_examples(
     plt.figure(figsize=(8, 6))
 
     if save:
-        save_dir = os.path.join(BASE_DIR, "plots", model_name)
-        example_type_dir = os.path.join(save_dir, example_type.lower())
-        os.makedirs(example_type_dir, exist_ok=exist_ok)
+        model_plots_dir: str = os.path.join(BASE_DIR, "plots", model_name)
+        example_type_plots_dir = os.path.join(model_plots_dir, example_type.lower())
+        os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
     for example_idx in example_idxs:
         window_label = original_data.iloc[example_idx].name
@@ -100,17 +103,23 @@ def plot_examples(
         plt.legend()
 
         if save:
-            save_filepath = os.path.join(
-                example_type_dir, f"{model_name}-{signal_label}-{window_start}.png"
+            plot_filepath = os.path.join(
+                example_type_plots_dir,
+                f"{model_name}-{signal_label}-{window_start}.png",
             )
-            plt.savefig(save_filepath, format="png")
+            plt.savefig(plot_filepath, format="png")
             plt.clf()
         else:
             plt.show()
 
+    if save:
+        return model_plots_dir
+    else:
+        return ""
+
 
 # %%
-plot_examples(
+model_plots_dir = plot_examples(
     original_data=train,
     reconstructed_data=decoded_train_examples.numpy(),
     example_type="Train",
@@ -121,73 +130,35 @@ plot_examples(
     exist_ok=True,
 )
 # %%
-# plot_examples(
-#     val_signals.T,
-#     decoded_val_examples.numpy(),
-#     example_type="Validation",
-#     save_dir=os.path.join(BASE_DIR, "plots", f"{wandb_summary['best_epoch']}-epochs"),
-#     epoch=wandb_summary["best_epoch"],
-#     # example_idxs=[372, 377, 434, 688, 863]
-#     example_idxs=np.arange(0, len(val_signals.T), 40),
-#     # example_idxs=np.arange(0, 10),
-#     exist_ok=True
-# )
+model_plots_dir = plot_examples(
+    original_data=val,
+    reconstructed_data=decoded_val_examples.numpy(),
+    example_type="Val",
+    model_name=model_artifact.name.replace(":", "_"),
+    save=True,
+    # example_idxs=np.arange(915, 925)
+    example_idxs=np.arange(0, len(val), 50),
+    exist_ok=True,
+)
 
 
 # %%
-plot_examples(
-    noisy_signals.T,
-    decoded_noisy_examples.numpy(),
+model_plots_dir = plot_examples(
+    original_data=noisy,
+    reconstructed_data=decoded_noisy_examples.numpy(),
     example_type="Noisy",
-    save_dir=os.path.join(BASE_DIR, "plots", f"{wandb_summary['best_epoch']}-epochs"),
-    model_name=wandb_summary["best_epoch"],
-    example_idxs=np.arange(0, len(noisy_signals.T), 10),
+    model_name=model_artifact.name.replace(":", "_"),
+    save=True,
+    # example_idxs=np.arange(915, 925)
+    example_idxs=np.arange(0, len(noisy), 50),
     exist_ok=True,
 )
 
 # %%
-example_idx = 920
-original_data = train_signals
-reconstructed_data = decoded_train_examples
-example_type = "Train"
-plt.figure(figsize=(8, 6))
-window_label = original_data.iloc[example_idx].name
-plt.title(f"{example_type} example\n{window_label}\nExample index: {example_idx}")
-plt.plot(original_data.values[example_idx], "b", label="original")
-plt.plot(reconstructed_data[example_idx], "r", label="denoised")
-plt.legend()
-plt.show()
-
-# %%
-
-save_filepath = os.path.join(
-    wandb.run.dir, f"epoch-{wandb.run.step-1}_{window_label}.png"
-)
-plt.savefig(save_filepath, format="png")
-plt.clf()
-
-# %%
-wandb.save(os.path.join(wandb.run.dir, "*epoch*"))
-
-# %%
-# plt.show()
-
-wandb.log({"chart": plt}, step=2999)
-
-
-# %%
-plt.figure(figsize=(120, 20))
-save_filepath = "autoencoder_plots/{}.png"
-
-for idx in range(len(normalised_data)):
-    title = data.columns[idx]
-    plt.title(title)
-
-    plt.plot(normalised_data[idx], "b")
-    plt.plot(decoded_all_examples[idx], "r")
-
-    plt.xlabel("Frames")
-    plt.ylabel("BVP")
-
-    plt.savefig(save_filepath.format(title), format="png")
-    plt.clf()
+if upload_plots_to_wandb:
+    evaluation_artifact = wandb.Artifact(
+        MODEL_EVALUATION_ARTIFACT, type=MODEL_EVALUATION_ARTIFACT
+    )
+    evaluation_artifact.add_dir(model_plots_dir)
+    run.log_artifact(evaluation_artifact)
+run.finish()
