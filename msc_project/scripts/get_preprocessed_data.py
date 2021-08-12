@@ -446,6 +446,47 @@ def plot_moving_average_smoothing(
     plt.legend()
 
 
+def plot_baseline_wandering_subtraction(
+    original_data: pd.DataFrame,
+    baseline_wandering_subtracted_data: pd.DataFrame,
+    example_idx: int,
+    baseline: pd.DataFrame = pd.DataFrame(),
+):
+    window_label = original_data.iloc[:, example_idx].name
+
+    original_example = original_data.iloc[:, example_idx]
+    baseline_wandering_removed_example = baseline_wandering_subtracted_data.iloc[
+        :, example_idx
+    ]
+
+    plt.title(
+        f"{window_label}\nbaseline window duration: {metadata['baseline_wandering_subtraction_window_duration']}s\ncentre: {center}"
+    )
+    plt.xlabel("time (s)")
+    plt.plot(
+        original_example.index.total_seconds(),
+        original_example,
+        "r",
+        label="original",
+        alpha=0.5,
+    )
+    plt.plot(
+        baseline_wandering_removed_example.index.total_seconds(),
+        baseline_wandering_removed_example,
+        "b",
+        label="baseline wandering removed",
+    )
+    if not baseline.empty:
+        baseline_example = baseline.iloc[:, example_idx]
+        plt.plot(
+            baseline_example.index.total_seconds(),
+            baseline_example,
+            "g",
+            label="baseline",
+        )
+    plt.legend()
+
+
 # %%
 
 if __name__ == "__main__":
@@ -469,7 +510,8 @@ if __name__ == "__main__":
         "downsampled_frequency": 16,
         "window_duration": 10,
         "step_duration": 1,
-        "moving_average_window_duration": 0.5,
+        "moving_average_window_duration": 0,
+        "baseline_wandering_subtraction_window_duration": 1,
     }
 
     central_cropped_window = get_temporal_subwindow_of_signal(
@@ -481,7 +523,7 @@ if __name__ == "__main__":
         columns=["resp", "frames"], level="signal_name"
     )
 
-    non_windowed_data = downsample(
+    downsampled = downsample(
         central_cropped_window,
         original_rate=256,
         downsampled_rate=metadata["downsampled_frequency"],
@@ -489,66 +531,35 @@ if __name__ == "__main__":
 
     center = True
     moving_averaged_data = moving_average(
-        data=non_windowed_data,
+        data=downsampled,
         window_duration=metadata["moving_average_window_duration"],
         center=center,
     )
 
-    def plot_baseline_wandering_subtraction(
-        original_data: pd.DataFrame,
-        baseline_wandering_subtracted_data: pd.DataFrame,
-        example_idx: int,
-    ):
-        window_label = original_data.iloc[:, example_idx].name
-
-        original_example = original_data.iloc[:, example_idx]
-        baseline_wandering_removed_example = baseline_wandering_subtracted_data.iloc[
-            :, example_idx
-        ]
-
-        plt.title(
-            f"{window_label}\nbaseline window duration: {baseline_wandering_window}s\ncentre: {center}"
-        )
-        plt.xlabel("time (s)")
-        plt.plot(
-            original_example.index.total_seconds(),
-            original_example,
-            "r",
-            label="original",
-            alpha=0.5,
-        )
-        plt.plot(
-            baseline_wandering_removed_example.index.total_seconds(),
-            baseline_wandering_removed_example,
-            "b",
-            label="baseline wandering removed",
-        )
-        plt.legend()
-
-    baseline_wandering_window = 1
     baseline = moving_average(
-        data=non_windowed_data,
-        window_duration=baseline_wandering_window,
+        data=moving_averaged_data,
+        window_duration=metadata["baseline_wandering_subtraction_window_duration"],
         center=center,
     )
+    baseline_removed = moving_averaged_data - baseline
+
+    treatments = downsampled.columns.get_level_values(level="treatment_label")
+    hard = (treatments == "m4_hard").nonzero()[0]
 
     plot_baseline_wandering_subtraction(
-        original_data=normalize_windows(non_windowed_data),
-        baseline_wandering_subtracted_data=normalize_windows(
-            non_windowed_data - baseline
-        ),
-        example_idx=hard[7],
+        original_data=normalize_windows(moving_averaged_data),
+        baseline_wandering_subtracted_data=normalize_windows(baseline_removed),
+        baseline=baseline,
+        example_idx=35,
     )
 
-    # treatments = non_windowed_data.columns.get_level_values(level='treatment_label')
-    # hard = (treatments == 'm4_hard').nonzero()[0]
     #
     # plot_moving_average_smoothing(
     #     non_averaged_data=non_windowed_data,
     #     averaged_data=moving_averaged_data,
     #     example_idx=hard[4],
     # )
-
+    non_windowed_data = baseline_removed
     # window stuff
     noisy_labels_excel_sheet_filepath = os.path.join(
         BASE_DIR, "data", "Stress Dataset", "labelling-dataset-less-strict.xlsx"
