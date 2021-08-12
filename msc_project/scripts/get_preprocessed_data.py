@@ -403,9 +403,11 @@ def do_tests():
     )
 
 
-def moving_average(data: pd.DataFrame, window_duration: float) -> pd.DataFrame:
-    window = pd.Timedelta(value=window_duration, units="seconds")
-    smoothed = data.rolling(window).mean()
+def moving_average(
+    data: pd.DataFrame, window_duration: float, center: bool
+) -> pd.DataFrame:
+    window = pd.Timedelta(seconds=window_duration)
+    smoothed = data.rolling(window, axis=0, center=center).mean()
     return smoothed
 
 
@@ -494,7 +496,34 @@ if __name__ == "__main__":
         do_tests()
 
     windowed_data = normalize_windows(windowed_data)
-    moving_averaged_data = moving_average(data=windowed_data, window_duration=1)
+    window_duration = 0.3
+    center = True
+    moving_averaged_data = moving_average(
+        data=windowed_data, window_duration=window_duration, center=center
+    )
+
+    non_averaged_example = windowed_data["0720202421P1_608", "m2_easy", "bvp", 60.0]
+    averaged_example = moving_averaged_data["0720202421P1_608", "m2_easy", "bvp", 60.0]
+
+    # pd.testing.assert_series_equal(non_averaged_example, averaged_example)
+    plt.figure()
+    plt.title(f"window duration: {window_duration}s\ncentre: {center}")
+    plt.xlabel("time (s)")
+    plt.plot(
+        non_averaged_example.index.total_seconds(),
+        non_averaged_example,
+        "r",
+        label="non averaged",
+        alpha=0.5,
+    )
+    plt.plot(
+        non_averaged_example.index.total_seconds(),
+        averaged_example,
+        "b",
+        label="averaged",
+    )
+    plt.legend()
+    plt.show()
 
     windowed_data_fp = os.path.join(
         BASE_DIR,
