@@ -411,7 +411,7 @@ def moving_average(
     return smoothed
 
 
-def plot_example(
+def plot_moving_average_smoothing(
     non_averaged_data: pd.DataFrame, averaged_data: pd.DataFrame, example_idx: int
 ):
     """
@@ -488,16 +488,62 @@ if __name__ == "__main__":
     )
 
     center = True
-    non_windowed_data = moving_average(
+    moving_averaged_data = moving_average(
         data=non_windowed_data,
         window_duration=metadata["moving_average_window_duration"],
         center=center,
     )
 
+    def plot_baseline_wandering_subtraction(
+        original_data: pd.DataFrame,
+        baseline_wandering_subtracted_data: pd.DataFrame,
+        example_idx: int,
+    ):
+        window_label = original_data.iloc[:, example_idx].name
+
+        original_example = original_data.iloc[:, example_idx]
+        baseline_wandering_removed_example = baseline_wandering_subtracted_data.iloc[
+            :, example_idx
+        ]
+
+        plt.title(
+            f"{window_label}\nbaseline window duration: {baseline_wandering_window}s\ncentre: {center}"
+        )
+        plt.xlabel("time (s)")
+        plt.plot(
+            original_example.index.total_seconds(),
+            original_example,
+            "r",
+            label="original",
+            alpha=0.5,
+        )
+        plt.plot(
+            baseline_wandering_removed_example.index.total_seconds(),
+            baseline_wandering_removed_example,
+            "b",
+            label="baseline wandering removed",
+        )
+        plt.legend()
+
+    baseline_wandering_window = 1
+    baseline = moving_average(
+        data=non_windowed_data,
+        window_duration=baseline_wandering_window,
+        center=center,
+    )
+
+    plot_baseline_wandering_subtraction(
+        original_data=normalize_windows(non_windowed_data),
+        baseline_wandering_subtracted_data=normalize_windows(
+            non_windowed_data - baseline
+        ),
+        example_idx=hard[7],
+    )
+
     # treatments = non_windowed_data.columns.get_level_values(level='treatment_label')
     # hard = (treatments == 'm4_hard').nonzero()[0]
     #
-    # plot_example(
+    # plot_moving_average_smoothing(
     #     non_averaged_data=non_windowed_data,
     #     averaged_data=moving_averaged_data,
     #     example_idx=hard[4],
