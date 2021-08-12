@@ -403,14 +403,10 @@ def do_tests():
     )
 
 
-def smooth_moving_average(data: pd.DataFrame, window_duration: float) -> pd.DataFrame:
-    time_between_frames = pd.infer_freq(data.index)
-    time_between_frames = pd.to_timedelta(time_between_frames)
-    window_duration_timedelta = pd.Timedelta(value=window_duration, units="seconds")
-    window_size = window_duration_timedelta / time_between_frames
-    assert window_size.is_integer()
-    window_size = int(window_size)
-    data.rolling(window_size)
+def moving_average(data: pd.DataFrame, window_duration: float) -> pd.DataFrame:
+    window = pd.Timedelta(value=window_duration, units="seconds")
+    smoothed = data.rolling(window).mean()
+    return smoothed
 
 
 # %%
@@ -498,6 +494,7 @@ if __name__ == "__main__":
         do_tests()
 
     windowed_data = normalize_windows(windowed_data)
+    moving_averaged_data = moving_average(data=windowed_data, window_duration=1)
 
     windowed_data_fp = os.path.join(
         BASE_DIR,
