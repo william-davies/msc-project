@@ -1,7 +1,7 @@
 import os
 import re
 import sys
-from typing import List, Iterable
+from typing import List, Iterable, Tuple
 
 import numpy as np
 import pandas as pd
@@ -446,6 +446,28 @@ def plot_moving_average_smoothing(
     plt.legend()
 
 
+def plot_two_signals(signals: List[Tuple]):
+    """
+
+    :param signal_one:
+    :param signal_one_label:
+    :param signal_two:
+    :param signal_two_label:
+    :return:
+    """
+    signal_label = "_".join(signals[0][0].name)
+
+    plt.title(signal_label)
+    plt.xlabel("time (s)")
+    for signal in signals:
+        plt.plot(
+            signal[0].index.total_seconds(),
+            signal[0],
+            label=signal[1],
+        )
+    plt.legend()
+
+
 def plot_baseline_wandering_subtraction(
     example_idx: int,
     original_data: pd.DataFrame = pd.DataFrame(),
@@ -498,35 +520,15 @@ def plot_baseline_wandering_subtraction(
     plt.legend()
 
 
-# %%
-
-if __name__ == "__main__":
-    run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
-    )
-
-    testing = False
-
-    raw_data_artifact = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
-    raw_data_artifact = raw_data_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, raw_data_artifact.type)
-    )
-    all_participants_df = pd.read_pickle(
-        os.path.join(raw_data_artifact, "all_participants.pkl")
-    )
-
-    metadata = {
-        "start_of_central_cropped_window": 1 * SECONDS_IN_MINUTE,
-        "end_of_central_cropped_window": 4 * SECONDS_IN_MINUTE,
-        "downsampled_frequency": 16,
-        "window_duration": 10,
-        "step_duration": 1,
-        "moving_average_window_duration": 1,
-        "baseline_wandering_subtraction_window_duration": 1.5,
-    }
-
+def preprocess_data(raw_data, metadata) -> pd.DataFrame:
+    """
+    EXCLUDES sliding window.
+    :param raw_data:
+    :param metadata:
+    :return:
+    """
     central_cropped_window = get_temporal_subwindow_of_signal(
-        all_participants_df,
+        raw_data,
         window_start=metadata["start_of_central_cropped_window"],
         window_end=metadata["end_of_central_cropped_window"],
     )
@@ -534,54 +536,113 @@ if __name__ == "__main__":
         columns=["resp", "frames"], level="signal_name"
     )
 
+    baseline = moving_average(
+        data=central_cropped_window,
+        window_duration=metadata["baseline_wandering_subtraction_window_duration"],
+        # window_duration=1.5,
+        center=True,
+    )
+    baseline_removed = central_cropped_window - baseline
+
+    moving_averaged_data = moving_average(
+        data=central_cropped_window,
+        window_duration=metadata["moving_average_window_duration"],
+        center=True,
+    )
+
+    plt.close("all")
+    plt.figure()
+    exampled_idx = hard[7]
+    plot_two_signals(
+        signals=[(central_cropped_window.iloc[:, exampled_idx], "original")],
+    )
+    plt.show()
+    plt.figure()
+    plot_two_signals(
+        signals=[(baseline_removed.iloc[:, exampled_idx], "baseline_removed")],
+    )
+    plt.show()
+    plt.figure()
+    plot_two_signals(
+        signals=[(baseline.iloc[:, exampled_idx], "baseline")],
+    )
+    plt.show()
+
     downsampled = downsample(
         central_cropped_window,
         original_rate=256,
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
-    center = True
-    moving_averaged_data = moving_average(
-        data=downsampled,
-        window_duration=metadata["moving_average_window_duration"],
-        center=center,
-    )
+    p21mr_original_sampling_rate = central_cropped_window[
+        "0802111708P21_lamp", "m4_hard", "bvp"
+    ]
+    p21mr_downsampled = downsampled["0802111708P21_lamp", "m4_hard", "bvp"]
 
-    baseline = moving_average(
-        data=moving_averaged_data,
-        window_duration=metadata["baseline_wandering_subtraction_window_duration"],
-        # window_duration=1.5,
-        center=center,
+    # bandpass_filtered_data =
+
+    p21mr_averaged = moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
+
+    plt.figure()
+    plot_two_signals(
+        signal_one=p21mr_downsampled,
+        signal_one_label="downsampled",
+        signal_two=p21mr_averaged,
+        signal_two_label="averaged",
     )
-    baseline_removed = moving_averaged_data - baseline
+    plt.show()
 
     treatments = downsampled.columns.get_level_values(level="treatment_label")
     hard = (treatments == "m4_hard").nonzero()[0]
 
-    example_idx = 10
-    plot_baseline_wandering_subtraction(
-        original_data=moving_averaged_data,
-        baseline=baseline,
-        example_idx=example_idx,
-    )
-
-    plot_baseline_wandering_subtraction(
-        original_data=normalize_windows(moving_averaged_data),
-        example_idx=example_idx,
-    )
-
-    plot_baseline_wandering_subtraction(
-        baseline_wandering_removed_data=normalize_windows(baseline_removed),
-        example_idx=example_idx,
-    )
-
-    #
-    # plot_moving_average_smoothing(
-    #     non_averaged_data=non_windowed_data,
-    #     averaged_data=moving_averaged_data,
-    #     example_idx=hard[4],
+    example_idx = hard[2]
+    # plot_baseline_wandering_subtraction(
+    #     original_data=moving_averaged_data,
+    #     baseline=baseline,
+    #     example_idx=example_idx,
     # )
-    non_windowed_data = baseline_removed
+
+    plt.figure()
+    plot_two_signals(
+        signal_one=normalize_windows(
+            moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
+        ),
+        signal_one_label="averaged",
+        signal_two=normalize_windows(
+            baseline_removed["0802111708P21_lamp", "m4_hard", "bvp"]
+        ),
+        signal_two_label="baseline_removed",
+    )
+    plt.show()
+
+    return preprocessed_data
+
+
+# %%
+if __name__ == "__main__":
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+    )
+
+    testing = True
+
+    raw_data_artifact = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
+    raw_data_artifact = raw_data_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, raw_data_artifact.type)
+    )
+    raw_data = pd.read_pickle(os.path.join(raw_data_artifact, "all_participants.pkl"))
+
+    metadata = {
+        "start_of_central_cropped_window": 1 * SECONDS_IN_MINUTE,
+        "end_of_central_cropped_window": 4 * SECONDS_IN_MINUTE,
+        "downsampled_frequency": 16,
+        "window_duration": 10,
+        "step_duration": 1,
+        "moving_average_window_duration": 0.4,
+        "baseline_wandering_subtraction_window_duration": 2,
+    }
+
+    non_windowed_data = preprocess_data(raw_data, metadata)
     # window stuff
     noisy_labels_excel_sheet_filepath = os.path.join(
         BASE_DIR, "data", "Stress Dataset", "labelling-dataset-less-strict.xlsx"

@@ -19,7 +19,10 @@ from msc_project.constants import (
 from matplotlib.ticker import MultipleLocator
 
 # %%
-from msc_project.scripts.get_windows import get_temporal_subwindow_of_signal
+from msc_project.scripts.get_preprocessed_data import (
+    get_temporal_subwindow_of_signal,
+    downsample,
+)
 from utils import get_final_recorded_idx, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
@@ -186,12 +189,12 @@ plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 # ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL[0:1]:
+for participant_dirname in ["0802184155P23_natural"]:
     plotter.plot_multiple_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
         signals=["bvp"],
-        treatment_labels=["m2_easy"],
+        treatment_labels=["m4_hard"],
         save=False,
         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
         # temporal_subwindow_params=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
