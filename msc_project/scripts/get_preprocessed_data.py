@@ -1,9 +1,10 @@
 import os
 import re
 import sys
-from typing import List, Iterable, Tuple
+from typing import List, Iterable, Tuple, Dict
 
 import numpy as np
+import numpy.typing
 import pandas as pd
 import scipy.signal
 import matplotlib.pyplot as plt
@@ -66,6 +67,47 @@ def downsample(original_data, original_rate, downsampled_rate):
         data=downsampled_signal, index=index, columns=original_data.columns
     )
     return downsampled_df
+
+
+def bandpass_filter(
+    data: pd.DataFrame, metadata: Dict, sampling_frequency: float
+) -> pd.DataFrame:
+    """
+    Followed https://github.com/deepneuroscience/Rethinking-Eye-blink/blob/e4ad06008ac79735468ef7e2824cf906f4addcd7/rethinking_eyeblink/utils/blink_spectrogram.py#L41.
+    :param data:
+    :param metadata:
+    :param sampling_frequency:
+    :return:
+    """
+    nyquist_frequency = sampling_frequency / 2
+    Wn = [
+        metadata["bandpass_lower_frequency"] / nyquist_frequency,
+        metadata["bandpass_upper_frequency"] / nyquist_frequency,
+    ]
+    filter_b, filter_a = scipy.signal.ellip(
+        N=metadata["filter_order"],
+        rp=metadata["max_passband_ripple"],
+        rs=metadata["min_stop_band_attenuation"],
+        Wn=Wn,
+        btype="bandpass",
+        output="ba",  # ba following Youngjun. I don't know what this means.
+    )
+    filtered = scipy.signal.lfilter(filter_b, filter_a, data, axis=0)
+    filtered_df = data.copy()
+    filtered_df.iloc[:, :] = filtered
+    return filtered_df
+
+
+def get_freq(index) -> float:
+    """
+
+    :param index:
+    :return: Hz
+    """
+    inferred = pd.infer_freq(index)
+    inferred = pd.to_timedelta(inferred)
+    Hz = pd.Timedelta(value=1, unit="second") / inferred
+    return Hz
 
 
 # %%
@@ -446,7 +488,7 @@ def plot_moving_average_smoothing(
     plt.legend()
 
 
-def plot_two_signals(signals: List[Tuple]):
+def plot_n_signals(signals: List[Tuple]) -> None:
     """
 
     :param signal_one:
@@ -520,7 +562,7 @@ def plot_baseline_wandering_subtraction(
     plt.legend()
 
 
-def preprocess_data(raw_data, metadata) -> pd.DataFrame:
+def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
     """
     EXCLUDES sliding window.
     :param raw_data:
@@ -536,35 +578,51 @@ def preprocess_data(raw_data, metadata) -> pd.DataFrame:
         columns=["resp", "frames"], level="signal_name"
     )
 
+    treatments = central_cropped_window.columns.get_level_values(
+        level="treatment_label"
+    )
+    hard = (treatments == "m4_hard").nonzero()[0]
+    example_idx = hard[-2]
+
+    sampling_frequency = get_freq(central_cropped_window.index)
+    bandpass_filtered_data = bandpass_filter(
+        data=central_cropped_window,
+        metadata=metadata,
+        sampling_frequency=sampling_frequency,
+    )
+
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (central_cropped_window.iloc[:, example_idx], "original"),
+            (bandpass_filtered_data.iloc[:, example_idx], "filtered"),
+        ],
+    )
+    plt.show()
+
     baseline = moving_average(
         data=central_cropped_window,
         window_duration=metadata["baseline_wandering_subtraction_window_duration"],
         # window_duration=1.5,
         center=True,
     )
-    baseline_removed = central_cropped_window - baseline
 
     moving_averaged_data = moving_average(
         data=central_cropped_window,
-        window_duration=metadata["moving_average_window_duration"],
+        window_duration=0.3,
         center=True,
     )
+    baseline_removed = moving_averaged_data - baseline
 
     plt.close("all")
     plt.figure()
-    exampled_idx = hard[7]
-    plot_two_signals(
-        signals=[(central_cropped_window.iloc[:, exampled_idx], "original")],
+    plot_n_signals(
+        signals=[(central_cropped_window.iloc[:, example_idx], "original")],
     )
     plt.show()
     plt.figure()
-    plot_two_signals(
-        signals=[(baseline_removed.iloc[:, exampled_idx], "baseline_removed")],
-    )
-    plt.show()
-    plt.figure()
-    plot_two_signals(
-        signals=[(baseline.iloc[:, exampled_idx], "baseline")],
+    plot_n_signals(
+        signals=[(baseline_removed.iloc[:, example_idx], "smoothed")],
     )
     plt.show()
 
@@ -579,21 +637,16 @@ def preprocess_data(raw_data, metadata) -> pd.DataFrame:
     ]
     p21mr_downsampled = downsampled["0802111708P21_lamp", "m4_hard", "bvp"]
 
-    # bandpass_filtered_data =
-
     p21mr_averaged = moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
 
     plt.figure()
-    plot_two_signals(
+    plot_n_signals(
         signal_one=p21mr_downsampled,
         signal_one_label="downsampled",
         signal_two=p21mr_averaged,
         signal_two_label="averaged",
     )
     plt.show()
-
-    treatments = downsampled.columns.get_level_values(level="treatment_label")
-    hard = (treatments == "m4_hard").nonzero()[0]
 
     example_idx = hard[2]
     # plot_baseline_wandering_subtraction(
@@ -603,7 +656,7 @@ def preprocess_data(raw_data, metadata) -> pd.DataFrame:
     # )
 
     plt.figure()
-    plot_two_signals(
+    plot_n_signals(
         signal_one=normalize_windows(
             moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
         ),
@@ -633,13 +686,21 @@ if __name__ == "__main__":
     raw_data = pd.read_pickle(os.path.join(raw_data_artifact, "all_participants.pkl"))
 
     metadata = {
+        # central crop
         "start_of_central_cropped_window": 1 * SECONDS_IN_MINUTE,
         "end_of_central_cropped_window": 4 * SECONDS_IN_MINUTE,
         "downsampled_frequency": 16,
+        # sliding window
         "window_duration": 10,
         "step_duration": 1,
         "moving_average_window_duration": 0.4,
         "baseline_wandering_subtraction_window_duration": 2,
+        # bandpass filter
+        "bandpass_lower_frequency": 0.7,
+        "bandpass_upper_frequency": 4,
+        "filter_order": 3,
+        "max_passband_ripple": 3,
+        "min_stop_band_attenuation": 6,
     }
 
     non_windowed_data = preprocess_data(raw_data, metadata)
