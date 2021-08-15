@@ -590,25 +590,39 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         sampling_frequency=sampling_frequency,
     )
 
-    example_idx = hard[4]
-    plt.figure()
-    plot_n_signals(
-        signals=[
-            (central_cropped_window.iloc[:, example_idx], "original"),
-            (bandpass_filtered_data.iloc[:, example_idx], "filtered"),
-        ],
-    )
-    plt.show()
+    # plt.close("all")
+    # plt.figure()
+    # plot_n_signals(
+    #     signals=[
+    #         (central_cropped_window.iloc[:, example_idx], "original"),
+    #         (bandpass_filtered_data.iloc[:, example_idx], "filtered"),
+    #     ],
+    # )
+    # plt.show()
 
     baseline = moving_average(
-        data=central_cropped_window,
+        data=bandpass_filtered_data,
         window_duration=metadata["baseline_wandering_subtraction_window_duration"],
         # window_duration=1.5,
         center=True,
     )
+    baseline_removed = bandpass_filtered_data - baseline
+
+    example_idx = hard[-2]
+    plt.close("all")
+    plt.figure()
+    plot_n_signals(
+        signals=[(bandpass_filtered_data.iloc[:, example_idx], "bandpass")],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[(baseline_removed.iloc[:, example_idx], "baseline removed")],
+    )
+    plt.show()
 
     moving_averaged_data = moving_average(
-        data=central_cropped_window,
+        data=bandpass_filtered_data,
         window_duration=0.3,
         center=True,
     )
@@ -694,7 +708,7 @@ if __name__ == "__main__":
         "window_duration": 10,
         "step_duration": 1,
         "moving_average_window_duration": 0.4,
-        "baseline_wandering_subtraction_window_duration": 2,
+        "baseline_wandering_subtraction_window_duration": 0,
         # bandpass filter
         "bandpass_lower_frequency": 0.7,
         "bandpass_upper_frequency": 4,
