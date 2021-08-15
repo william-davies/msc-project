@@ -84,15 +84,15 @@ def bandpass_filter(
         metadata["bandpass_lower_frequency"] / nyquist_frequency,
         metadata["bandpass_upper_frequency"] / nyquist_frequency,
     ]
-    filter_b, filter_a = scipy.signal.ellip(
+    sos = scipy.signal.ellip(
         N=metadata["filter_order"],
         rp=metadata["max_passband_ripple"],
         rs=metadata["min_stop_band_attenuation"],
         Wn=Wn,
         btype="bandpass",
-        output="ba",  # ba following Youngjun. I don't know what this means.
+        output="sos",
     )
-    filtered = scipy.signal.lfilter(filter_b, filter_a, data, axis=0)
+    filtered = scipy.signal.sosfilt(sos, data, axis=0)
     filtered_df = data.copy()
     filtered_df.iloc[:, :] = filtered
     return filtered_df
@@ -582,7 +582,6 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         level="treatment_label"
     )
     hard = (treatments == "m4_hard").nonzero()[0]
-    example_idx = hard[-2]
 
     sampling_frequency = get_freq(central_cropped_window.index)
     bandpass_filtered_data = bandpass_filter(
@@ -591,6 +590,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         sampling_frequency=sampling_frequency,
     )
 
+    example_idx = hard[4]
     plt.figure()
     plot_n_signals(
         signals=[
