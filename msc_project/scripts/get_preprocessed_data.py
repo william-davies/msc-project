@@ -599,16 +599,23 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
     #     ],
     # )
     # plt.show()
-
-    baseline = moving_average(
-        data=bandpass_filtered_data,
-        window_duration=metadata["baseline_wandering_subtraction_window_duration"],
-        # window_duration=1.5,
-        center=True,
-    )
+    if metadata["baseline_wandering_subtraction_window_duration"] is not None:
+        baseline = moving_average(
+            data=bandpass_filtered_data,
+            window_duration=metadata["baseline_wandering_subtraction_window_duration"],
+            center=True,
+        )
+    else:
+        baseline = 0
     baseline_removed = bandpass_filtered_data - baseline
 
-    example_idx = hard[-2]
+    moving_averaged_data = moving_average(
+        data=bandpass_filtered_data,
+        window_duration=metadata["moving_average_window_duration"],
+        center=True,
+    )
+
+    example_idx = hard[-1]
     plt.close("all")
     plt.figure()
     plot_n_signals(
@@ -617,31 +624,14 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
     plt.show()
     plt.figure()
     plot_n_signals(
-        signals=[(baseline_removed.iloc[:, example_idx], "baseline removed")],
-    )
-    plt.show()
-
-    moving_averaged_data = moving_average(
-        data=bandpass_filtered_data,
-        window_duration=0.3,
-        center=True,
-    )
-    baseline_removed = moving_averaged_data - baseline
-
-    plt.close("all")
-    plt.figure()
-    plot_n_signals(
-        signals=[(central_cropped_window.iloc[:, example_idx], "original")],
-    )
-    plt.show()
-    plt.figure()
-    plot_n_signals(
-        signals=[(baseline_removed.iloc[:, example_idx], "smoothed")],
+        signals=[
+            (moving_averaged_data.iloc[:, example_idx], "bandpass + moving average")
+        ],
     )
     plt.show()
 
     downsampled = downsample(
-        central_cropped_window,
+        moving_averaged_data,
         original_rate=256,
         downsampled_rate=metadata["downsampled_frequency"],
     )
@@ -707,8 +697,8 @@ if __name__ == "__main__":
         # sliding window
         "window_duration": 10,
         "step_duration": 1,
-        "moving_average_window_duration": 0.4,
-        "baseline_wandering_subtraction_window_duration": 0,
+        "moving_average_window_duration": 0.2,
+        "baseline_wandering_subtraction_window_duration": None,
         # bandpass filter
         "bandpass_lower_frequency": 0.7,
         "bandpass_upper_frequency": 4,
