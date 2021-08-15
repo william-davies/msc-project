@@ -18,10 +18,6 @@ import tensorflow as tf
 import pandas as pd
 
 # %%
-from msc_project.scripts.get_data_split import DatasetPreparer
-
-
-# %%
 def train_autoencoder(resume: bool, train, val, epoch: int, run_id: str = ""):
     """
 
@@ -141,9 +137,9 @@ def init_run(resume, run_id):
 if __name__ == "__main__":
     bottleneck_size = 8
     run_config = {
-        "encoder_1": bottleneck_size * 2 * 2,
+        "encoder_1": 64,
         "encoder_activation_1": "relu",
-        "encoder_2": bottleneck_size * 2,
+        "encoder_2": 16,
         "encoder_activation_2": "relu",
         "encoder_3": bottleneck_size,
         "encoder_activation_3": "relu",
@@ -157,7 +153,7 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 10,
+        "epoch": 5000,
         "patience": 1000,
         "min_delta": 1e-3,
     }
@@ -195,7 +191,7 @@ if __name__ == "__main__":
     )
     autoencoder = create_autoencoder(metadata)
 
-    autoencoder.fit(
+    history = autoencoder.fit(
         train,
         train,
         epochs=metadata["epoch"],
