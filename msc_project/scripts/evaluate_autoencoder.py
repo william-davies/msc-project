@@ -34,7 +34,13 @@ model_dir = model_artifact.download(
 )
 autoencoder = tf.keras.models.load_model(model_dir)
 
-data_split_artifact = run.use_artifact(DATA_SPLIT_ARTIFACT + ":v7")
+# programmatically get the data split artifact used in model training
+model_training_run = model_artifact.logged_by()
+model_training_used_artifacts = model_training_run.used_artifacts()
+assert len(model_training_used_artifacts) == 1
+data_split_artifact = model_training_used_artifacts[0]
+
+run.use_artifact(data_split_artifact)
 data_split_artifact = data_split_artifact.download(
     root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
 )
