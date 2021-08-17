@@ -46,7 +46,7 @@ noisy = pd.read_pickle(os.path.join(data_split_artifact, "noisy.pkl"))
 def get_reconstructed_df(dataframe: pd.DataFrame) -> pd.DataFrame:
     reconstructed_values = tf.stop_gradient(autoencoder(dataframe.to_numpy()))
     reconstructed_df = dataframe.copy()
-    reconstructed_df.iloc[:, :] = reconstructed_values
+    reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
     return reconstructed_df
 
 
@@ -129,46 +129,47 @@ def plot_examples(
 
 
 # %%
-run_plots_dir = plot_examples(
-    original_data=train,
-    reconstructed_data=reconstructed_train.to_numpy(),
-    example_type="Train",
-    model_name=model_artifact.name.replace(":", "_"),
-    run_name=run.name,
-    save=True,
-    # example_idxs=np.arange(915, 925)
-    example_idxs=np.arange(0, len(train), 80),
-    exist_ok=True,
-)
+# run_plots_dir = plot_examples(
+#     original_data=train,
+#     reconstructed_data=reconstructed_train.to_numpy(),
+#     example_type="Train",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(train), 80),
+#     exist_ok=True,
+# )
 # %%
-run_plots_dir = plot_examples(
-    original_data=val,
-    reconstructed_data=reconstructed_val.to_numpy(),
-    example_type="Val",
-    model_name=model_artifact.name.replace(":", "_"),
-    run_name=run.name,
-    save=True,
-    # example_idxs=np.arange(915, 925)
-    example_idxs=np.arange(0, len(val), 50),
-    exist_ok=True,
-)
-#
-#
-# # %%
-run_plots_dir = plot_examples(
-    original_data=noisy,
-    reconstructed_data=reconstructed_noisy.to_numpy(),
-    example_type="Noisy",
-    model_name=model_artifact.name.replace(":", "_"),
-    run_name=run.name,
-    save=True,
-    # example_idxs=np.arange(915, 925)
-    example_idxs=np.arange(0, len(noisy), 20),
-    exist_ok=True,
-)
+# run_plots_dir = plot_examples(
+#     original_data=val,
+#     reconstructed_data=reconstructed_val.to_numpy(),
+#     example_type="Val",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(val), 50),
+#     exist_ok=True,
+# )
+
+
+# %%
+# run_plots_dir = plot_examples(
+#     original_data=noisy,
+#     reconstructed_data=reconstructed_noisy.to_numpy(),
+#     example_type="Noisy",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(noisy), 20),
+#     exist_ok=True,
+# )
 
 # %%
 reconstructed_dir = os.path.join(ARTIFACTS_ROOT, "reconstructed", run.name)
+os.mkdir(reconstructed_dir)
 reconstructed_train.to_pickle(
     os.path.join(reconstructed_dir, "reconstructed_train.pkl")
 )
