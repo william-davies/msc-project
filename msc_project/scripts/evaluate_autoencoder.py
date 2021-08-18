@@ -187,9 +187,7 @@ reconstructed_noisy.to_pickle(
 )
 
 # %%
-train = pd.read_pickle(
-    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/train.pkl"
-)
+
 plt.close("all")
 random_idx = np.random.randint(low=0, high=len(train) + 1)
 random_example = train.iloc[random_idx]
@@ -233,15 +231,15 @@ plt.show()
 SQI_HR_range_min = 0.8
 SQI_HR_range_max = 2
 
-PSD_frequency, PSD_power = scipy.signal.welch(x=train, fs=fs)
-band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
-    PSD_frequency <= SQI_HR_range_max
+train = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/train.pkl"
 )
-band_of_interest_power = PSD_power[:, band_of_interest_indices]
-band_of_interest_energy = band_of_interest_power.sum(axis=1)
-total_energy = PSD_power.sum(axis=1)
-SQI = band_of_interest_energy / total_energy
-SQI_df = pd.DataFrame(data=SQI, index=train.index, columns=["SQI"], dtype="float64")
+val = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/val.pkl"
+)
+noisy = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/noisy.pkl"
+)
 
 
 def get_SQI(data, band_of_interest_lower_freq, band_of_interest_upper_freq):
@@ -258,12 +256,39 @@ def get_SQI(data, band_of_interest_lower_freq, band_of_interest_upper_freq):
     return SQI_df
 
 
+train_SQI = get_SQI(
+    data=train,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
+val_SQI = get_SQI(
+    data=val,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
+noisy_SQI = get_SQI(
+    data=noisy,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
+
+
 # %%
-plt.figure()
-plt.xlabel("SQI")
-plt.ylabel("count")
-plt.hist(SQI)
-plt.show()
+def plot_SQI(SQI, title):
+    plt.figure()
+    plt.xlabel("SQI")
+    plt.gca().set_xlim(right=1)
+    plt.ylabel("count")
+    plt.title(title)
+    plt.hist(SQI)
+    plt.show()
+
+
+plt.close("all")
+plot_SQI(train_SQI, title="train")
+plot_SQI(val_SQI, title="val")
+plot_SQI(noisy_SQI, title="noisy")
+
 # %%
 
 
