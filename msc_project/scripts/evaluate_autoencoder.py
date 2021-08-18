@@ -241,11 +241,10 @@ band_of_interest_power = PSD_power[:, band_of_interest_indices]
 band_of_interest_energy = band_of_interest_power.sum(axis=1)
 total_energy = PSD_power.sum(axis=1)
 SQI = band_of_interest_energy / total_energy
+SQI_df = pd.DataFrame(data=SQI, index=train.index, columns=["SQI"], dtype="float64")
 
 
-def get_SQI(
-    data, band_of_interest_lower_freq, band_of_interest_upper_freq
-) -> np.typing.ArrayLike:
+def get_SQI(data, band_of_interest_lower_freq, band_of_interest_upper_freq):
     fs = get_freq(data.columns)
     PSD_frequency, PSD_power = scipy.signal.welch(x=data, fs=fs)
     band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
@@ -255,7 +254,8 @@ def get_SQI(
     band_of_interest_energy = band_of_interest_power.sum(axis=1)
     total_energy = PSD_power.sum(axis=1)
     SQI = band_of_interest_energy / total_energy
-    return SQI
+    SQI_df = pd.DataFrame(data=SQI, index=data.index, columns=["SQI"], dtype="float64")
+    return SQI_df
 
 
 # %%
