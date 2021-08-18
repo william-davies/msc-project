@@ -233,24 +233,46 @@ plt.show()
 SQI_HR_range_min = 0.8
 SQI_HR_range_max = 2
 
+PSD_frequency, PSD_power = scipy.signal.welch(x=train, fs=fs)
+band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
+    PSD_frequency <= SQI_HR_range_max
+)
+band_of_interest_power = PSD_power[:, band_of_interest_indices]
+band_of_interest_energy = band_of_interest_power.sum(axis=1)
+total_energy = PSD_power.sum(axis=1)
+SQI = band_of_interest_energy / total_energy
+
+
+def get_SQI(
+    data, band_of_interest_lower_freq, band_of_interest_upper_freq
+) -> np.typing.ArrayLike:
+    fs = get_freq(data.columns)
+    PSD_frequency, PSD_power = scipy.signal.welch(x=data, fs=fs)
+    band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
+        PSD_frequency <= band_of_interest_upper_freq
+    )
+    band_of_interest_power = PSD_power[:, band_of_interest_indices]
+    band_of_interest_energy = band_of_interest_power.sum(axis=1)
+    total_energy = PSD_power.sum(axis=1)
+    SQI = band_of_interest_energy / total_energy
+    return SQI
+
+
+# %%
+plt.figure()
+plt.xlabel("SQI")
+plt.ylabel("count")
+plt.hist(SQI)
+plt.show()
+# %%
+
+
 band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
     PSD_frequency <= SQI_HR_range_max
 )
 band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
 total_energy = PSD_power.sum()
 SQI = band_of_interest_energy / total_energy
-
-
-def get_SQI(
-    PSD_frequency, PSD_power, band_of_interest_lower_freq, band_of_interest_upper_freq
-) -> float:
-    band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
-        PSD_frequency <= band_of_interest_upper_freq
-    )
-    band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
-    total_energy = PSD_power.sum()
-    SQI = band_of_interest_energy / total_energy
-    return SQI
 
 
 # %%
