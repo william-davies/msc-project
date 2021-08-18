@@ -188,18 +188,9 @@ reconstructed_noisy.to_pickle(
 
 # %%
 random_example = train.iloc[0]
-fs = get_freq(random_example.index)
-PSD_frequency, PSD_power = scipy.signal.welch(x=random_example, fs=fs)
-
-# %%
-plt.title("PSD")
-plt.ylabel("power")
-plt.xlabel("frequency (Hz)")
-plt.plot(PSD_frequency, PSD_power)
-plt.show()
-
-# %%
 peaks, _ = scipy.signal.find_peaks(random_example, height=0.2)
+peak_times = random_example.index.total_seconds()[peaks]
+period_lengths = peak_times[1:] - peak_times[:-1]
 # %%
 plt.figure()
 plot_n_signals(
@@ -207,8 +198,27 @@ plot_n_signals(
         (random_example, ""),
     ]
 )
-plt.vlines(random_example.index.total_seconds()[peaks], ymin=0, ymax=1)
+plt.vlines(peak_times, ymin=0, ymax=1)
 plt.show()
+
+# %%
+
+plt.figure()
+plt.title("Histogram of period lengths")
+plt.xlabel("period length (s)")
+plt.ylabel("count")
+plt.hist(period_lengths)
+# %%
+fs = get_freq(random_example.index)
+PSD_frequency, PSD_power = scipy.signal.welch(x=random_example, fs=fs)
+plt.figure()
+plt.title("PSD")
+plt.ylabel("power")
+plt.xlabel("frequency (Hz)")
+plt.plot(PSD_frequency, PSD_power)
+plt.show()
+
+
 # %%
 
 if upload_plots_to_wandb:
