@@ -22,7 +22,7 @@ from msc_project.constants import (
 
 
 # %%
-from msc_project.scripts.get_preprocessed_data import get_freq
+from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 upload_plots_to_wandb: bool = True
 
@@ -196,6 +196,18 @@ plt.title("PSD")
 plt.ylabel("power")
 plt.xlabel("frequency (Hz)")
 plt.plot(PSD_frequency, PSD_power)
+plt.show()
+
+# %%
+peaks, _ = scipy.signal.find_peaks(random_example, height=0.2)
+# %%
+plt.figure()
+plot_n_signals(
+    signals=[
+        (random_example, ""),
+    ]
+)
+plt.vlines(random_example.index.total_seconds()[peaks], ymin=0, ymax=1)
 plt.show()
 # %%
 

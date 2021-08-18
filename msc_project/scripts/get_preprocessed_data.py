@@ -102,7 +102,7 @@ def get_freq(index) -> float:
     """
 
     :param index:
-    :return: Hz
+    :return: frequency in Hz
     """
     inferred = pd.infer_freq(index)
     inferred = pd.to_timedelta(inferred)
@@ -497,7 +497,8 @@ def plot_n_signals(signals: List[Tuple]) -> None:
     :param signal_two_label:
     :return:
     """
-    signal_label = "_".join(signals[0][0].name)
+    signal_name = tuple(map(str, signals[0][0].name))
+    signal_label = "_".join(signal_name)
 
     plt.title(signal_label)
     plt.xlabel("time (s)")
@@ -590,15 +591,6 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         sampling_frequency=sampling_frequency,
     )
 
-    # plt.close("all")
-    # plt.figure()
-    # plot_n_signals(
-    #     signals=[
-    #         (central_cropped_window.iloc[:, example_idx], "original"),
-    #         (bandpass_filtered_data.iloc[:, example_idx], "filtered"),
-    #     ],
-    # )
-    # plt.show()
     if metadata["baseline_wandering_subtraction_window_duration"] is not None:
         baseline = moving_average(
             data=bandpass_filtered_data,
@@ -615,63 +607,34 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         center=True,
     )
 
-    example_idx = hard[-1]
-    plt.close("all")
-    plt.figure()
-    plot_n_signals(
-        signals=[(bandpass_filtered_data.iloc[:, example_idx], "bandpass")],
-    )
-    plt.show()
-    plt.figure()
-    plot_n_signals(
-        signals=[
-            (moving_averaged_data.iloc[:, example_idx], "bandpass + moving average")
-        ],
-    )
-    plt.show()
-
     downsampled = downsample(
         moving_averaged_data,
         original_rate=256,
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
-    p21mr_original_sampling_rate = central_cropped_window[
-        "0802111708P21_lamp", "m4_hard", "bvp"
-    ]
-    p21mr_downsampled = downsampled["0802111708P21_lamp", "m4_hard", "bvp"]
-
-    p21mr_averaged = moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
-
-    plt.figure()
-    plot_n_signals(
-        signal_one=p21mr_downsampled,
-        signal_one_label="downsampled",
-        signal_two=p21mr_averaged,
-        signal_two_label="averaged",
-    )
-    plt.show()
-
     example_idx = hard[2]
-    # plot_baseline_wandering_subtraction(
-    #     original_data=moving_averaged_data,
-    #     baseline=baseline,
-    #     example_idx=example_idx,
-    # )
-
+    plt.close("all")
     plt.figure()
     plot_n_signals(
-        signal_one=normalize_windows(
-            moving_averaged_data["0802111708P21_lamp", "m4_hard", "bvp"]
-        ),
-        signal_one_label="averaged",
-        signal_two=normalize_windows(
-            baseline_removed["0802111708P21_lamp", "m4_hard", "bvp"]
-        ),
-        signal_two_label="baseline_removed",
+        signals=[
+            (moving_averaged_data.iloc[:, example_idx], "moving average"),
+            (downsampled.iloc[:, example_idx], "downsampled"),
+        ],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[(moving_averaged_data.iloc[:, example_idx], "moving average")],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[(downsampled.iloc[:, example_idx], "downsampled")],
     )
     plt.show()
 
+    preprocessed_data = downsampled
     return preprocessed_data
 
 
@@ -681,7 +644,7 @@ if __name__ == "__main__":
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
     )
 
-    testing = True
+    testing = False
 
     raw_data_artifact = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
     raw_data_artifact = raw_data_artifact.download(
@@ -695,7 +658,7 @@ if __name__ == "__main__":
         "end_of_central_cropped_window": 4 * SECONDS_IN_MINUTE,
         "downsampled_frequency": 16,
         # sliding window
-        "window_duration": 10,
+        "window_duration": 8,
         "step_duration": 1,
         "moving_average_window_duration": 0.2,
         "baseline_wandering_subtraction_window_duration": None,
@@ -767,6 +730,7 @@ if __name__ == "__main__":
         "data",
         "preprocessed_data",
         "windowed_noisy_mask_window_start.pkl",
+        ARTIFACTS_ROOT,
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
@@ -774,7 +738,6 @@ if __name__ == "__main__":
         PREPROCESSED_DATA_ARTIFACT,
         type=PREPROCESSED_DATA_ARTIFACT,
         metadata=metadata,
-        description="No smoothing",
     )
     preprocessed_data_artifact.add_file(windowed_data_fp, "windowed_data.pkl")
     preprocessed_data_artifact.add_file(
