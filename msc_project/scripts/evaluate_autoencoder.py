@@ -19,10 +19,10 @@ from msc_project.constants import (
     DATA_SPLIT_ARTIFACT,
     MODEL_EVALUATION_ARTIFACT,
 )
+from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
 # %%
-from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 upload_plots_to_wandb: bool = True
 
@@ -187,6 +187,9 @@ reconstructed_noisy.to_pickle(
 )
 
 # %%
+train = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/train.pkl"
+)
 plt.close("all")
 random_idx = np.random.randint(low=0, high=len(train) + 1)
 random_example = train.iloc[random_idx]
@@ -203,12 +206,6 @@ plot_n_signals(
 plt.vlines(bvp_peak_times, ymin=0, ymax=1)
 plt.show()
 
-# %%
-plt.figure()
-plt.title("Histogram of period lengths")
-plt.xlabel("period length (s)")
-plt.ylabel("count")
-plt.hist(period_lengths)
 
 # %%
 plt.figure()
@@ -230,6 +227,30 @@ plt.plot(PSD_frequency, PSD_power)
 plt.vlines(peak_freq, ymin=0, ymax=np.max(PSD_power), label=peak_freq)
 plt.legend()
 plt.show()
+
+# %%
+# expected range of heart rate (Hz)
+SQI_HR_range_min = 0.8
+SQI_HR_range_max = 2
+
+band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
+    PSD_frequency <= SQI_HR_range_max
+)
+band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
+total_energy = PSD_power.sum()
+SQI = band_of_interest_energy / total_energy
+
+
+def get_SQI(
+    PSD_frequency, PSD_power, band_of_interest_lower_freq, band_of_interest_upper_freq
+) -> float:
+    band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
+        PSD_frequency >= band_of_interest_lower_freq
+    )
+    band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
+    total_energy = PSD_power.sum()
+    SQI = band_of_interest_energy / total_energy
+    return SQI
 
 
 # %%
