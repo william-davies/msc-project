@@ -187,10 +187,12 @@ reconstructed_noisy.to_pickle(
 )
 
 # %%
-random_example = train.iloc[0]
-peaks, _ = scipy.signal.find_peaks(random_example, height=0.2)
-peak_times = random_example.index.total_seconds()[peaks]
-period_lengths = peak_times[1:] - peak_times[:-1]
+plt.close("all")
+random_idx = np.random.randint(low=0, high=len(train) + 1)
+random_example = train.iloc[random_idx]
+bvp_peaks, _ = scipy.signal.find_peaks(random_example, height=0.2)
+bvp_peak_times = random_example.index.total_seconds()[bvp_peaks]
+period_lengths = bvp_peak_times[1:] - bvp_peak_times[:-1]
 # %%
 plt.figure()
 plot_n_signals(
@@ -198,24 +200,35 @@ plot_n_signals(
         (random_example, ""),
     ]
 )
-plt.vlines(peak_times, ymin=0, ymax=1)
+plt.vlines(bvp_peak_times, ymin=0, ymax=1)
 plt.show()
 
 # %%
-
 plt.figure()
 plt.title("Histogram of period lengths")
 plt.xlabel("period length (s)")
 plt.ylabel("count")
 plt.hist(period_lengths)
+
+# %%
+plt.figure()
+plt.title("Histogram of period freq")
+plt.xlabel("period freq (Hz)")
+plt.ylabel("count")
+plt.hist(1 / period_lengths)
+
 # %%
 fs = get_freq(random_example.index)
 PSD_frequency, PSD_power = scipy.signal.welch(x=random_example, fs=fs)
+peak_freq = PSD_frequency[np.argmax(PSD_power)]
+
 plt.figure()
 plt.title("PSD")
 plt.ylabel("power")
 plt.xlabel("frequency (Hz)")
 plt.plot(PSD_frequency, PSD_power)
+plt.vlines(peak_freq, ymin=0, ymax=np.max(PSD_power), label=peak_freq)
+plt.legend()
 plt.show()
 
 
