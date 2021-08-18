@@ -323,6 +323,25 @@ plot_SQI(reconstructed_val_SQI, title="reconstructed val")
 plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
 
 # %%
+def plot_delta(delta, title):
+    plt.figure()
+    plt.title(title)
+    plt.xlabel("delta")
+    plt.ylabel("count")
+    plt.hist(delta)
+    plt.show()
+
+
+train_delta = train_SQI - reconstructed_train_SQI
+val_delta = val_SQI - reconstructed_val_SQI
+noisy_delta = noisy_SQI - reconstructed_noisy_SQI
+
+plt.close("all")
+plot_delta(train_delta, "train delta")
+plot_delta(val_delta, "val delta")
+plot_delta(noisy_delta, "noisy delta")
+
+# %%
 
 
 band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
