@@ -9,6 +9,7 @@ import wandb
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import os
+import scipy.signal
 
 from msc_project.constants import (
     BASE_DIR,
@@ -21,6 +22,7 @@ from msc_project.constants import (
 
 
 # %%
+from msc_project.scripts.get_preprocessed_data import get_freq
 
 upload_plots_to_wandb: bool = True
 
@@ -183,6 +185,19 @@ reconstructed_val.to_pickle(os.path.join(reconstructed_dir, "reconstructed_val.p
 reconstructed_noisy.to_pickle(
     os.path.join(reconstructed_dir, "reconstructed_noisy.pkl")
 )
+
+# %%
+random_example = train.iloc[0]
+fs = get_freq(random_example.index)
+PSD_frequency, PSD_power = scipy.signal.welch(x=random_example, fs=fs)
+
+# %%
+plt.title("PSD")
+plt.ylabel("power")
+plt.xlabel("frequency (Hz)")
+plt.plot(PSD_frequency, PSD_power)
+plt.show()
+# %%
 
 if upload_plots_to_wandb:
     evaluation_artifact = wandb.Artifact(
