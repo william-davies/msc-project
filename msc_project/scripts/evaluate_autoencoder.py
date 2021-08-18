@@ -241,8 +241,22 @@ noisy = pd.read_pickle(
     "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/data_split/noisy.pkl"
 )
 
+reconstructed_train = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/reconstructed/deep-wind-128/reconstructed_train.pkl"
+)
+reconstructed_val = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/reconstructed/deep-wind-128/reconstructed_val.pkl"
+)
+reconstructed_noisy = pd.read_pickle(
+    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artefacts/reconstructed/deep-wind-128/reconstructed_noisy.pkl"
+)
 
-def get_SQI(data, band_of_interest_lower_freq, band_of_interest_upper_freq):
+
+def get_SQI(
+    data: pd.DataFrame,
+    band_of_interest_lower_freq: float,
+    band_of_interest_upper_freq: float,
+) -> pd.DataFrame:
     fs = get_freq(data.columns)
     PSD_frequency, PSD_power = scipy.signal.welch(x=data, fs=fs)
     band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
@@ -272,9 +286,24 @@ noisy_SQI = get_SQI(
     band_of_interest_upper_freq=SQI_HR_range_max,
 )
 
+reconstructed_train_SQI = get_SQI(
+    data=reconstructed_train,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
+reconstructed_val_SQI = get_SQI(
+    data=reconstructed_val,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
+reconstructed_noisy_SQI = get_SQI(
+    data=reconstructed_noisy,
+    band_of_interest_lower_freq=SQI_HR_range_min,
+    band_of_interest_upper_freq=SQI_HR_range_max,
+)
 
 # %%
-def plot_SQI(SQI, title):
+def plot_SQI(SQI, title) -> None:
     plt.figure()
     plt.xlabel("SQI")
     plt.gca().set_xlim(right=1)
@@ -285,9 +314,13 @@ def plot_SQI(SQI, title):
 
 
 plt.close("all")
-plot_SQI(train_SQI, title="train")
-plot_SQI(val_SQI, title="val")
-plot_SQI(noisy_SQI, title="noisy")
+plot_SQI(train_SQI, title="original train")
+plot_SQI(val_SQI, title="original val")
+plot_SQI(noisy_SQI, title="original noisy")
+
+plot_SQI(reconstructed_train_SQI, title="reconstructed train")
+plot_SQI(reconstructed_val_SQI, title="reconstructed val")
+plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
 
 # %%
 
