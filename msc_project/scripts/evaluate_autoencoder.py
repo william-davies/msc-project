@@ -245,7 +245,7 @@ def get_SQI(
     PSD_frequency, PSD_power, band_of_interest_lower_freq, band_of_interest_upper_freq
 ) -> float:
     band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
-        PSD_frequency >= band_of_interest_lower_freq
+        PSD_frequency <= band_of_interest_upper_freq
     )
     band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
     total_energy = PSD_power.sum()
