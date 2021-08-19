@@ -331,36 +331,26 @@ if upload_artifact:
     run.log_artifact(evaluation_artifact)
 run.finish()
 
-# %%
-plt.figure()
-xpos = np.arange(2)
-plt.bar(
-    x=xpos,
-    height=[
-        SQI_summary["train"]["original_mean"],
-        SQI_summary["train"]["reconstructed_mean"],
-    ],
-    yerr=[
-        SQI_summary["train"]["original_std"],
-        SQI_summary["train"]["reconstructed_std"],
-    ],
-    capsize=10,
-    align="center",
-    label=("original", "reconstructed"),
-)
-plt.gca().set_xticks(xpos)
-plt.gca().set_xticklabels(("original", "reconstructed"))
-plt.show()
 
 # %%
-plt.figure()
-plt.boxplot(
-    x=(train_SQI.squeeze(), reconstructed_train_SQI.squeeze()),
-    labels=("original", "reconstructed"),
+def plot_boxplot(original_SQI, reconstructed_SQI, split_name: str) -> None:
+    plt.figure()
+    plt.boxplot(
+        x=(original_SQI.squeeze(), reconstructed_SQI.squeeze()),
+        labels=("original", "reconstructed"),
+    )
+    plt.gca().set_title(f"SQI comparison\n{split_name}")
+    plt.ylabel("SQI")
+    plt.show()
+
+
+SQI_items = (
+    ("train", (train_SQI, reconstructed_train_SQI)),
+    ("val", (val_SQI, reconstructed_val_SQI)),
+    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
 )
-plt.gca().set_title("SQI comparison")
-plt.ylabel("SQI")
-plt.show()
+for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
+    plot_boxplot(original_SQI, reconstructed_SQI, split_name=split_name)
 # %%
 # run_plots_dir = plot_examples(
 #     original_data=train,
