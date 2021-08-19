@@ -153,7 +153,6 @@ def save_reconstructed_signals(
     :param reconstructed_noisy:
     :return:
     """
-    reconstructed_dir = os.path.join(ARTIFACTS_ROOT, "reconstructed", run.name)
     os.mkdir(reconstructed_dir)
     reconstructed_train.to_pickle(
         os.path.join(reconstructed_dir, "reconstructed_train.pkl")
@@ -180,6 +179,39 @@ def plot_SQI(SQI, title) -> None:
     plt.title(title)
     plt.hist(SQI)
     plt.show()
+
+
+def plot_delta(delta, title):
+    plt.figure()
+    plt.title(title)
+    plt.xlabel("delta")
+    plt.ylabel("count")
+    plt.hist(delta)
+    plt.show()
+
+
+def SQI_plots() -> None:
+    """
+    Sanity check SQI plots. Plot SQI histograms of original and reconstructed.
+    Plot SQI delta histogram to check the deltas are normally distributed (that's an assumption of the paired t-test).
+    :return:
+    """
+    plot_SQI(train_SQI, title="original train")
+    plot_SQI(val_SQI, title="original val")
+    plot_SQI(noisy_SQI, title="original noisy")
+
+    plot_SQI(reconstructed_train_SQI, title="reconstructed train")
+    plot_SQI(reconstructed_val_SQI, title="reconstructed val")
+    plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
+
+    train_delta = train_SQI - reconstructed_train_SQI
+    val_delta = val_SQI - reconstructed_val_SQI
+    noisy_delta = noisy_SQI - reconstructed_noisy_SQI
+
+    plt.close("all")
+    plot_delta(train_delta, "train delta")
+    plot_delta(val_delta, "val delta")
+    plot_delta(noisy_delta, "noisy delta")
 
 
 # %%
@@ -235,7 +267,7 @@ reconstructed_noisy = get_reconstructed_df(noisy)
 # )
 
 # %%
-
+reconstructed_dir = os.path.join(ARTIFACTS_ROOT, "reconstructed", run.name)
 save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
 # %%
 
@@ -307,31 +339,9 @@ def get_SQI(
 
 
 # %%
-def plot_delta(delta, title):
-    plt.figure()
-    plt.title(title)
-    plt.xlabel("delta")
-    plt.ylabel("count")
-    plt.hist(delta)
-    plt.show()
+SQI_plots()
 
-
-plot_SQI(train_SQI, title="original train")
-plot_SQI(val_SQI, title="original val")
-plot_SQI(noisy_SQI, title="original noisy")
-
-plot_SQI(reconstructed_train_SQI, title="reconstructed train")
-plot_SQI(reconstructed_val_SQI, title="reconstructed val")
-plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
-
-train_delta = train_SQI - reconstructed_train_SQI
-val_delta = val_SQI - reconstructed_val_SQI
-noisy_delta = noisy_SQI - reconstructed_noisy_SQI
-
-plt.close("all")
-plot_delta(train_delta, "train delta")
-plot_delta(val_delta, "val delta")
-plot_delta(noisy_delta, "noisy delta")
+# %%
 
 # %%
 t_statistc, pvalue = scipy.stats.ttest_rel(
