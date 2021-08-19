@@ -350,6 +350,14 @@ plt.bar(
 )
 plt.gca().set_xticks(xpos)
 plt.gca().set_xticklabels(("original", "reconstructed"))
+plt.show()
+
+# %%
+plt.figure()
+plt.boxplot(
+    x=(train_SQI.squeeze(), reconstructed_train_SQI.squeeze()),
+    labels=("original", "reconstructed"),
+)
 plt.gca().set_title("SQI comparison")
 plt.ylabel("SQI")
 plt.show()
