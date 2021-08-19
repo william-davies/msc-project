@@ -31,25 +31,46 @@ run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-model_artifact = run.use_artifact(TRAINED_MODEL_ARTIFACT + ":v6")
-model_dir = model_artifact.download(
-    root=os.path.join(ARTIFACTS_ROOT, model_artifact.type)
-)
-autoencoder = tf.keras.models.load_model(model_dir)
 
-# programmatically get the data split artifact used in model training
-model_training_run = model_artifact.logged_by()
-model_training_used_artifacts = model_training_run.used_artifacts()
-assert len(model_training_used_artifacts) == 1
-data_split_artifact = model_training_used_artifacts[0]
+def read_data_split_into_memory(model_artifact):
+    """
+    Programmatically get the data split artifact used in model training.
+    :param model_artifact:
+    :return:
+    """
+    model_training_run = model_artifact.logged_by()
+    model_training_used_artifacts = model_training_run.used_artifacts()
+    assert len(model_training_used_artifacts) == 1
+    data_split_artifact = model_training_used_artifacts[0]
 
-run.use_artifact(data_split_artifact)
-data_split_artifact = data_split_artifact.download(
-    root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
-)
-train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
-val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
-noisy = pd.read_pickle(os.path.join(data_split_artifact, "noisy.pkl"))
+    run.use_artifact(data_split_artifact)
+    data_split_artifact = data_split_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
+    )
+    train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
+    val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
+    noisy = pd.read_pickle(os.path.join(data_split_artifact, "noisy.pkl"))
+    return train, val, noisy
+
+
+def read_artifacts_into_memory(model_version: int):
+    """
+    Read model and corresponding data split into memory.
+    :param model_version:
+    :return:
+    """
+    model_artifact = run.use_artifact(TRAINED_MODEL_ARTIFACT + f":v{model_version}")
+    model_dir = model_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, model_artifact.type)
+    )
+    autoencoder = tf.keras.models.load_model(model_dir)
+
+    data_split = read_data_split_into_memory(model_artifact=model_artifact)
+    return autoencoder, data_split
+
+
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=6)
+
 
 # %%
 def get_reconstructed_df(dataframe: pd.DataFrame) -> pd.DataFrame:
