@@ -166,6 +166,22 @@ def save_reconstructed_signals(
     )
 
 
+def plot_SQI(SQI, title) -> None:
+    """
+    Plot SQI histogram.
+    :param SQI:
+    :param title:
+    :return:
+    """
+    plt.figure()
+    plt.xlabel("SQI")
+    plt.gca().set_xlim(right=1)
+    plt.ylabel("count")
+    plt.title(title)
+    plt.hist(SQI)
+    plt.show()
+
+
 # %%
 upload_plots_to_wandb: bool = True
 
@@ -266,57 +282,29 @@ def get_SQI(
     return SQI_df
 
 
-train_SQI = get_SQI(
-    data=train,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
-)
-val_SQI = get_SQI(
-    data=val,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
-)
-noisy_SQI = get_SQI(
-    data=noisy,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
-)
-
-reconstructed_train_SQI = get_SQI(
-    data=reconstructed_train,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
-)
-reconstructed_val_SQI = get_SQI(
-    data=reconstructed_val,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
-)
-reconstructed_noisy_SQI = get_SQI(
-    data=reconstructed_noisy,
-    band_of_interest_lower_freq=SQI_HR_range_min,
-    band_of_interest_upper_freq=SQI_HR_range_max,
+(
+    train_SQI,
+    val_SQI,
+    noisy_SQI,
+    reconstructed_train_SQI,
+    reconstructed_val_SQI,
+    reconstructed_noisy_SQI,
+) = (
+    get_SQI(
+        signal,
+        band_of_interest_lower_freq=SQI_HR_range_min,
+        band_of_interest_upper_freq=SQI_HR_range_max,
+    )
+    for signal in (
+        train,
+        val,
+        noisy,
+        reconstructed_train,
+        reconstructed_val,
+        reconstructed_noisy,
+    )
 )
 
-# %%
-def plot_SQI(SQI, title) -> None:
-    plt.figure()
-    plt.xlabel("SQI")
-    plt.gca().set_xlim(right=1)
-    plt.ylabel("count")
-    plt.title(title)
-    plt.hist(SQI)
-    plt.show()
-
-
-plt.close("all")
-plot_SQI(train_SQI, title="original train")
-plot_SQI(val_SQI, title="original val")
-plot_SQI(noisy_SQI, title="original noisy")
-
-plot_SQI(reconstructed_train_SQI, title="reconstructed train")
-plot_SQI(reconstructed_val_SQI, title="reconstructed val")
-plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
 
 # %%
 def plot_delta(delta, title):
@@ -327,6 +315,14 @@ def plot_delta(delta, title):
     plt.hist(delta)
     plt.show()
 
+
+plot_SQI(train_SQI, title="original train")
+plot_SQI(val_SQI, title="original val")
+plot_SQI(noisy_SQI, title="original noisy")
+
+plot_SQI(reconstructed_train_SQI, title="reconstructed train")
+plot_SQI(reconstructed_val_SQI, title="reconstructed val")
+plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
 
 train_delta = train_SQI - reconstructed_train_SQI
 val_delta = val_SQI - reconstructed_val_SQI
@@ -342,16 +338,6 @@ t_statistc, pvalue = scipy.stats.ttest_rel(
     reconstructed_train_SQI.squeeze(), train_SQI.squeeze(), alternative="greater"
 )
 assert pvalue < 0.01
-
-# %%
-
-
-band_of_interest_indices = (PSD_frequency >= SQI_HR_range_min) * (
-    PSD_frequency <= SQI_HR_range_max
-)
-band_of_interest_energy = PSD_power[band_of_interest_indices].sum()
-total_energy = PSD_power.sum()
-SQI = band_of_interest_energy / total_energy
 
 
 # %%
