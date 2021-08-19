@@ -1,3 +1,4 @@
+import getpass
 import os
 import re
 
@@ -59,7 +60,17 @@ INFINITY_SAMPLE_RATE = 256
 XLSX_CONVERTED_TO_CSV = "xlsx_converted_to_csv"
 
 # absolute path of repo directory
-BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project"
+# this is probably bad form. it's hardly a constant if I'm doing an `if` check here. but this is a quick and dirty solution.
+# would maybe be cleanest to use a config file for this.
+username = getpass.getuser()
+# on my personal Macbook
+if username == "williamdavies":
+    BASE_DIR = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project"
+# on UCL CS machine
+elif username == "wdavies":
+    BASE_DIR = "/cs/student/projects4/ml/2020/wdavies/msc_project"
+else:
+    raise ValueError
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # not full identifier because doesn't include easy/hard
@@ -77,5 +88,8 @@ SPAN_PATTERN = re.compile("^([\d.]+)-([\d.]+)$")
 # wandb
 DENOISING_AUTOENCODER_PROJECT_NAME = "denoising-autoencoder"
 RAW_DATA_ARTIFACT = "all_participants_raw_data"
-PREPROCESSED_DATA_ARTEFACT = "preprocessed_data"
+PREPROCESSED_DATA_ARTIFACT = "preprocessed_data"
+DATA_SPLIT_ARTIFACT = "data_split"
+TRAINED_MODEL_ARTIFACT = "trained_model"
+MODEL_EVALUATION_ARTIFACT = "model_evaluation"
 ARTIFACTS_ROOT = "wandb_artefacts"
