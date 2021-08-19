@@ -1,7 +1,7 @@
 # %%
 import json
 from collections import defaultdict
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import numpy.typing
@@ -212,6 +212,34 @@ def SQI_plots() -> None:
     plot_delta(noisy_delta, "noisy delta")
 
 
+def get_SQI_summary() -> Dict:
+    """
+    Get dict summarising SQI of original and reconstructed signals.
+    :return:
+    """
+    SQI_summary = defaultdict(dict)
+    items = (
+        ("train", (train_SQI, reconstructed_train_SQI)),
+        ("val", (val_SQI, reconstructed_val_SQI)),
+        ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
+    )
+
+    for split_name, (original_SQI, reconstructed_SQI) in items:
+        SQI_summary[split_name]["original_mean"] = original_SQI.squeeze().mean()
+        SQI_summary[split_name]["original_std"] = original_SQI.squeeze().std()
+        SQI_summary[split_name][
+            "reconstructed_mean"
+        ] = reconstructed_SQI.squeeze().mean()
+        SQI_summary[split_name]["reconstructed_std"] = reconstructed_SQI.squeeze().std()
+        _, pvalue = scipy.stats.ttest_rel(
+            reconstructed_train_SQI.squeeze(),
+            train_SQI.squeeze(),
+            alternative="greater",
+        )
+        SQI_summary[split_name]["pvalue"] = pvalue
+    return SQI_summary
+
+
 # %%
 upload_artifact: bool = True
 
@@ -220,7 +248,6 @@ run = wandb.init(
 )
 
 autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=6)
-
 
 # %%
 reconstructed_train = get_reconstructed_df(train)
@@ -268,26 +295,6 @@ reconstructed_noisy = get_reconstructed_df(noisy)
 dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
 os.makedirs(dir_to_upload)
 save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
-# %%
-
-plt.close("all")
-random_idx = np.random.randint(low=0, high=len(train) + 1)
-random_example = train.iloc[random_idx]
-
-
-# %%
-fs = get_freq(random_example.index)
-PSD_frequency, PSD_power = scipy.signal.welch(x=random_example, fs=fs)
-peak_freq = PSD_frequency[np.argmax(PSD_power)]
-
-plt.figure()
-plt.title("PSD")
-plt.ylabel("power")
-plt.xlabel("frequency (Hz)")
-plt.plot(PSD_frequency, PSD_power)
-plt.vlines(peak_freq, ymin=0, ymax=np.max(PSD_power), label=peak_freq)
-plt.legend()
-plt.show()
 
 # %%
 # expected range of heart rate (Hz)
@@ -300,6 +307,13 @@ def get_SQI(
     band_of_interest_lower_freq: float,
     band_of_interest_upper_freq: float,
 ) -> pd.DataFrame:
+    """
+    Return SQI for ech signal in `data`.
+    :param data:
+    :param band_of_interest_lower_freq:
+    :param band_of_interest_upper_freq:
+    :return:
+    """
     fs = get_freq(data.columns)
     PSD_frequency, PSD_power = scipy.signal.welch(x=data, fs=fs)
     band_of_interest_indices = (PSD_frequency >= band_of_interest_lower_freq) * (
@@ -341,22 +355,7 @@ def get_SQI(
 SQI_plots()
 
 # %%
-SQI_summary = defaultdict(dict)
-items = (
-    ("train", (train_SQI, reconstructed_train_SQI)),
-    ("val", (val_SQI, reconstructed_val_SQI)),
-    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
-)
-
-for split_name, (original_SQI, reconstructed_SQI) in items:
-    SQI_summary[split_name]["original_mean"] = original_SQI.squeeze().mean()
-    SQI_summary[split_name]["original_std"] = original_SQI.squeeze().std()
-    SQI_summary[split_name]["reconstructed_mean"] = reconstructed_SQI.squeeze().mean()
-    SQI_summary[split_name]["reconstructed_std"] = reconstructed_SQI.squeeze().std()
-    _, pvalue = scipy.stats.ttest_rel(
-        reconstructed_train_SQI.squeeze(), train_SQI.squeeze(), alternative="greater"
-    )
-    SQI_summary[split_name]["pvalue"] = pvalue
+SQI_summary = get_SQI_summary()
 
 with open(os.path.join(dir_to_upload, "SQI_summary.json"), "w") as fp:
     json.dump(SQI_summary, fp, indent=4)
