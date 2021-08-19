@@ -1,5 +1,6 @@
 # %%
 import json
+from collections import defaultdict
 from typing import List
 
 import numpy as np
@@ -108,7 +109,7 @@ def plot_examples(
         os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
     for example_idx in example_idxs:
-        window_label = original_data.iloc[example_idx].name
+        window_label = original_data.iloc[example_idx].split_name
 
         signal_label = "-".join(window_label[:-1])
         plt.title(f"{example_type} example\n{signal_label}\n")
@@ -342,12 +343,22 @@ def get_SQI(
 SQI_plots()
 
 # %%
-
-# %%
-t_statistc, pvalue = scipy.stats.ttest_rel(
-    reconstructed_train_SQI.squeeze(), train_SQI.squeeze(), alternative="greater"
+SQI_summary = defaultdict(dict)
+items = (
+    ("train", (train_SQI, reconstructed_train_SQI)),
+    ("val", (val_SQI, reconstructed_val_SQI)),
+    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
 )
-assert pvalue < 0.01
+
+for split_name, (original_SQI, reconstructed_SQI) in items:
+    SQI_summary[split_name]["original_mean"] = original_SQI.squeeze().mean()
+    SQI_summary[split_name]["original_std"] = original_SQI.squeeze().std()
+    SQI_summary[split_name]["reconstructed_mean"] = reconstructed_SQI.squeeze().mean()
+    SQI_summary[split_name]["reconstructed_std"] = reconstructed_SQI.squeeze().std()
+    _, pvalue = scipy.stats.ttest_rel(
+        reconstructed_train_SQI.squeeze(), train_SQI.squeeze(), alternative="greater"
+    )
+    SQI_summary[split_name]["pvalue"] = pvalue
 
 
 # %%
