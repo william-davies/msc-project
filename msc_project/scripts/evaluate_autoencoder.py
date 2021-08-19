@@ -154,15 +154,12 @@ def save_reconstructed_signals(
     :param reconstructed_noisy:
     :return:
     """
-    os.mkdir(reconstructed_dir)
     reconstructed_train.to_pickle(
-        os.path.join(reconstructed_dir, "reconstructed_train.pkl")
+        os.path.join(dir_to_upload, "reconstructed_train.pkl")
     )
-    reconstructed_val.to_pickle(
-        os.path.join(reconstructed_dir, "reconstructed_val.pkl")
-    )
+    reconstructed_val.to_pickle(os.path.join(dir_to_upload, "reconstructed_val.pkl"))
     reconstructed_noisy.to_pickle(
-        os.path.join(reconstructed_dir, "reconstructed_noisy.pkl")
+        os.path.join(dir_to_upload, "reconstructed_noisy.pkl")
     )
 
 
@@ -216,7 +213,7 @@ def SQI_plots() -> None:
 
 
 # %%
-upload_plots_to_wandb: bool = True
+upload_artifact: bool = True
 
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
@@ -268,7 +265,8 @@ reconstructed_noisy = get_reconstructed_df(noisy)
 # )
 
 # %%
-reconstructed_dir = os.path.join(ARTIFACTS_ROOT, "reconstructed", run.name)
+dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
+os.makedirs(dir_to_upload)
 save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
 # %%
 
@@ -360,13 +358,14 @@ for split_name, (original_SQI, reconstructed_SQI) in items:
     )
     SQI_summary[split_name]["pvalue"] = pvalue
 
-
+with open(os.path.join(dir_to_upload, "SQI_summary.json"), "w") as fp:
+    json.dump(SQI_summary, fp, indent=4)
 # %%
-
-if upload_plots_to_wandb:
+# guard to save wandb storage
+if upload_artifact:
     evaluation_artifact = wandb.Artifact(
         MODEL_EVALUATION_ARTIFACT, type=MODEL_EVALUATION_ARTIFACT
     )
-    evaluation_artifact.add_dir(reconstructed_dir)
+    evaluation_artifact.add_dir(dir_to_upload)
     run.log_artifact(evaluation_artifact)
 run.finish()
