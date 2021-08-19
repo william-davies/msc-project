@@ -240,68 +240,6 @@ def get_SQI_summary() -> Dict:
     return SQI_summary
 
 
-# %%
-upload_artifact: bool = True
-
-run = wandb.init(
-    project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
-)
-
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=6)
-
-# %%
-reconstructed_train = get_reconstructed_df(train)
-reconstructed_val = get_reconstructed_df(val)
-reconstructed_noisy = get_reconstructed_df(noisy)
-
-# %%
-# run_plots_dir = plot_examples(
-#     original_data=train,
-#     reconstructed_data=reconstructed_train.to_numpy(),
-#     example_type="Train",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(train), 80),
-#     exist_ok=True,
-# )
-
-# run_plots_dir = plot_examples(
-#     original_data=val,
-#     reconstructed_data=reconstructed_val.to_numpy(),
-#     example_type="Val",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(val), 50),
-#     exist_ok=True,
-# )
-
-# run_plots_dir = plot_examples(
-#     original_data=noisy,
-#     reconstructed_data=reconstructed_noisy.to_numpy(),
-#     example_type="Noisy",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(noisy), 20),
-#     exist_ok=True,
-# )
-
-# %%
-dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
-os.makedirs(dir_to_upload)
-save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
-
-# %%
-# expected range of heart rate (Hz)
-SQI_HR_range_min = 0.8
-SQI_HR_range_max = 2
-
-
 def get_SQI(
     data: pd.DataFrame,
     band_of_interest_lower_freq: float,
@@ -326,6 +264,30 @@ def get_SQI(
     SQI_df = pd.DataFrame(data=SQI, index=data.index, columns=["SQI"], dtype="float64")
     return SQI_df
 
+
+# %%
+upload_artifact: bool = True
+
+run = wandb.init(
+    project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
+)
+
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=6)
+
+# %%
+reconstructed_train = get_reconstructed_df(train)
+reconstructed_val = get_reconstructed_df(val)
+reconstructed_noisy = get_reconstructed_df(noisy)
+
+# %%
+dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
+os.makedirs(dir_to_upload)
+save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
+
+# %%
+# expected range of heart rate (Hz)
+SQI_HR_range_min = 0.8
+SQI_HR_range_max = 2
 
 (
     train_SQI,
@@ -368,3 +330,62 @@ if upload_artifact:
     evaluation_artifact.add_dir(dir_to_upload)
     run.log_artifact(evaluation_artifact)
 run.finish()
+
+# %%
+plt.figure()
+xpos = np.arange(2)
+plt.bar(
+    x=xpos,
+    height=[
+        SQI_summary["train"]["original_mean"],
+        SQI_summary["train"]["reconstructed_mean"],
+    ],
+    yerr=[
+        SQI_summary["train"]["original_std"],
+        SQI_summary["train"]["reconstructed_std"],
+    ],
+    capsize=10,
+    align="center",
+    label=("original", "reconstructed"),
+)
+plt.gca().set_xticks(xpos)
+plt.gca().set_xticklabels(("original", "reconstructed"))
+plt.gca().set_title("SQI comparison")
+plt.ylabel("SQI")
+plt.show()
+# %%
+# run_plots_dir = plot_examples(
+#     original_data=train,
+#     reconstructed_data=reconstructed_train.to_numpy(),
+#     example_type="Train",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(train), 80),
+#     exist_ok=True,
+# )
+
+# run_plots_dir = plot_examples(
+#     original_data=val,
+#     reconstructed_data=reconstructed_val.to_numpy(),
+#     example_type="Val",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(val), 50),
+#     exist_ok=True,
+# )
+
+# run_plots_dir = plot_examples(
+#     original_data=noisy,
+#     reconstructed_data=reconstructed_noisy.to_numpy(),
+#     example_type="Noisy",
+#     model_name=model_artifact.name.replace(":", "_"),
+#     run_name=run.name,
+#     save=True,
+#     # example_idxs=np.arange(915, 925)
+#     example_idxs=np.arange(0, len(noisy), 20),
+#     exist_ok=True,
+# )
