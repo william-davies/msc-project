@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import os
 import scipy.signal
+import scipy.stats
 
 from msc_project.constants import (
     BASE_DIR,
@@ -340,6 +341,12 @@ plt.close("all")
 plot_delta(train_delta, "train delta")
 plot_delta(val_delta, "val delta")
 plot_delta(noisy_delta, "noisy delta")
+
+# %%
+t_statistc, pvalue = scipy.stats.ttest_rel(
+    reconstructed_train_SQI.squeeze(), train_SQI.squeeze(), alternative="greater"
+)
+assert pvalue < 0.01
 
 # %%
 
