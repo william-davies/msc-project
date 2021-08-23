@@ -4,7 +4,6 @@ from collections import defaultdict
 from typing import List, Dict
 
 import numpy as np
-import numpy.typing
 import pandas as pd
 import wandb
 import matplotlib.pyplot as plt
@@ -21,6 +20,7 @@ from msc_project.constants import (
     DATA_SPLIT_ARTIFACT,
     MODEL_EVALUATION_ARTIFACT,
 )
+from msc_project.models.lstm_autoencoder import reshape_data
 from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
@@ -62,26 +62,14 @@ def read_artifacts_into_memory(model_version: int):
     return autoencoder, data_split
 
 
-def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
-    """
-    Reconstruct original data.
-    :param original_data:
-    :return:
-    """
-    reconstructed_values = tf.stop_gradient(autoencoder(original_data.to_numpy()))
-    reconstructed_df = original_data.copy()
-    reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
-    return reconstructed_df
-
-
 def plot_examples(
     original_data: pd.DataFrame,
-    reconstructed_data: np.typing.ArrayLike,
+    reconstructed_data,
     example_type: str,
     run_name: str,
     save: bool,
     num_examples: int = 5,
-    example_idxs: np.typing.ArrayLike = None,
+    example_idxs=None,
     exist_ok: bool = False,
 ) -> str:
     """
@@ -104,12 +92,14 @@ def plot_examples(
     plt.figure(figsize=(8, 6))
 
     if save:
-        run_plots_dir: str = os.path.join(BASE_DIR, "plots", run_name)
+        run_plots_dir: str = os.path.join(
+            BASE_DIR, "results", "evaluation", run_name, "reconstructed-plots"
+        )
         example_type_plots_dir = os.path.join(run_plots_dir, example_type.lower())
         os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
     for example_idx in example_idxs:
-        window_label = original_data.iloc[example_idx].split_name
+        window_label = original_data.iloc[example_idx].name
 
         signal_label = "-".join(window_label[:-1])
         plt.title(f"{example_type} example\n{signal_label}\n")
@@ -218,13 +208,7 @@ def get_SQI_summary() -> Dict:
     :return:
     """
     SQI_summary = defaultdict(dict)
-    items = (
-        ("train", (train_SQI, reconstructed_train_SQI)),
-        ("val", (val_SQI, reconstructed_val_SQI)),
-        ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
-    )
-
-    for split_name, (original_SQI, reconstructed_SQI) in items:
+    for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
         SQI_summary[split_name]["original_mean"] = original_SQI.squeeze().mean()
         SQI_summary[split_name]["original_std"] = original_SQI.squeeze().std()
         SQI_summary[split_name][
@@ -266,18 +250,55 @@ def get_SQI(
 
 
 # %%
-upload_artifact: bool = True
+upload_artifact: bool = False
+model_type = "lstm"
 
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=6)
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=17)
 
 # %%
-reconstructed_train = get_reconstructed_df(train)
-reconstructed_val = get_reconstructed_df(val)
-reconstructed_noisy = get_reconstructed_df(noisy)
+if model_type == "lstm":
+
+    def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Reconstruct original data.
+        :param original_data:
+        :return:
+        """
+        original_data_model_input = reshape_data(original_data)
+        reconstructed_values = tf.stop_gradient(autoencoder(original_data_model_input))
+        reconstructed_values = reconstructed_values.numpy().squeeze()
+
+        reconstructed_df = original_data.copy()
+        reconstructed_df.iloc[:, :] = reconstructed_values
+        return reconstructed_df
+
+    reconstructed_train = get_reconstructed_df(train)
+    reconstructed_val = get_reconstructed_df(val)
+    reconstructed_noisy = get_reconstructed_df(noisy)
+
+    breakpoint = 1
+
+
+if model_type == "mlp":
+
+    def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+        """
+        Reconstruct original data.
+        :param original_data:
+        :return:
+        """
+        reconstructed_values = tf.stop_gradient(autoencoder(original_data.to_numpy()))
+        reconstructed_df = original_data.copy()
+        reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
+        return reconstructed_df
+
+    reconstructed_train = get_reconstructed_df(train)
+    reconstructed_val = get_reconstructed_df(val)
+    reconstructed_noisy = get_reconstructed_df(noisy)
 
 # %%
 dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
@@ -317,6 +338,11 @@ SQI_HR_range_max = 2
 SQI_plots()
 
 # %%
+SQI_items = (
+    ("train", (train_SQI, reconstructed_train_SQI)),
+    ("val", (val_SQI, reconstructed_val_SQI)),
+    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
+)
 SQI_summary = get_SQI_summary()
 
 with open(os.path.join(dir_to_upload, "SQI_summary.json"), "w") as fp:
@@ -344,46 +370,38 @@ def plot_boxplot(original_SQI, reconstructed_SQI, split_name: str) -> None:
     plt.show()
 
 
-SQI_items = (
-    ("train", (train_SQI, reconstructed_train_SQI)),
-    ("val", (val_SQI, reconstructed_val_SQI)),
-    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
-)
 for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
     plot_boxplot(original_SQI, reconstructed_SQI, split_name=split_name)
 # %%
-# run_plots_dir = plot_examples(
-#     original_data=train,
-#     reconstructed_data=reconstructed_train.to_numpy(),
-#     example_type="Train",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(train), 80),
-#     exist_ok=True,
-# )
+run_plots_dir = plot_examples(
+    original_data=train,
+    reconstructed_data=reconstructed_train.to_numpy(),
+    example_type="Train",
+    run_name=run.name,
+    save=True,
+    # example_idxs=np.arange(915, 925)
+    example_idxs=np.arange(0, len(train), 80),
+    exist_ok=True,
+)
 
-# run_plots_dir = plot_examples(
-#     original_data=val,
-#     reconstructed_data=reconstructed_val.to_numpy(),
-#     example_type="Val",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(val), 50),
-#     exist_ok=True,
-# )
+run_plots_dir = plot_examples(
+    original_data=val,
+    reconstructed_data=reconstructed_val.to_numpy(),
+    example_type="Val",
+    run_name=run.name,
+    save=True,
+    # example_idxs=np.arange(915, 925)
+    example_idxs=np.arange(0, len(val), 50),
+    exist_ok=True,
+)
 
-# run_plots_dir = plot_examples(
-#     original_data=noisy,
-#     reconstructed_data=reconstructed_noisy.to_numpy(),
-#     example_type="Noisy",
-#     model_name=model_artifact.name.replace(":", "_"),
-#     run_name=run.name,
-#     save=True,
-#     # example_idxs=np.arange(915, 925)
-#     example_idxs=np.arange(0, len(noisy), 20),
-#     exist_ok=True,
-# )
+run_plots_dir = plot_examples(
+    original_data=noisy,
+    reconstructed_data=reconstructed_noisy.to_numpy(),
+    example_type="Noisy",
+    run_name=run.name,
+    save=True,
+    # example_idxs=np.arange(915, 925)
+    example_idxs=np.arange(0, len(noisy), 20),
+    exist_ok=True,
+)
