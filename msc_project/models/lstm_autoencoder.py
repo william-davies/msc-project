@@ -17,15 +17,15 @@ def create_autoencoder(config: Dict):
             # encoder
             keras.layers.LSTM(
                 units=bottleneck_size,
-                activation="relu",
+                activation="tanh",
                 input_shape=(config["timeseries_length"], 1),
             ),
             RepeatVector(config["timeseries_length"]),
             # decoder
             keras.layers.LSTM(
-                units=config["timeseries_length"],
-                activation="sigmoid",
+                units=bottleneck_size, activation="tanh", return_sequences=True
             ),
+            keras.layers.TimeDistributed(keras.layers.Dense(1, activation="sigmoid")),
         ]
     )
 
@@ -34,6 +34,15 @@ def create_autoencoder(config: Dict):
     )
 
     return autoencoder
+
+
+def reshape_data(data):
+    """
+    LSTM likes shape (samples, timesteps, features)
+    :param data:
+    :return:
+    """
+    return data.values.reshape((*data.shape, 1))
 
 
 run_config = {
@@ -54,3 +63,4 @@ metadata = {
 }
 autoencoder = create_autoencoder(metadata)
 plot_model(autoencoder, show_shapes=True, to_file="msc_autoencoder.png")
+print(autoencoder.summary())
