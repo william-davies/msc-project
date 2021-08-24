@@ -40,27 +40,20 @@ if api_type == "sequential":
     autoencoder.add(TimeDistributed(Dense(1, activation="sigmoid")))
 
 elif api_type == "functional":
-    # encoder_inputs = keras.Input(shape=(timesteps, num_features))
-    # encoder_blstm = keras.layers.Bidirectional(keras.layers.LSTM(latent_dimension, return_state=False))
-    # latent_encoding = encoder_blstm(
-    #     encoder_inputs
-    # )
-    # repeat_vector = RepeatVector(timesteps)(latent_encoding)
-    # # decoder
-    # decoder_lstm = keras.layers.LSTM(latent_dimension * 2, return_sequences=True)
-    # decoder_outputs = decoder_lstm(repeat_vector)
-    # decoder_dense = keras.layers.TimeDistributed(keras.layers.Dense(units=1, activation='softmax'))
-    # decoder_outputs = decoder_dense(decoder_outputs)
-    #
-    # autoencoder = keras.Model(inputs=encoder_inputs, outputs=decoder_outputs)
-
+    # encoder
     encoder_input = keras.Input(shape=(timesteps, num_features))
-    x = Bidirectional(LSTM(latent_dimension, activation="tanh"))(encoder_input)
+    latent_encoding = Bidirectional(LSTM(latent_dimension, activation="tanh"))(
+        encoder_input
+    )
 
-    x = RepeatVector(timesteps)(x)
-
-    x = LSTM(latent_dimension * 2, activation="tanh", return_sequences=True)(x)
-    decoder_output = TimeDistributed(Dense(units=1, activation="sigmoid"))(x)
+    # decoder
+    latent_encoding = RepeatVector(timesteps)(latent_encoding)
+    decoder_output = LSTM(
+        latent_dimension * 2, activation="tanh", return_sequences=True
+    )(latent_encoding)
+    decoder_output = TimeDistributed(Dense(units=1, activation="sigmoid"))(
+        decoder_output
+    )
 
     autoencoder = keras.Model(encoder_input, decoder_output, name="autoencoder")
 
