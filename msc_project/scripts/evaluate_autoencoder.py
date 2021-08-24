@@ -192,9 +192,9 @@ def SQI_plots() -> None:
     plot_SQI(reconstructed_val_SQI, title="reconstructed val")
     plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
 
-    train_delta = train_SQI - reconstructed_train_SQI
-    val_delta = val_SQI - reconstructed_val_SQI
-    noisy_delta = noisy_SQI - reconstructed_noisy_SQI
+    train_delta = reconstructed_train_SQI - train_SQI
+    val_delta = reconstructed_val_SQI - val_SQI
+    noisy_delta = reconstructed_noisy_SQI - noisy_SQI
 
     plt.close("all")
     plot_delta(train_delta, "train delta")
@@ -250,14 +250,14 @@ def get_SQI(
 
 
 # %%
-upload_artifact: bool = False
+upload_artifact: bool = True
 model_type = "lstm"
 
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=17)
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=19)
 
 # %%
 if model_type == "lstm":
@@ -279,9 +279,6 @@ if model_type == "lstm":
     reconstructed_train = get_reconstructed_df(train)
     reconstructed_val = get_reconstructed_df(val)
     reconstructed_noisy = get_reconstructed_df(noisy)
-
-    breakpoint = 1
-
 
 if model_type == "mlp":
 
@@ -379,7 +376,6 @@ run_plots_dir = plot_examples(
     example_type="Train",
     run_name=run.name,
     save=True,
-    # example_idxs=np.arange(915, 925)
     example_idxs=np.arange(0, len(train), 80),
     exist_ok=True,
 )
@@ -390,7 +386,6 @@ run_plots_dir = plot_examples(
     example_type="Val",
     run_name=run.name,
     save=True,
-    # example_idxs=np.arange(915, 925)
     example_idxs=np.arange(0, len(val), 50),
     exist_ok=True,
 )
@@ -401,7 +396,6 @@ run_plots_dir = plot_examples(
     example_type="Noisy",
     run_name=run.name,
     save=True,
-    # example_idxs=np.arange(915, 925)
     example_idxs=np.arange(0, len(noisy), 20),
     exist_ok=True,
 )
