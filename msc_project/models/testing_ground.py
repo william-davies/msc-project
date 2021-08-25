@@ -1,33 +1,29 @@
-# first neural network with keras tutorial
-from numpy import loadtxt
-from keras.models import Sequential
-from keras.layers import Dense
+from typing import Dict
+from tensorflow import keras
+from tensorflow.keras.utils import plot_model
+from tensorflow.keras.layers import (
+    RepeatVector,
+    Bidirectional,
+    Dense,
+    LSTM,
+    TimeDistributed,
+    MaxPool1D,
+    Conv1D,
+    AveragePooling1D,
+)
 
-# load the dataset
-dataset = loadtxt("pima-indians-diabetes.csv", delimiter=",")
-# split into input (X) and output (y) variables
-X = dataset[:, 0:8]
-y = dataset[:, 8]
-# define the keras model
-model = Sequential()
-model.add(Dense(12, input_dim=8, activation="relu"))
-model.add(Dense(8, activation="relu"))
-model.add(Dense(1, activation="sigmoid"))
-# compile the keras model
-model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
-# fit the keras model on the dataset
-model.fit(X, y, epochs=150, batch_size=10)
-# evaluate the keras model
-_, accuracy = model.evaluate(X, y)
-print("Accuracy: %.2f" % (accuracy * 100))
+num_features = 1
+latent_dimension = 4
+timesteps = 128
 
-model.save("saved-model")
+# encoder
+encoder_input = keras.Input(shape=(timesteps, num_features))
+latent_encoding = MaxPool1D(
+    pool_size=16, strides=16, padding="valid", data_format="channels_last"
+)(encoder_input)
+# latent_encoding = Conv1D(filters=5, kernel_size=45, activation='relu')(latent_encoding)
+AveragePooling1D()
 
-# %%
-import tensorflow as tf
-
-loaded_model = tf.keras.models.load_model("saved-model")
-
-loaded_model.fit(X, y, initial_epoch=150, epochs=200)
-_, accuracy = loaded_model.evaluate(X, y)
-print("Accuracy: %.2f" % (accuracy * 100))
+autoencoder = keras.Model(inputs=encoder_input, outputs=latent_encoding)
+autoencoder.compile(optimizer="adam", loss="mae")
+plot_model(autoencoder, show_shapes=True, to_file="cnn_autoencoder.png")
