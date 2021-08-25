@@ -11,6 +11,7 @@ from msc_project.constants import (
     TRAINED_MODEL_ARTIFACT,
 )
 from msc_project.models.lstm_autoencoder import create_autoencoder, reshape_data
+from msc_project.models.mlp_autoencoder import create_autoencoder, reshape_data
 
 from wandb.keras import WandbCallback
 
@@ -72,6 +73,19 @@ def get_autoencoder(run, metadata):
     return autoencoder
 
 
+def get_initial_epoch(run):
+    """
+    If we resume a run, we load the model from the best_epoch. This best_epoch is the initial_epoch.
+    This leads to some confusion because the wandb step just keeps incrementing by 1 every epoch. But it does the job for now.
+    :param run:
+    :return:
+    """
+    if run.resumed:
+        return run.summary["best_epoch"]
+    else:
+        return 0
+
+
 # %%
 if __name__ == "__main__":
     run_config = {
@@ -80,13 +94,13 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 5000,
+        "epoch": 300,
         "patience": 1500,
         "min_delta": 1e-3,
     }
 
     resume = True
-    run_id = "2zf4vtrx"
+    run_id = "1qogzdyk"
 
     run = init_run(resume=resume, run_config=run_config, run_id=run_id)
 
@@ -113,6 +127,7 @@ if __name__ == "__main__":
         reshape_data(train),
         reshape_data(train),
         epochs=metadata["epoch"],
+        initial_epoch=get_initial_epoch(run),
         batch_size=metadata["batch_size"],
         validation_data=(reshape_data(val), reshape_data(val)),
         callbacks=[wandbcallback, early_stop],
