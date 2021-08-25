@@ -10,7 +10,7 @@ from msc_project.constants import (
     BASE_DIR,
     TRAINED_MODEL_ARTIFACT,
 )
-from msc_project.models.denoising_autoencoder import create_autoencoder
+from msc_project.models.lstm_autoencoder import create_autoencoder, reshape_data
 
 from wandb.keras import WandbCallback
 
@@ -127,36 +127,60 @@ def train_autoencoder(resume: bool, train, val, epoch: int, run_id: str = ""):
     return autoencoder, history
 
 
-def init_run(resume, run_id):
+def init_run(resume: bool, run_id: str = ""):
     # you must have both or neither
     if resume != bool(run_id):
         raise ValueError
 
 
+def load_data(run, model_version):
+    data_split_artifact = run.use_artifact(DATA_SPLIT_ARTIFACT + f":v{model_version}")
+    data_split_artifact = data_split_artifact.download(
+        root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
+    )
+    train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
+    val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
+    return train, val
+
+
 # %%
 if __name__ == "__main__":
-    bottleneck_size = 8
     run_config = {
-        "encoder_1": 64,
-        "encoder_activation_1": "relu",
-        "encoder_2": 16,
-        "encoder_activation_2": "relu",
-        "encoder_3": bottleneck_size,
-        "encoder_activation_3": "relu",
-        "decoder_1": bottleneck_size * 2,
-        "decoder_activation_1": "relu",
-        "decoder_2": bottleneck_size * 2 * 2,
-        "decoder_activation_2": "relu",
-        "decoder_activation_3": "sigmoid",
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
         "epoch": 5000,
-        "patience": 1000,
+        "patience": 1500,
         "min_delta": 1e-3,
     }
+
+    if resume:
+        wandb.init(
+            id=run_id,
+            resume="must",
+            config={**base_config, "epoch": 12627 + epoch},
+            force=True,
+            allow_val_change=True,
+            **base_init_kwargs,
+        )
+        best_model = wandb.restore(
+            "model-best.h5", run_path=f"{DENOISING_AUTOENCODER_PROJECT_NAME}/{run_id}"
+        )
+        autoencoder = tf.keras.models.load_model(best_model.name)
+        wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
+
+        history = autoencoder.fit(
+            train,
+            train,
+            epochs=wandb.config.epoch,
+            batch_size=wandb.config.batch_size,
+            validation_data=(val, val),
+            callbacks=[wandbcallback, early_stop],
+            shuffle=True,
+            initial_epoch=wandb.run.step,
+        )
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -166,17 +190,11 @@ if __name__ == "__main__":
         allow_val_change=False,
     )
 
-    data_split_artifact = run.use_artifact(DATA_SPLIT_ARTIFACT + ":latest")
-    data_split_artifact = data_split_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
-    )
-    train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
-    val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
+    train, val = load_data(run=run, model_version=7)
 
     timeseries_length = train.shape[1]
     metadata = {
         **run_config,
-        "decoder_3": timeseries_length,
         "timeseries_length": timeseries_length,
     }
     wandbcallback = WandbCallback(save_weights_only=False, monitor=metadata["monitor"])
@@ -192,11 +210,11 @@ if __name__ == "__main__":
     autoencoder = create_autoencoder(metadata)
 
     history = autoencoder.fit(
-        train,
-        train,
+        reshape_data(train),
+        reshape_data(train),
         epochs=metadata["epoch"],
         batch_size=metadata["batch_size"],
-        validation_data=(val, val),
+        validation_data=(reshape_data(val), reshape_data(val)),
         callbacks=[wandbcallback, early_stop],
         shuffle=True,
     )
