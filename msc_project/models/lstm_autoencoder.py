@@ -2,7 +2,13 @@ from typing import Dict
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.utils import plot_model
-from tensorflow.keras.layers import RepeatVector
+from tensorflow.keras.layers import (
+    RepeatVector,
+    Bidirectional,
+    Dense,
+    LSTM,
+    TimeDistributed,
+)
 
 
 # def create_autoencoder(config: Dict):
@@ -43,25 +49,25 @@ def create_autoencoder(config: Dict):
     :return:
     """
     num_features = 1
-    bottleneck_size = 8
+    latent_dimension = 4
 
     # encoder
-    encoder_inputs = keras.Input(shape=(config["timeseries_length"], num_features))
-    encoder = keras.Bidirectional(keras.LSTM(bottleneck_size, return_state=True))
-    encoder_outputs, forward_h, forward_c, backward_h, backward_c = encoder(
-        encoder_inputs
+    encoder_input = keras.Input(shape=(config["timeseries_length"], num_features))
+    latent_encoding = Bidirectional(LSTM(latent_dimension, activation="tanh"))(
+        encoder_input
     )
-    state_h = keras.Concatenate()([forward_h, backward_h])
-    state_c = keras.Concatenate()([forward_c, backward_c])
-    encoder_states = [state_h, state_c]
 
-    repeat_vector = RepeatVector(config["timeseries_length"])(encoder_outputs)
+    latent_encoding = RepeatVector(config["timeseries_length"])(latent_encoding)
 
     # decoder
-    decoder_inputs = keras.Input(shape=(config["timeseries_length"], num_features))
-    decoder_lstm = keras.LSTM(bottleneck_size * 2, return_sequences=True)
-    decoder_outputs = decoder_lstm(decoder_inputs, initial_state=encoder_states)
+    decoder_output = LSTM(
+        latent_dimension * 2, activation="tanh", return_sequences=True
+    )(latent_encoding)
+    decoder_output = TimeDistributed(Dense(units=1, activation="sigmoid"))(
+        decoder_output
+    )
 
+    autoencoder = keras.Model(encoder_input, decoder_output, name="autoencoder")
     autoencoder.compile(
         optimizer=config["optimizer"], loss=config["loss"], metrics=[config["metric"]]
     )
@@ -78,22 +84,24 @@ def reshape_data(data):
     return data.values.reshape((*data.shape, 1))
 
 
-run_config = {
-    "optimizer": "adam",
-    "loss": "mae",
-    "metric": [None],
-    "batch_size": 32,
-    "monitor": "val_loss",
-    "epoch": 10,
-    "patience": 1000,
-    "min_delta": 1e-3,
-}
+if __name__ == "__main__":
+    # just for development
+    run_config = {
+        "optimizer": "adam",
+        "loss": "mae",
+        "metric": [None],
+        "batch_size": 32,
+        "monitor": "val_loss",
+        "epoch": 10,
+        "patience": 1000,
+        "min_delta": 1e-3,
+    }
 
-timeseries_length = 128
-metadata = {
-    **run_config,
-    "timeseries_length": timeseries_length,
-}
-autoencoder = create_autoencoder(metadata)
-plot_model(autoencoder, show_shapes=True, to_file="msc_autoencoder.png")
-print(autoencoder.summary())
+    timeseries_length = 128
+    metadata = {
+        **run_config,
+        "timeseries_length": timeseries_length,
+    }
+    autoencoder = create_autoencoder(metadata)
+    plot_model(autoencoder, show_shapes=True, to_file="blstm_autoencoder.png")
+    print(autoencoder.summary())
