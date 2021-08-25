@@ -114,15 +114,12 @@ def train_autoencoder(resume: bool, train, val, epoch: int, run_id: str = ""):
     return autoencoder, history
 
 
-def init_run(resume: bool, run_id: str = ""):
+def init_run(resume: bool, run_config, run_id: str = ""):
     # you must have both or neither
     if resume != bool(run_id):
         raise ValueError
 
     if resume:
-        api = wandb.Api()
-        crashed_run = api.run(path=f"william-davies/denoising-autoencoder/{run_id}")
-        run_config["epoch"] = run_config["epoch"] + crashed_run.lastHistoryStep
         run = wandb.init(
             id=run_id,
             resume="must",
@@ -134,16 +131,20 @@ def init_run(resume: bool, run_id: str = ""):
         )
     else:
         run = wandb.init(
+            resume="never",
             project=DENOISING_AUTOENCODER_PROJECT_NAME,
             job_type="model_train",
             config=run_config,
             force=True,
             allow_val_change=False,
         )
+    return run
 
 
-def load_data(run, model_version):
-    data_split_artifact = run.use_artifact(DATA_SPLIT_ARTIFACT + f":v{model_version}")
+def load_data(run, data_split_version):
+    data_split_artifact = run.use_artifact(
+        DATA_SPLIT_ARTIFACT + f":v{data_split_version}"
+    )
     data_split_artifact = data_split_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
     )
@@ -165,41 +166,12 @@ if __name__ == "__main__":
         "min_delta": 1e-3,
     }
 
-    if resume:
-        wandb.init(
-            id=run_id,
-            resume="must",
-            config={**base_config, "epoch": 12627 + epoch},
-            force=True,
-            allow_val_change=True,
-            **base_init_kwargs,
-        )
-        best_model = wandb.restore(
-            "model-best.h5", run_path=f"{DENOISING_AUTOENCODER_PROJECT_NAME}/{run_id}"
-        )
-        autoencoder = tf.keras.models.load_model(best_model.name)
-        wandbcallback = WandbCallback(save_weights_only=False, monitor="val_loss")
+    resume = True
+    run_id = "2zf4vtrx"
 
-        history = autoencoder.fit(
-            train,
-            train,
-            epochs=wandb.config.epoch,
-            batch_size=wandb.config.batch_size,
-            validation_data=(val, val),
-            callbacks=[wandbcallback, early_stop],
-            shuffle=True,
-            initial_epoch=wandb.run.step,
-        )
+    run = init_run(resume=resume, run_config=run_config, run_id=run_id)
 
-    run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME,
-        job_type="model_train",
-        config=run_config,
-        force=True,
-        allow_val_change=False,
-    )
-
-    train, val = load_data(run=run, model_version=7)
+    train, val = load_data(run=run, data_split_version=7)
 
     timeseries_length = train.shape[1]
     metadata = {
