@@ -45,7 +45,13 @@ def init_run(resume: bool, run_config, run_id: str = ""):
     return run
 
 
-def load_data(run, data_split_version):
+def load_data(run, data_split_version: int):
+    """
+
+    :param run: so we can "use_artifact" in wandb artifact graph
+    :param data_split_version:
+    :return:
+    """
     data_split_artifact = run.use_artifact(
         DATA_SPLIT_ARTIFACT + f":v{data_split_version}"
     )
@@ -55,6 +61,15 @@ def load_data(run, data_split_version):
     train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
     val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
     return train, val
+
+
+def get_autoencoder(run, metadata):
+    if run.resumed:
+        best_model = wandb.restore("model-best.h5", run_path=run.path)
+        autoencoder = tf.keras.models.load_model(best_model.name)
+    else:
+        autoencoder = create_autoencoder(metadata)
+    return autoencoder
 
 
 # %%
@@ -92,7 +107,7 @@ if __name__ == "__main__":
         baseline=None,
         restore_best_weights=True,
     )
-    autoencoder = create_autoencoder(metadata)
+    autoencoder = get_autoencoder(run=run, metadata=metadata)
 
     history = autoencoder.fit(
         reshape_data(train),
