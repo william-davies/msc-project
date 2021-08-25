@@ -19,12 +19,14 @@ import tensorflow as tf
 import pandas as pd
 
 # %%
-def init_run(resume: bool, run_config, run_id: str = ""):
-    # you must have both or neither
-    if resume != bool(run_id):
-        raise ValueError
+def init_run(run_config, run_id: str = ""):
+    """
 
-    if resume:
+    :param run_config:
+    :param run_id: of run you want to resume
+    :return:
+    """
+    if run_id:
         run = wandb.init(
             id=run_id,
             resume="must",
@@ -99,10 +101,8 @@ if __name__ == "__main__":
         "min_delta": 1e-3,
     }
 
-    resume = True
     run_id = "1qogzdyk"
-
-    run = init_run(resume=resume, run_config=run_config, run_id=run_id)
+    run = init_run(run_config=run_config, run_id=run_id)
 
     train, val = load_data(run=run, data_split_version=7)
 
