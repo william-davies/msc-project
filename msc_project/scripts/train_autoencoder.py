@@ -40,20 +40,7 @@ def train_autoencoder(resume: bool, train, val, epoch: int, run_id: str = ""):
     )
 
     timeseries_length = train.shape[1]
-    bottleneck_size = 8
     base_config = {
-        "encoder_1": bottleneck_size * 2 * 2,
-        "encoder_activation_1": "relu",
-        "encoder_2": bottleneck_size * 2,
-        "encoder_activation_2": "relu",
-        "encoder_3": bottleneck_size,
-        "encoder_activation_3": "relu",
-        "decoder_1": bottleneck_size * 2,
-        "decoder_activation_1": "relu",
-        "decoder_2": bottleneck_size * 2 * 2,
-        "decoder_activation_2": "relu",
-        "decoder_3": timeseries_length,
-        "decoder_activation_3": "sigmoid",
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
@@ -131,6 +118,28 @@ def init_run(resume: bool, run_id: str = ""):
     # you must have both or neither
     if resume != bool(run_id):
         raise ValueError
+
+    if resume:
+        api = wandb.Api()
+        crashed_run = api.run(path=f"william-davies/denoising-autoencoder/{run_id}")
+        run_config["epoch"] = run_config["epoch"] + crashed_run.lastHistoryStep
+        run = wandb.init(
+            id=run_id,
+            resume="must",
+            project=DENOISING_AUTOENCODER_PROJECT_NAME,
+            job_type="model_train",
+            config=run_config,
+            force=True,
+            allow_val_change=False,
+        )
+    else:
+        run = wandb.init(
+            project=DENOISING_AUTOENCODER_PROJECT_NAME,
+            job_type="model_train",
+            config=run_config,
+            force=True,
+            allow_val_change=False,
+        )
 
 
 def load_data(run, model_version):
