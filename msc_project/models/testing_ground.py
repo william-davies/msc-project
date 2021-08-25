@@ -1,66 +1,33 @@
-# lstm autoencoder recreate sequence
-from numpy import array
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import LSTM, Bidirectional
-from tensorflow.keras.layers import Dense
-from tensorflow.keras.layers import RepeatVector
-from tensorflow.keras.layers import TimeDistributed
-from tensorflow.keras.utils import plot_model
-from tensorflow import keras
-from tensorflow.keras import layers
+# first neural network with keras tutorial
+from numpy import loadtxt
+from keras.models import Sequential
+from keras.layers import Dense
 
-# define input sequence
-from msc_project.models.lstm_autoencoder import create_autoencoder
+# load the dataset
+dataset = loadtxt("pima-indians-diabetes.csv", delimiter=",")
+# split into input (X) and output (y) variables
+X = dataset[:, 0:8]
+y = dataset[:, 8]
+# define the keras model
+model = Sequential()
+model.add(Dense(12, input_dim=8, activation="relu"))
+model.add(Dense(8, activation="relu"))
+model.add(Dense(1, activation="sigmoid"))
+# compile the keras model
+model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["accuracy"])
+# fit the keras model on the dataset
+model.fit(X, y, epochs=150, batch_size=10)
+# evaluate the keras model
+_, accuracy = model.evaluate(X, y)
+print("Accuracy: %.2f" % (accuracy * 100))
 
-sequence = array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9])
-# reshape input into [samples, timesteps, features]
-timesteps = len(sequence)
-sequence = sequence.reshape((1, timesteps, 1))
+model.save("saved-model")
 
-num_features = 1
-latent_dimension = 4
+# %%
+import tensorflow as tf
 
-api_type = "functional"
+loaded_model = tf.keras.models.load_model("saved-model")
 
-if api_type == "sequential":
-    autoencoder = Sequential()
-    autoencoder.add(
-        Bidirectional(
-            LSTM(
-                latent_dimension,
-                activation="tanh",
-                input_shape=(timesteps, num_features),
-            )
-        )
-    )
-    autoencoder.add(RepeatVector(timesteps))
-    autoencoder.add(
-        LSTM(latent_dimension * 2, activation="tanh", return_sequences=True)
-    )
-    autoencoder.add(TimeDistributed(Dense(1, activation="sigmoid")))
-
-elif api_type == "functional":
-    # encoder
-    encoder_input = keras.Input(shape=(timesteps, num_features))
-    latent_encoding = Bidirectional(LSTM(latent_dimension, activation="tanh"))(
-        encoder_input
-    )
-
-    # decoder
-    latent_encoding = RepeatVector(timesteps)(latent_encoding)
-    decoder_output = LSTM(
-        latent_dimension * 2, activation="tanh", return_sequences=True
-    )(latent_encoding)
-    decoder_output = TimeDistributed(Dense(units=1, activation="sigmoid"))(
-        decoder_output
-    )
-
-    autoencoder = keras.Model(encoder_input, decoder_output, name="autoencoder")
-
-autoencoder.compile(optimizer="adam", loss="mse")
-autoencoder.fit(sequence, sequence, epochs=300, verbose=1)
-print(autoencoder.summary())
-plot_model(autoencoder, show_shapes=True, to_file=f"{api_type}.png")
-# demonstrate recreation
-yhat = autoencoder.predict(sequence, verbose=0)
-print(yhat[0, :, 0])
+loaded_model.fit(X, y, initial_epoch=150, epochs=200)
+_, accuracy = loaded_model.evaluate(X, y)
+print("Accuracy: %.2f" % (accuracy * 100))
