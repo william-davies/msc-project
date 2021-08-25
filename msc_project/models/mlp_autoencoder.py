@@ -9,7 +9,7 @@ def create_autoencoder(config: Dict):
     :param config:
     :return:
     """
-    bottleneck_size = 8
+    bottleneck_size = 4
     autoencoder = tf.keras.Sequential(
         [
             # encoder
@@ -32,3 +32,13 @@ def create_autoencoder(config: Dict):
     )
 
     return autoencoder
+
+
+def reshape_data(data):
+    """
+    MLP is fine with the original (samples, timesteps) shape. A bit ugly that I have this pointless function but=
+    does the job for now.
+    :param data:
+    :return:
+    """
+    return data
