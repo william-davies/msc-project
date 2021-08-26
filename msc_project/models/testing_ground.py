@@ -46,35 +46,19 @@ plot_model(model, show_shapes=True, to_file="example_cnn.png")
 print(model.summary())
 
 # %%
-input_window = Input(shape=(timesteps, num_features))
-x = Conv1D(16, 3, activation="relu", padding="same")(input_window)
-x = MaxPool1D(2, padding="same")(x)
+timesteps = 128
+
+input_signal = Input(shape=(timesteps, num_features))
+x = Conv1D(16, 5, activation="relu", padding="same")(input_signal)
+x = MaxPool1D(4, padding="same")(x)
 x = Conv1D(1, 3, activation="relu", padding="same")(x)
-encoded = MaxPool1D(2, padding="same")(x)
+encoded = MaxPool1D(4, padding="same", name="final_encoder_layer")(x)
 
 x = Conv1D(1, 3, activation="relu", padding="same")(encoded)
-x = UpSampling1D(2)(x)
+x = UpSampling1D(4)(x)
 x = Conv1D(16, 2, activation="relu", padding="same")(x)
-x = UpSampling1D(2)(x)
+x = UpSampling1D(4)(x)
 decoded = Conv1D(1, 3, activation="sigmoid", padding="same")(x)
-autoencoder = keras.Model(input_window, decoded)
+autoencoder = keras.Model(input_signal, decoded)
 plot_model(autoencoder, show_shapes=True, to_file="example_cnn.png")
 autoencoder.summary()
-
-# %%
-import numpy as np
-import tensorflow as tf
-
-timesteps = 9
-num_features = 1
-batch_size = 1
-x = np.arange(timesteps)
-x = x.reshape((batch_size, timesteps, num_features))
-print(x)
-
-y1 = MaxPool1D(2, padding="valid")(x)
-print(y1)
-
-y2 = MaxPool1D(2, padding="same")(x)
-
-print(y2)
