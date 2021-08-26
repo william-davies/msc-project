@@ -251,16 +251,18 @@ def get_SQI(
 
 # %%
 upload_artifact: bool = True
-model_type = "lstm"
+# LSTM and CNN have input and output (batch_size, num_timesteps, num_features)
+# MLP has input and output (batch_size, num_timesteps)
+has_num_features_dimension: bool = True
 
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=19)
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=29)
 
 # %%
-if model_type == "lstm":
+if has_num_features_dimension:
 
     def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -280,7 +282,7 @@ if model_type == "lstm":
     reconstructed_val = get_reconstructed_df(val)
     reconstructed_noisy = get_reconstructed_df(noisy)
 
-if model_type == "mlp":
+else:
 
     def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -396,6 +398,6 @@ run_plots_dir = plot_examples(
     example_type="Noisy",
     run_name=run.name,
     save=True,
-    example_idxs=np.arange(0, len(noisy), 20),
+    example_idxs=np.arange(0, len(noisy), 5),
     exist_ok=True,
 )
