@@ -10,8 +10,9 @@ from msc_project.constants import (
     BASE_DIR,
     TRAINED_MODEL_ARTIFACT,
 )
-from msc_project.models.lstm_autoencoder import create_autoencoder, reshape_data
-from msc_project.models.mlp_autoencoder import create_autoencoder, reshape_data
+
+# from msc_project.models.lstm_autoencoder import create_autoencoder, reshape_data
+from msc_project.models.cnn_autoencoder import create_autoencoder, reshape_data
 
 from wandb.keras import WandbCallback
 
@@ -88,20 +89,28 @@ def get_initial_epoch(run):
         return 0
 
 
+def get_architecture_type(create_autoencoder):
+    module = create_autoencoder.__module__
+    return module.split(".")[-1]
+
+
 # %%
 if __name__ == "__main__":
+    is_production: bool = False
     run_config = {
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 300,
+        "epoch": 10,
         "patience": 1500,
         "min_delta": 1e-3,
+        "model_architecture_type": get_architecture_type(create_autoencoder),
+        "is_prod": is_production,
     }
 
-    run_id = "1qogzdyk"
+    run_id = ""
     run = init_run(run_config=run_config, run_id=run_id)
 
     train, val = load_data(run=run, data_split_version=7)
