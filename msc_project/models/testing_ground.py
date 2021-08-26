@@ -39,23 +39,47 @@ plot_model(autoencoder, show_shapes=True, to_file="cnn_autoencoder.png")
 print(autoencoder.summary())
 
 
-input_sig = Input(batch_shape=(1, 128, 1))
-x = Conv1D(8, 3, activation="relu", padding="same", dilation_rate=2)(input_sig)
-x1 = MaxPool1D(2)(x)
-x2 = Conv1D(4, 3, activation="relu", padding="same", dilation_rate=2)(x1)
-x3 = MaxPool1D(2)(x2)
-x4 = AveragePooling1D()(x3)
-flat = Flatten()(x4)
-encoded = Dense(2)(flat)
-d1 = Dense(64)(encoded)
-d2 = Reshape((16, 4))(d1)
-d3 = Conv1D(4, 1, strides=1, activation="relu", padding="same")(d2)
-d4 = UpSampling1D(2)(d3)
-d5 = Conv1D(8, 1, strides=1, activation="relu", padding="same")(d4)
-d6 = UpSampling1D(2)(d5)
-d7 = UpSampling1D(2)(d6)
-decoded = Conv1D(1, 1, strides=1, activation="sigmoid", padding="same")(d7)
-model = keras.Model(input_sig, decoded)
+encoder_input = keras.Input(shape=(timesteps, num_features))
+latent_encoding = Conv1D(8, 3, activation="relu", padding="same", dilation_rate=2)(
+    encoder_input
+)
+latent_encoding = MaxPool1D(2)(latent_encoding)
+latent_encoding = Conv1D(4, 3, activation="relu", padding="same", dilation_rate=2)(
+    latent_encoding
+)
+latent_encoding = MaxPool1D(2)(latent_encoding)
+latent_encoding = Flatten()(latent_encoding)
+latent_encoding = Dense(2)(latent_encoding)
+
+decoded_output = Dense(64)(latent_encoding)
+decoded_output = Reshape((16, 4))(decoded_output)
+decoded_output = Conv1D(4, 1, strides=1, activation="relu", padding="same")(
+    decoded_output
+)
+decoded_output = UpSampling1D(2)(decoded_output)
+decoded_output = Conv1D(8, 1, strides=1, activation="relu", padding="same")(
+    decoded_output
+)
+decoded_output = UpSampling1D(4)(decoded_output)
+decoded_output = Conv1D(1, 1, strides=1, activation="sigmoid", padding="same")(
+    decoded_output
+)
+model = keras.Model(encoder_input, decoded_output)
 
 plot_model(model, show_shapes=True, to_file="example_cnn.png")
 print(model.summary())
+
+# %%
+import numpy as np
+import tensorflow as tf
+
+input_shape = (2, 2, 3)
+x = np.arange(np.prod(input_shape)).reshape(input_shape)
+print(x)
+
+y1 = tf.keras.layers.UpSampling1D(size=2)(x)
+y1 = tf.keras.layers.UpSampling1D(size=2)(y1)
+print(y1)
+
+y2 = tf.keras.layers.UpSampling1D(size=4)(x)
+print(y2)
