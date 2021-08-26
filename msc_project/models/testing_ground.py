@@ -24,17 +24,13 @@ input_signal = keras.Input(shape=(timesteps, num_features))
 
 # encoder
 latent_encoding = Conv1D(8, 3, activation="relu", padding="same")(input_signal)
-latent_encoding = MaxPool1D(2)(latent_encoding)
+latent_encoding = MaxPool1D(2, padding="same")(latent_encoding)
 latent_encoding = Conv1D(4, 3, activation="relu", padding="same")(latent_encoding)
-latent_encoding = MaxPool1D(2)(latent_encoding)
-latent_encoding = Flatten()(latent_encoding)
-latent_encoding = Dense(2)(latent_encoding)
+latent_encoding = MaxPool1D(2, padding="same")(latent_encoding)
 
 # decoder
-decoded_output = Dense(64)(latent_encoding)
-decoded_output = Reshape((16, 4))(decoded_output)
 decoded_output = Conv1D(4, 1, strides=1, activation="relu", padding="same")(
-    decoded_output
+    latent_encoding
 )
 decoded_output = UpSampling1D(2)(decoded_output)
 decoded_output = Conv1D(8, 1, strides=1, activation="relu", padding="same")(
@@ -51,22 +47,34 @@ print(model.summary())
 
 # %%
 input_window = Input(shape=(timesteps, num_features))
-x = Conv1D(16, 3, activation="relu", padding="same")(input_window)  # 10 dims
-# x = BatchNormalization()(x)
-x = MaxPool1D(2, padding="same")(x)  # 5 dims
-x = Conv1D(1, 3, activation="relu", padding="same")(x)  # 5 dims
-# x = BatchNormalization()(x)
-encoded = MaxPool1D(2, padding="same")(x)  # 3 dims
+x = Conv1D(16, 3, activation="relu", padding="same")(input_window)
+x = MaxPool1D(2, padding="same")(x)
+x = Conv1D(1, 3, activation="relu", padding="same")(x)
+encoded = MaxPool1D(2, padding="same")(x)
 
-# 3 dimensions in the encoded layer
-
-x = Conv1D(1, 3, activation="relu", padding="same")(encoded)  # 3 dims
-# x = BatchNormalization()(x)
-x = UpSampling1D(2)(x)  # 6 dims
-x = Conv1D(16, 2, activation="relu")(x)  # 5 dims
-# x = BatchNormalization()(x)
-x = UpSampling1D(2)(x)  # 10 dims
-decoded = Conv1D(1, 3, activation="sigmoid", padding="same")(x)  # 10 dims
+x = Conv1D(1, 3, activation="relu", padding="same")(encoded)
+x = UpSampling1D(2)(x)
+x = Conv1D(16, 2, activation="relu", padding="same")(x)
+x = UpSampling1D(2)(x)
+decoded = Conv1D(1, 3, activation="sigmoid", padding="same")(x)
 autoencoder = keras.Model(input_window, decoded)
 plot_model(autoencoder, show_shapes=True, to_file="example_cnn.png")
 autoencoder.summary()
+
+# %%
+import numpy as np
+import tensorflow as tf
+
+timesteps = 9
+num_features = 1
+batch_size = 1
+x = np.arange(timesteps)
+x = x.reshape((batch_size, timesteps, num_features))
+print(x)
+
+y1 = MaxPool1D(2, padding="valid")(x)
+print(y1)
+
+y2 = MaxPool1D(2, padding="same")(x)
+
+print(y2)
