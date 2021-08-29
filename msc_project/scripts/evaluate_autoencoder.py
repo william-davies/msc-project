@@ -196,7 +196,6 @@ def SQI_plots() -> None:
     val_delta = reconstructed_val_SQI - val_SQI
     noisy_delta = reconstructed_noisy_SQI - noisy_SQI
 
-    plt.close("all")
     plot_delta(train_delta, "train delta")
     plot_delta(val_delta, "val delta")
     plot_delta(noisy_delta, "noisy delta")
@@ -249,20 +248,33 @@ def get_SQI(
     return SQI_df
 
 
+def data_has_num_features_dimension(autoencoder):
+    """
+    LSTM and CNN have input and output (batch_size, num_timesteps, num_features)
+    MLP has input and output (batch_size, num_timesteps)
+    :param autoencoder:
+    :return:
+    """
+    input_shape = autoencoder.input.shape
+    if len(input_shape) == 3:
+        return True
+    elif len(input_shape) == 2:
+        return False
+    else:
+        raise ValueError
+
+
 # %%
-upload_artifact: bool = True
-# LSTM and CNN have input and output (batch_size, num_timesteps, num_features)
-# MLP has input and output (batch_size, num_timesteps)
-has_num_features_dimension: bool = True
+upload_artifact: bool = False
+
 
 run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=29)
-
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=35)
 # %%
-if has_num_features_dimension:
+if data_has_num_features_dimension(autoencoder):
 
     def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
         """
@@ -398,6 +410,6 @@ run_plots_dir = plot_examples(
     example_type="Noisy",
     run_name=run.name,
     save=True,
-    example_idxs=np.arange(0, len(noisy), 5),
+    example_idxs=np.arange(0, len(noisy), 20),
     exist_ok=True,
 )
