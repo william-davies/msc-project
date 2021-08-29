@@ -14,8 +14,6 @@ from tensorflow.keras.layers import (
 )
 from keras import Input
 
-from msc_project.models.lstm_autoencoder import reshape_data
-
 
 def create_autoencoder(config: Dict):
     """
@@ -28,14 +26,14 @@ def create_autoencoder(config: Dict):
 
     input_signal = Input(shape=(timesteps, num_features))
     x = Conv1D(8, 16, activation="relu", padding="same")(input_signal)
-    x = MaxPool1D(2, padding="same")(x)
-    x = Conv1D(8, 4, activation="relu", padding="same")(x)
-    x = MaxPool1D(2, padding="same")(x)
+    x = MaxPool1D(4, padding="same")(x)
+    x = Conv1D(4, 4, activation="relu", padding="same")(x)
+    x = MaxPool1D(4, padding="same")(x)
 
-    x = Conv1D(8, 4, activation="relu", padding="same", name="decoder-1")(x)
-    x = UpSampling1D(2)(x)
+    x = Conv1D(4, 4, activation="relu", padding="same", name="decoder-1")(x)
+    x = UpSampling1D(4)(x)
     x = Conv1D(8, 4, activation="relu", padding="same")(x)
-    x = UpSampling1D(2)(x)
+    x = UpSampling1D(4)(x)
     decoded = Conv1D(1, 16, activation="sigmoid", padding="same")(x)
     autoencoder = keras.Model(input_signal, decoded)
 

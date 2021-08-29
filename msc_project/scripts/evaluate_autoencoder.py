@@ -20,11 +20,13 @@ from msc_project.constants import (
     DATA_SPLIT_ARTIFACT,
     MODEL_EVALUATION_ARTIFACT,
 )
-from msc_project.models.lstm_autoencoder import reshape_data
 from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
 # %%
+from msc_project.scripts.utils import add_num_features_dimension
+
+
 def read_data_split_into_memory(model_artifact):
     """
     Programmatically get the data split artifact used in model training.
@@ -282,7 +284,7 @@ if data_has_num_features_dimension(autoencoder):
         :param original_data:
         :return:
         """
-        original_data_model_input = reshape_data(original_data)
+        original_data_model_input = add_num_features_dimension(original_data)
         reconstructed_values = tf.stop_gradient(autoencoder(original_data_model_input))
         reconstructed_values = reconstructed_values.numpy().squeeze()
 

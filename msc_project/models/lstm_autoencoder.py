@@ -1,5 +1,7 @@
 from typing import Dict
-import tensorflow as tf
+
+import numpy as np
+import pandas as pd
 from tensorflow import keras
 from tensorflow.keras.utils import plot_model
 from tensorflow.keras.layers import (
@@ -73,15 +75,6 @@ def create_autoencoder(config: Dict):
     )
 
     return autoencoder
-
-
-def reshape_data(data):
-    """
-    LSTM likes shape (samples, timesteps, features)
-    :param data:
-    :return:
-    """
-    return data.values.reshape((*data.shape, 1))
 
 
 if __name__ == "__main__":

@@ -11,8 +11,7 @@ from msc_project.constants import (
     TRAINED_MODEL_ARTIFACT,
 )
 
-# from msc_project.models.lstm_autoencoder import create_autoencoder, reshape_data
-from msc_project.models.cnn_autoencoder import create_autoencoder, reshape_data
+from msc_project.models.cnn_autoencoder import create_autoencoder
 
 from wandb.keras import WandbCallback
 
@@ -20,6 +19,9 @@ import tensorflow as tf
 import pandas as pd
 
 # %%
+from msc_project.scripts.utils import add_num_features_dimension
+
+
 def init_run(run_config, run_id: str = ""):
     """
 
@@ -96,14 +98,14 @@ def get_architecture_type(create_autoencoder):
 
 # %%
 if __name__ == "__main__":
-    is_production: bool = False
+    is_production: bool = True
     run_config = {
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 10,
+        "epoch": 5000,
         "patience": 1500,
         "min_delta": 1e-3,
         "model_architecture_type": get_architecture_type(create_autoencoder),
@@ -131,14 +133,18 @@ if __name__ == "__main__":
         restore_best_weights=True,
     )
     autoencoder = get_autoencoder(run=run, metadata=metadata)
+    print(autoencoder.summary())
 
     history = autoencoder.fit(
-        reshape_data(train),
-        reshape_data(train),
+        add_num_features_dimension(train),
+        add_num_features_dimension(train),
         epochs=metadata["epoch"],
         initial_epoch=get_initial_epoch(run),
         batch_size=metadata["batch_size"],
-        validation_data=(reshape_data(val), reshape_data(val)),
+        validation_data=(
+            add_num_features_dimension(val),
+            add_num_features_dimension(val),
+        ),
         callbacks=[wandbcallback, early_stop],
         shuffle=True,
     )

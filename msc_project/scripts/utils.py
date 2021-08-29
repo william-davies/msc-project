@@ -4,8 +4,10 @@ import numpy as np
 
 from msc_project.constants import (
     BASE_DIR,
-    TREATMENT_INDEXES,
+    TREATMENT_POSITION_NAMES,
     SPAN_PATTERN,
+    PARTICIPANT_DIRNAME_PATTERN,
+    PARTICIPANT_NUMBER_GROUP_IDX,
 )
 
 
@@ -16,8 +18,8 @@ def split_data_into_treatments(data):
     :param data: pd.DataFrame:
     :return:
     """
-    treatments = [None] * len(TREATMENT_INDEXES)
-    for i, treatment_idx in enumerate(TREATMENT_INDEXES):
+    treatments = [None] * len(TREATMENT_POSITION_NAMES)
+    for i, treatment_idx in enumerate(TREATMENT_POSITION_NAMES):
         treatment_regex = f"^\S+_{treatment_idx}_\S+$"
         treatment_df = data.filter(regex=treatment_regex)
         treatments[i] = treatment_df
@@ -68,16 +70,23 @@ class Span:
         self.end = span_end
         assert self.end > self.start
 
+    def __str__(self):
+        return f"start: {self.start} end: {self.end}"
 
-def get_noisy_spans(participant_number, treatment_idx):
+
+def get_noisy_spans(participant_number, treatment_position, excel_sheet_filepath):
+    """
+
+    :param participant_number:
+    :param treatment_position:
+    :return:
+    """
     excel_sheets = pd.read_excel(
-        os.path.join(
-            BASE_DIR, "data", "Stress Dataset/labelling-dataset-less-strict.xlsx"
-        ),
+        excel_sheet_filepath,
         sheet_name=None,
     )
     participant_key = f"P{participant_number}"
-    spans = excel_sheets[participant_key][treatment_idx]
+    spans = excel_sheets[participant_key][treatment_position]
     spans = spans[pd.notnull(spans)]
     span_objects = []
 
@@ -96,3 +105,12 @@ def get_noisy_spans(participant_number, treatment_idx):
             span_objects.append(span_object)
 
     return span_objects
+
+
+def add_num_features_dimension(data: pd.DataFrame) -> np.ndarray:
+    """
+    Add an axis for number of features.
+    :param data: (samples, timesteps)
+    :return: (samples, timesteps, features)
+    """
+    return data.values.reshape((*data.shape, 1))
