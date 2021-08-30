@@ -105,9 +105,6 @@ def set_nonrecorded_values_to_nan(sheet_df: pd.DataFrame):
             treatment_df.droplevel(axis=1, level=["treatment_label"])
         )
         treatment_df[first_nonrecorded_idx:] = np.NaN
-        treatment_df = treatment_df.sort_index(
-            axis=1, level="series_label", sort_remaining=False
-        )
         naned[treatment_label] = treatment_df.values
     return naned
 
@@ -164,13 +161,8 @@ def get_participant_df(participant_dir):
     """
     participant_data = read_participant_xlsx(participant_dir)
 
-    sheet_dfs = []
-    for _, sheet_data in participant_data.items():
-        sheet_df = get_multiindexed_df(sheet_data)
-        sheet_dfs.append(sheet_df)
-
-    names = ["sheet", *sheet_df.columns.names]
-
+    sheet_dfs = get_sheet_dfs(participant_data)
+    names = ["sheet", *sheet_dfs[0].columns.names]
     participant_df = pd.concat(
         sheet_dfs, axis=1, keys=list(participant_data.keys()), names=names
     )
@@ -298,6 +290,19 @@ def build_sheet_multiindex(sheet: pd.DataFrame) -> pd.MultiIndex:
     return multiindex
 
 
+def get_sheet_dfs(participant_data: Dict):
+    """
+
+    :param participant_data: raw from pd.read_excel
+    :return:
+    """
+    sheet_dfs = []
+    for _, sheet_data in participant_data.items():
+        sheet_df = get_multiindexed_df(sheet_data)
+        sheet_dfs.append(sheet_df)
+    return sheet_dfs
+
+
 def save_participant_df(df, participant_dirname):
     save_dir = os.path.join(
         BASE_DIR, "data", "Stress Dataset", participant_dirname, "dataframes"
@@ -324,13 +329,13 @@ if __name__ == "__main__":
 
     names = ["participant", *participant_df.columns.names]
 
-    inter_participant_multiindex_df = pd.concat(
+    inter_participant_multiindexed_df = pd.concat(
         participant_dfs, axis=1, keys=PARTICIPANT_DIRNAMES_WITH_EXCEL, names=names
     )
 
     # %%
     save_fp = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/raw_data.pkl"
-    inter_participant_multiindex_df.to_pickle(save_fp)
+    inter_participant_multiindexed_df.to_pickle(save_fp)
 
     run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="upload")
     raw_data_artifact = wandb.Artifact(
