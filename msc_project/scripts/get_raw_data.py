@@ -1,5 +1,6 @@
 import os
 import re
+from typing import Dict, List
 
 import pandas as pd
 import numpy as np
@@ -18,11 +19,12 @@ from msc_project.constants import (
     PARTICIPANT_ID_GROUP_IDX,
     PARTICIPANT_NUMBERS_WITH_EXCEL,
     DENOISING_AUTOENCODER_PROJECT_NAME,
+    NUM_TREATMENTS,
 )
 from msc_project.scripts.utils import split_data_into_treatments
 
 
-def get_treatment_labels(inf_data):
+def get_treatment_labels_old(inf_data):
     """
     :param inf_data:
     :return:
@@ -103,18 +105,18 @@ def set_nonrecorded_values_to_nan(all_values):
     return naned
 
 
-def make_multiindex_df(inf_data):
-    treatment_labels = get_treatment_labels(inf_data)
+def make_multiindex_df(participant_data):
+    treatment_labels = get_treatment_labels(participant_data)
     signal_names = ["frames", "bvp", "resp"]  # can extend later
     multiindex_columns = [treatment_labels, signal_names]
     multiindex = pd.MultiIndex.from_product(
         multiindex_columns, names=["treatment_label", "signal_name"]
     )
 
-    multiindex_df = inf_data.drop(columns="sample_rate_Hz")
+    multiindex_df = participant_data.drop(columns="sample_rate_Hz")
     multiindex_df.columns = multiindex
 
-    sample_rate = inf_data.sample_rate_Hz[0]
+    sample_rate = participant_data.sample_rate_Hz[0]
     timedelta_index = get_timedelta_index(
         start_time=0, end_time=5 * SECONDS_IN_MINUTE, frequency=sample_rate
     )
@@ -123,40 +125,139 @@ def make_multiindex_df(inf_data):
     return multiindex_df
 
 
-def read_participant_sheet(participant_dirname, sheet_name):
+def read_participant_xlsx(participant_dirname) -> Dict:
     """
-    Helper function.
+    Read .xlsx containing all participant data.
     :param participant_dirname:
-    :param sheet_name:
     :return:
     """
     participant_id = PARTICIPANT_DIRNAME_PATTERN.search(participant_dirname).group(
         PARTICIPANT_ID_GROUP_IDX
     )
 
-    csv_fp = os.path.join(
+    xlsx_fp = os.path.join(
         BASE_DIR,
         "data",
         "Stress Dataset",
         participant_dirname,
-        XLSX_CONVERTED_TO_CSV,
-        f"{participant_id}_{sheet_name}.csv",
+        f"{participant_id}.xlsx",
     )
-    participant_signal = pd.read_csv(csv_fp)
-    return participant_signal
+    participant_xlsx = pd.read_excel(
+        xlsx_fp, sheet_name=["Inf", "EmRBVP", "EmLBVP"], header=None
+    )
+    return participant_xlsx
 
 
 def get_participant_df(participant_dir):
     """
-    Make a multiindex for this participant. Currently just for Inf sheet.
+    Make a MultiIndex-ed DataFrame for this participant.
+    names = ['sheet_name', 'treatment_label', 'series_name']
     :param participant_dir:
     :return:
     """
-    inf_data = read_participant_sheet(participant_dir, sheet_name="Inf")
+    participant_data = read_participant_xlsx(participant_dir)
 
-    participant_df = make_multiindex_df(inf_data)
+    for sheet_name, sheet_data in participant_data.items():
+        get_sheet_df(sheet_data)
+
+    participant_df = make_multiindex_df(participant_data)
     participant_df = set_nonrecorded_values_to_nan(participant_df)
     return participant_df
+
+
+def get_sheet_df(sheet):
+    build_sheet_MultiIndex(sheet)
+    debug = 1
+
+
+def build_sheet_MultiIndex(sheet: pd.DataFrame) -> pd.MultiIndex:
+    """
+    Convert the nested header structure of the .xlsx into a MultiIndex.
+    :param sheet:
+    :return:
+    """
+
+    def get_treatment_labels(sheet, frame_cols):
+        treatment_labels = [""] * NUM_TREATMENTS
+        for treatment_idx in range(NUM_TREATMENTS):
+            treatment_label = get_treatment_label(sheet, frame_cols, treatment_idx)
+            treatment_labels[treatment_idx] = treatment_label
+        return treatment_labels
+
+    def get_treatment_label(sheet, frame_cols, treatment_idx):
+        """
+        Treatment examples: "Emp R BVP R1", "Infinity R1"
+        :param sheet:
+        :param frame_cols:
+        :param treatment_idx:
+        :return:
+        """
+        cols_per_treatment = frame_cols[1] - frame_cols[0]
+
+        treatment_columns = sheet.iloc[
+            0,
+            frame_cols[treatment_idx] : frame_cols[treatment_idx] + cols_per_treatment,
+        ]
+        named_columns = treatment_columns.dropna()
+        label = " ".join(named_columns)
+        label = label.lower()
+        return label.replace(" ", "_")
+
+    def get_series_labels(sheet, frame_cols):
+        cols_per_treatment = frame_cols[1] - frame_cols[0]
+        series_labels = [""] * cols_per_treatment
+        treatment_idx = 0  # within a sheet, each treatment should have the same series so we can arbitrarily set treatment_idx=0.
+        for series_idx in range(cols_per_treatment):
+            series_label = get_series_label(
+                sheet, frame_cols, treatment_idx, series_idx
+            )
+            series_labels[series_idx] = series_label
+        return series_labels
+
+    def get_series_label(sheet, frame_cols, treatment_idx, series_idx):
+        """
+        Series examples: "Row/frame", "BVP"
+        :param sheet:
+        :param treatment_idx:
+        :param series_idx:
+        :return:
+        """
+        series_label = sheet.iloc[1, frame_cols[treatment_idx] + series_idx]
+        series_label = series_label.replace("/", "_").replace(".", "").lower()
+        return series_label
+
+    def get_frame_cols(sheet: pd.DataFrame):
+        """
+        Get the indices of the {{NUM_TREATMENTS}} "Row/frame" columns.
+        :param sheet:
+        :return:
+        """
+
+        def validate_frame_cols(frame_cols):
+            assert len(frame_cols) == NUM_TREATMENTS
+            cols_per_treatment = frame_cols[1] - frame_cols[0]
+            correct_frame_cols = np.arange(
+                frame_cols[0],
+                frame_cols[0] + cols_per_treatment * NUM_TREATMENTS,
+                cols_per_treatment,
+            )
+            assert np.array_equal(frame_cols, correct_frame_cols)
+
+        frame_cols = sheet.iloc[1].values == "Row/frame"
+        frame_cols = frame_cols.nonzero()[0]
+
+        validate_frame_cols(frame_cols)
+
+        return frame_cols
+
+    frame_cols = get_frame_cols(sheet)
+    treatment_labels = get_treatment_labels(sheet, frame_cols)
+    series_labels = get_series_labels(sheet, frame_cols)
+
+    multiindex = pd.MultiIndex.from_product(
+        (treatment_labels, series_labels), names=["treatment_label", "series_label"]
+    )
+    return multiindex
 
 
 def save_participant_df(df, participant_dirname):
@@ -178,7 +279,8 @@ if __name__ == "__main__":
 
     # %%
     participant_dfs = []
-    for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+    # for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+    for participant_dirname in ["0123456789P00_DUMMY"]:
         participant_df = get_participant_df(participant_dirname)
         participant_dfs.append(participant_df)
 
@@ -189,16 +291,20 @@ if __name__ == "__main__":
     )
 
     # %%
-    save_fp = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/all_participants.pkl"
+    save_fp = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/raw_data.pkl"
     inter_participant_multiindex_df.to_pickle(save_fp)
 
     run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="upload")
     raw_data_artifact = wandb.Artifact(
-        "all_participants_raw_data",
+        "raw_data",
         type="raw_data",
-        description="Non recorded values have been set to NaN",
     )
     raw_data_artifact.add_file(save_fp)
     run.log_artifact(raw_data_artifact)
     run.finish()
     breakpoint = 1
+
+
+# %%
+def build_multiindex(participant_xlsx):
+    sheet_names = tuple(participant_xlsx.keys())

@@ -69,12 +69,16 @@ if username == "williamdavies":
 # on UCL CS machine
 elif username == "wdavies":
     BASE_DIR = "/cs/student/projects4/ml/2020/wdavies/msc_project"
+# Colab
+elif username == "root":
+    BASE_DIR = "/content/msc_project/"
 else:
     raise ValueError
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
 # not full identifier because doesn't include easy/hard
 TREATMENT_POSITION_NAMES = ["r1", "m2", "r3", "m4", "r5"]
+NUM_TREATMENTS = 5
 
 TREATMENT_POSITION_PATTERN = "\w\d"
 TREATMENT_LABEL_PATTERN = f"(({TREATMENT_POSITION_PATTERN})(?:_\w{{4}}|))"  # e.g. r1, m2_easy, r3, m4_hard, r5
@@ -92,4 +96,4 @@ PREPROCESSED_DATA_ARTIFACT = "preprocessed_data"
 DATA_SPLIT_ARTIFACT = "data_split"
 TRAINED_MODEL_ARTIFACT = "trained_model"
 MODEL_EVALUATION_ARTIFACT = "model_evaluation"
-ARTIFACTS_ROOT = "wandb_artefacts"
+ARTIFACTS_ROOT = "wandb_artifacts"
