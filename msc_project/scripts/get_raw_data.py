@@ -88,24 +88,24 @@ def get_first_nonrecorded_idx(treatment_df):
         should_be_zero = treatment_df[zero_frames[0] :]
         assert np.count_nonzero(should_be_zero) == 0
         return zero_frames[0]
-    return len(frames)
+    return frames.index[-1] + 1  # out of index
 
 
-def set_nonrecorded_values_to_nan(sheet_df: pd.DataFrame):
+def set_nonrecorded_values_to_nan(participant_df: pd.DataFrame):
     """
     0 might not actually be 0. It might just be blank.
-    :param sheet_df:
+    :param participant_df:
     :return:
     """
-    naned = sheet_df.copy()
-    for treatment_label, treatment_df in sheet_df.groupby(
-        axis=1, level="treatment_label", sort=True
+    naned = participant_df.copy()
+    for treatment_label, treatment_df in participant_df.groupby(
+        axis=1, level=["sheet", "treatment_label"], sort=True
     ):
         first_nonrecorded_idx = get_first_nonrecorded_idx(
-            treatment_df.droplevel(axis=1, level=["treatment_label"])
+            treatment_df.droplevel(axis=1, level=["sheet", "treatment_label"])
         )
-        treatment_df[first_nonrecorded_idx:] = np.NaN
-        naned[treatment_label] = treatment_df.values
+        treatment_df.loc[first_nonrecorded_idx:] = np.NaN
+        naned.loc[:, treatment_label] = treatment_df.values
     return naned
 
 
@@ -167,9 +167,7 @@ def get_participant_df(participant_dir):
         sheet_dfs, axis=1, keys=list(participant_data.keys()), names=names
     )
 
-    for sheet_name, sheet_df in participant_df.groupby(axis=1, level="sheet"):
-        naned = set_nonrecorded_values_to_nan(sheet_df.droplevel(axis=1, level="sheet"))
-        participant_df[sheet_name] = naned.values
+    participant_df = set_nonrecorded_values_to_nan(participant_df)
 
     return participant_df
 
