@@ -158,10 +158,16 @@ def get_participant_df(participant_dir):
     """
     participant_data = read_participant_xlsx(participant_dir)
 
-    for sheet_name, sheet_data in participant_data.items():
-        get_multiindexed_df(sheet_data)
+    sheet_dfs = []
+    for _, sheet_data in participant_data.items():
+        sheet_df = get_multiindexed_df(sheet_data)
+        sheet_dfs.append(sheet_df)
 
-    participant_df = make_multiindex_df(participant_data)
+    names = ["sheet", *sheet_df.columns.names]
+
+    participant_df = pd.concat(
+        sheet_dfs, axis=1, keys=list(participant_data.keys()), names=names
+    )
     participant_df = set_nonrecorded_values_to_nan(participant_df)
     return participant_df
 
