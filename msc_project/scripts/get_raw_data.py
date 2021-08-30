@@ -75,34 +75,40 @@ def set_timedelta_index(multiindex_df, timedelta_index):
     return within_duration
 
 
-def get_first_nonrecorded_idx(treatment_label, df):
+def get_first_nonrecorded_idx(treatment_df):
     """
     Get first index which is not actually a recorded measurement.
     :param treatment_label:
-    :param df: frames and measured signal
+    :param treatment_df: frames and measured signal
     :return:
     """
-    frames = df[treatment_label]["frames"]
-    zero_timedeltas = frames.index[frames == 0]
-    if len(zero_timedeltas) > 0:
-        should_be_zero = df[zero_timedeltas[0] :]
+    frames = treatment_df["row_frame"]
+    zero_frames = frames.index[frames == 0]
+    if len(zero_frames) > 0:
+        should_be_zero = treatment_df[zero_frames[0] :]
         assert np.count_nonzero(should_be_zero) == 0
-        return zero_timedeltas[0]
-    return pd.Timedelta.max
+        return zero_frames[0]
+    return len(frames)
 
 
-def set_nonrecorded_values_to_nan(all_values):
+def set_nonrecorded_values_to_nan(sheet_df: pd.DataFrame):
     """
     0 might not actually be 0. It might just be blank.
-    :param all_values:
+    :param sheet_df:
     :return:
     """
-    naned = all_values.copy()
-    for treatment_label, df in all_values.groupby(axis=1, level="treatment_label"):
-        first_nonrecorded_idx = get_first_nonrecorded_idx(treatment_label, df)
-        df[first_nonrecorded_idx:] = np.NaN
-        df = df.sort_index(axis=1, level=1, sort_remaining=False)
-        naned[treatment_label] = df.values
+    naned = sheet_df.copy()
+    for treatment_label, treatment_df in sheet_df.groupby(
+        axis=1, level="treatment_label", sort=True
+    ):
+        first_nonrecorded_idx = get_first_nonrecorded_idx(
+            treatment_df.droplevel(axis=1, level=["treatment_label"])
+        )
+        treatment_df[first_nonrecorded_idx:] = np.NaN
+        treatment_df = treatment_df.sort_index(
+            axis=1, level="series_label", sort_remaining=False
+        )
+        naned[treatment_label] = treatment_df.values
     return naned
 
 
@@ -168,7 +174,11 @@ def get_participant_df(participant_dir):
     participant_df = pd.concat(
         sheet_dfs, axis=1, keys=list(participant_data.keys()), names=names
     )
-    participant_df = set_nonrecorded_values_to_nan(participant_df)
+
+    for sheet_name, sheet_df in participant_df.groupby(axis=1, level="sheet"):
+        naned = set_nonrecorded_values_to_nan(sheet_df.droplevel(axis=1, level="sheet"))
+        participant_df[sheet_name] = naned.values
+
     return participant_df
 
 
