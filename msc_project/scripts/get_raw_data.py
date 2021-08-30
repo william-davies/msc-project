@@ -20,6 +20,7 @@ from msc_project.constants import (
     PARTICIPANT_NUMBERS_WITH_EXCEL,
     DENOISING_AUTOENCODER_PROJECT_NAME,
     NUM_TREATMENTS,
+    TREATMENT_POSITION_PATTERN,
 )
 from msc_project.scripts.utils import split_data_into_treatments
 
@@ -186,22 +187,41 @@ def build_sheet_MultiIndex(sheet: pd.DataFrame) -> pd.MultiIndex:
 
     def get_treatment_label(sheet, frame_cols, treatment_idx):
         """
-        Treatment examples: "Emp R BVP R1", "Infinity R1"
         :param sheet:
         :param frame_cols:
         :param treatment_idx:
         :return:
         """
-        cols_per_treatment = frame_cols[1] - frame_cols[0]
 
+        def process_xlsx_treatment_label(xlsx_treatment_label):
+            """
+            The xlsx treatment label contains the sheet name for example.
+            Examples:
+            * "Emp R BVP R1"-> r1
+            * "Infinity M2 EASY" -> m2_easy
+            :param xlsx_treatment_label:
+            :return:
+            """
+            TREATMENT_DIFFICULTY_PATTERN = "\w{4}"
+            treatment_label_pattern = re.compile(
+                f" ((?:{TREATMENT_POSITION_PATTERN})|(?:{TREATMENT_POSITION_PATTERN} {TREATMENT_DIFFICULTY_PATTERN}))$"
+            )
+            processed_label = treatment_label_pattern.search(
+                xlsx_treatment_label
+            ).group(1)
+            processed_label = processed_label.lower()
+            processed_label = processed_label.replace(" ", "_")
+            return processed_label
+
+        cols_per_treatment = frame_cols[1] - frame_cols[0]
         treatment_columns = sheet.iloc[
             0,
             frame_cols[treatment_idx] : frame_cols[treatment_idx] + cols_per_treatment,
         ]
         named_columns = treatment_columns.dropna()
         label = " ".join(named_columns)
-        label = label.lower()
-        return label.replace(" ", "_")
+        label = process_xlsx_treatment_label(label)
+        return label
 
     def get_series_labels(sheet, frame_cols):
         cols_per_treatment = frame_cols[1] - frame_cols[0]
