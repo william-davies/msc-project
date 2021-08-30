@@ -159,19 +159,21 @@ def get_participant_df(participant_dir):
     participant_data = read_participant_xlsx(participant_dir)
 
     for sheet_name, sheet_data in participant_data.items():
-        get_sheet_df(sheet_data)
+        get_multiindexed_df(sheet_data)
 
     participant_df = make_multiindex_df(participant_data)
     participant_df = set_nonrecorded_values_to_nan(participant_df)
     return participant_df
 
 
-def get_sheet_df(sheet):
-    build_sheet_MultiIndex(sheet)
-    debug = 1
+def get_multiindexed_df(sheet):
+    multiindex = build_sheet_multiindex(sheet)
+    multiindexed_df = sheet.iloc[2:, 2:]
+    multiindexed_df.columns = multiindex
+    return multiindexed_df
 
 
-def build_sheet_MultiIndex(sheet: pd.DataFrame) -> pd.MultiIndex:
+def build_sheet_multiindex(sheet: pd.DataFrame) -> pd.MultiIndex:
     """
     Convert the nested header structure of the .xlsx into a MultiIndex.
     :param sheet:
