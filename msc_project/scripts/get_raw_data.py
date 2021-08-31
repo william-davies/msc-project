@@ -46,35 +46,6 @@ def get_treatment_labels_old(inf_data):
     return treatment_labels
 
 
-def get_timedelta_index(start_time, end_time, frequency):
-    """
-    Exclusive of end time.
-
-    :param start_time: seconds
-    :param end_time: seconds
-    :param frequency: Hz
-    :return:
-    """
-    seconds_index = np.arange(start_time, end_time, 1 / frequency)
-    timedelta_index = pd.to_timedelta(seconds_index, unit="second")
-    return timedelta_index
-
-
-def set_timedelta_index(multiindex_df, timedelta_index):
-    """
-    Treatments are <= 300sec long. In some excel sheets, we have > 300sec of data.
-    I just disregard measurement past 300sec though. According to Jade's thesis, the
-    treatments are 300secs.
-    :param multiindex_df:
-    :param timedelta_index: 0sec to 300sec at sampling rate frequency
-    :return:
-    """
-    five_minute_index = len(timedelta_index)
-    within_duration = multiindex_df.iloc[:five_minute_index]
-    within_duration = within_duration.set_index(timedelta_index)
-    return within_duration
-
-
 def get_first_nonrecorded_idx(treatment_df):
     """
     Get first index which is not actually a recorded measurement.
@@ -85,8 +56,11 @@ def get_first_nonrecorded_idx(treatment_df):
     frames = treatment_df["row_frame"]
     zero_frames = frames.index[frames == 0]
     if len(zero_frames) > 0:
-        should_be_zero = treatment_df[zero_frames[0] :]
-        assert np.count_nonzero(should_be_zero) == 0
+        should_be_nonrecorded = treatment_df[zero_frames[0] :]
+        should_be_all_true = np.logical_xor(
+            should_be_nonrecorded == 0, np.isnan(should_be_nonrecorded.astype(np.float))
+        )
+        assert np.all(should_be_all_true)
         return zero_frames[0]
     return frames.index[-1] + 1  # out of index
 
@@ -107,26 +81,6 @@ def set_nonrecorded_values_to_nan(participant_df: pd.DataFrame):
         treatment_df.loc[first_nonrecorded_idx:] = np.NaN
         naned.loc[:, treatment_label] = treatment_df.values
     return naned
-
-
-def make_multiindex_df(participant_data):
-    treatment_labels = get_treatment_labels(participant_data)
-    signal_names = ["frames", "bvp", "resp"]  # can extend later
-    multiindex_columns = [treatment_labels, signal_names]
-    multiindex = pd.MultiIndex.from_product(
-        multiindex_columns, names=["treatment_label", "signal_name"]
-    )
-
-    multiindex_df = participant_data.drop(columns="sample_rate_Hz")
-    multiindex_df.columns = multiindex
-
-    sample_rate = participant_data.sample_rate_Hz[0]
-    timedelta_index = get_timedelta_index(
-        start_time=0, end_time=5 * SECONDS_IN_MINUTE, frequency=sample_rate
-    )
-    multiindex_df = set_timedelta_index(multiindex_df, timedelta_index)
-    multiindex_df = multiindex_df.sort_index(axis=1, level=0, sort_remaining=True)
-    return multiindex_df
 
 
 def read_participant_xlsx(participant_dirname) -> Dict:
@@ -320,8 +274,9 @@ if __name__ == "__main__":
 
     # %%
     participant_dfs = []
-    # for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
-    for participant_dirname in ["0123456789P00_DUMMY"]:
+    for participant_dirname in PARTICIPANT_DIRNAMES_WITH_EXCEL:
+        # for participant_dirname in ["0123456789P00_DUMMY"]:
+        print(participant_dirname)
         participant_df = get_participant_df(participant_dirname)
         participant_dfs.append(participant_df)
 
@@ -335,14 +290,16 @@ if __name__ == "__main__":
     save_fp = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/raw_data.pkl"
     inter_participant_multiindexed_df.to_pickle(save_fp)
 
-    run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="upload")
-    raw_data_artifact = wandb.Artifact(
-        "raw_data",
-        type="raw_data",
-    )
-    raw_data_artifact.add_file(save_fp)
-    run.log_artifact(raw_data_artifact)
-    run.finish()
+    upload_to_wandb: bool = False
+    if upload_to_wandb:
+        run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="upload")
+        raw_data_artifact = wandb.Artifact(
+            "raw_data",
+            type="raw_data",
+        )
+        raw_data_artifact.add_file(save_fp)
+        run.log_artifact(raw_data_artifact)
+        run.finish()
     breakpoint = 1
 
 
