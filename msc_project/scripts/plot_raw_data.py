@@ -87,9 +87,7 @@ class PhysiologicalTimeseriesPlotter:
             signal_timeseries,
             noisy_spans,
         )
-        plt.title(
-            f"Participant: {participant_number}\n{participant_environment}\n{treatment_label}-{series_label}"
-        )
+        plt.title(f"{participant_id}\n{sheet_name}\n{treatment_label}-{series_label}")
 
         if save:
             dirpath = os.path.join(
@@ -196,18 +194,34 @@ class PhysiologicalTimeseriesPlotter:
 
 # %%
 plotter = PhysiologicalTimeseriesPlotter()
-sheet_name = "Inf"
 # ["r1", "m2", "r3", "m4", "r5"]
 
 for participant_dirname in ["0720202421P1_608"]:
     plotter.plot_single_timeseries(
         participant_dirname,
-        sheet_name=sheet_name,
+        sheet_name="EmLBVP",
         treatment_label="r1",
         series_label="bvp",
         save=False,
         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
     )
 
+# %%
+plotter.plot_single_timeseries(
+    participant_dirname="0720202421P1_608",
+    sheet_name="Inf",
+    treatment_label="r1",
+    series_label="bvp",
+    save=False,
+    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+)
+plotter.plot_single_timeseries(
+    participant_dirname="0720202421P1_608",
+    sheet_name="EmLBVP",
+    treatment_label="r1",
+    series_label="bvp",
+    save=False,
+    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+)
 # %%
 breakpoint = 1
