@@ -29,29 +29,28 @@ TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 
 # %%
-def get_freq(index):
-    time_delta = pd.infer_freq(index)
-    assert time_delta[-1] == "N"
-    nanoseconds = int(time_delta[:-1])
-    seconds = nanoseconds / 1e9
-    Hz = 1 / seconds
-    return Hz
 
 
 class PhysiologicalTimeseriesPlotter:
     spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
 
-    def plot_multiple_timeseries(
+    def __init__(self):
+        # all data
+        self.data = pd.read_pickle(
+            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/raw_data.pkl"
+        )
+
+    def plot_single_timeseries(
         self,
         participant_dirname,
         sheet_name,
-        signals,
-        treatment_labels,
+        treatment_label,
+        series_label,
         save,
         temporal_subwindow_params,
     ):
         """
-        Plot graphs of {signals} vs time for each {treatments} of a single participant.
+        Plot graph of signal vs time.
 
         :param participant_dirname: directory contains all sensor data on this participant.
         :param treatment_labels: list:
@@ -71,46 +70,45 @@ class PhysiologicalTimeseriesPlotter:
             PARTICIPANT_NUMBER_GROUP_IDX,
             PARTICIPANT_ENVIRONMENT_GROUP_IDX,
         )
+        sheet_data = pd.read_pickle(
+            f"/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/{sheet_name}_raw_data.pkl"
+        )
+        index = (participant_dirname, treatment_label, series_label)
+        signal_timeseries = sheet_data[index]
 
-        data = pd.read_pickle(
-            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/all_participants.pkl"
-        )[participant_dirname]
+        noisy_spans = self.get_noisy_spans(
+            participant_number=participant_number,
+            treatment_position=treatment_label[
+                :2
+            ],  # get first 2 chars e.g. r1, m2, r3...
+        )
 
-        for treatment_label in treatment_labels:
-            for signal_name in signals:
-                signal_timeseries = data[treatment_label][signal_name]
+        self.build_single_timeseries_figure(
+            signal_timeseries,
+            noisy_spans,
+        )
+        plt.title(
+            f"Participant: {participant_number}\n{participant_environment}\n{treatment_label}-{series_label}"
+        )
 
-                noisy_spans = self.get_noisy_spans(
-                    participant_number=participant_number,
-                    treatment_position=treatment_label[:2],
-                )
+        if save:
+            dirpath = os.path.join(
+                "../Stress Dataset",
+                participant_dirname,
+                "plots",
+                sheet_name,
+                series_label,
+            )
+            os.makedirs(dirpath, exist_ok=True)
+            save_filepath = os.path.join(
+                dirpath,
+                f"{participant_id}_{signal_timeseries.name}.png",
+            )
 
-                self.build_single_timeseries_figure(
-                    signal_timeseries,
-                    noisy_spans,
-                )
-                plt.title(
-                    f"Participant: {participant_number}\n{participant_environment}\n{treatment_label}-{signal_name}"
-                )
-
-                if save:
-                    dirpath = os.path.join(
-                        "../Stress Dataset",
-                        participant_dirname,
-                        "plots",
-                        sheet_name,
-                        signal_name,
-                    )
-                    os.makedirs(dirpath, exist_ok=True)
-                    save_filepath = os.path.join(
-                        dirpath,
-                        f"{participant_id}_{signal_timeseries.name}.png",
-                    )
-
-                    plt.savefig(save_filepath, format="png")
-                    plt.clf()
-                else:
-                    plt.show()
+            plt.savefig(save_filepath, format="png")
+            plt.clf()
+        else:
+            plt.show()
 
     def build_single_timeseries_figure(
         self,
@@ -142,6 +140,7 @@ class PhysiologicalTimeseriesPlotter:
 
     def get_time_range_signal(self, signal_timeseries):
         """
+
         :param signal_timeseries:
         :return:
         """
@@ -152,10 +151,21 @@ class PhysiologicalTimeseriesPlotter:
         )
 
     def plot_noisy_spans(self, noisy_spans):
+        """
+        Plot vertical spans denoting noisy measurements.
+        :param noisy_spans:
+        :return:
+        """
         for span in noisy_spans:
             plt.axvspan(span.start, span.end, facecolor="r", alpha=0.3)
 
     def get_noisy_spans(self, participant_number, treatment_position):
+        """
+        I've only labelled Inf BVP at the moment.
+        :param participant_number:
+        :param treatment_position:
+        :return:
+        """
         excel_sheets = pd.read_excel(
             os.path.join(
                 BASE_DIR, "data/Stress Dataset/labelling-dataset-less-strict.xlsx"
@@ -189,15 +199,14 @@ plotter = PhysiologicalTimeseriesPlotter()
 sheet_name = "Inf"
 # ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in ["0802184155P23_natural"]:
-    plotter.plot_multiple_timeseries(
+for participant_dirname in ["0720202421P1_608"]:
+    plotter.plot_single_timeseries(
         participant_dirname,
         sheet_name=sheet_name,
-        signals=["bvp"],
-        treatment_labels=["m4_hard"],
+        treatment_label="r1",
+        series_label="bvp",
         save=False,
         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-        # temporal_subwindow_params=[0 * SECONDS_IN_MINUTE, 5 * SECONDS_IN_MINUTE],
     )
 
 # %%
