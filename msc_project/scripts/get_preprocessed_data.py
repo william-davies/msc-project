@@ -8,6 +8,7 @@ import pandas as pd
 import scipy.signal
 import matplotlib.pyplot as plt
 import wandb
+from numpy.lib.stride_tricks import sliding_window_view
 
 from msc_project.constants import (
     DATA_DIR,
@@ -25,12 +26,6 @@ from msc_project.scripts.get_sheet_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_noisy_spans
 
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
-
-
-def sliding_window_view(array, window_size):
-    shape = array.shape[:-1] + (array.shape[-1] - window_size + 1, window_size)
-    strides = array.strides + (array.strides[-1],)
-    return np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
 
 
 def get_temporal_subwindow_of_signal(df, window_start, window_end):
@@ -580,7 +575,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         window_end=metadata["end_of_central_cropped_window"],
     )
     central_cropped_window = central_cropped_window.drop(
-        columns=["resp", "row_frame"], level="signal_name"
+        columns=["resp", "row_frame"], level="series_label"
     )
 
     treatments = central_cropped_window.columns.get_level_values(
@@ -647,14 +642,16 @@ if __name__ == "__main__":
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
     )
-
     testing = False
+    sheet_name = "Inf"
 
-    raw_data_artifact = run.use_artifact(RAW_DATA_ARTIFACT + ":latest")
-    raw_data_artifact = raw_data_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, raw_data_artifact.type)
+    sheet_data_artifact = run.use_artifact(
+        artifact_or_name=f"{sheet_name}:v0", type="raw_data"
     )
-    raw_data = pd.read_pickle(os.path.join(raw_data_artifact, "raw_data.pkl"))
+    sheet_data_artifact_path = sheet_data_artifact.download(root=ARTIFACTS_ROOT)
+    sheet_raw_data = pd.read_pickle(
+        os.path.join(sheet_data_artifact_path, f"{sheet_name}_raw_data.pkl")
+    )
 
     metadata = {
         # central crop
@@ -674,7 +671,7 @@ if __name__ == "__main__":
         "min_stop_band_attenuation": 6,
     }
 
-    non_windowed_data = preprocess_data(raw_data, metadata)
+    non_windowed_data = preprocess_data(sheet_raw_data, metadata)
     # window stuff
     noisy_labels_excel_sheet_filepath = os.path.join(
         BASE_DIR, "data", "Stress Dataset", "labelling-dataset-less-strict.xlsx"
@@ -738,17 +735,19 @@ if __name__ == "__main__":
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
-    preprocessed_data_artifact = wandb.Artifact(
-        PREPROCESSED_DATA_ARTIFACT,
-        type=PREPROCESSED_DATA_ARTIFACT,
-        metadata=metadata,
-    )
-    preprocessed_data_artifact.add_file(windowed_data_fp, "windowed_data.pkl")
-    preprocessed_data_artifact.add_file(
-        windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
-    )
-    preprocessed_data_artifact.add_file(
-        noisy_labels_excel_sheet_filepath, "noisy-labels.xlsx"
-    )
-    run.log_artifact(preprocessed_data_artifact)
+    upload_to_wandb: bool = False
+    if upload_to_wandb:
+        preprocessed_data_artifact = wandb.Artifact(
+            PREPROCESSED_DATA_ARTIFACT,
+            type=PREPROCESSED_DATA_ARTIFACT,
+            metadata=metadata,
+        )
+        preprocessed_data_artifact.add_file(windowed_data_fp, "windowed_data.pkl")
+        preprocessed_data_artifact.add_file(
+            windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
+        )
+        preprocessed_data_artifact.add_file(
+            noisy_labels_excel_sheet_filepath, "noisy-labels.xlsx"
+        )
+        run.log_artifact(preprocessed_data_artifact)
     run.finish()
