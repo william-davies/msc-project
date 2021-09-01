@@ -154,11 +154,11 @@ def get_window_columns(offset, step_duration) -> Iterable:
     :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
     dummy_windows = sliding_window_view(
-        non_windowed_data.iloc[:, 0], window_size=window_size
+        non_windowed_data.iloc[:, 0], window_shape=window_size
     )[::step_size]
     num_windows = len(dummy_windows)
-    final_window_end = offset + num_windows * step_duration
-    window_starts = np.arange(offset, final_window_end, step_duration)
+    final_window_start = offset + (num_windows - 1) * step_duration
+    window_starts = np.arange(offset, final_window_start + step_duration, step_duration)
     return window_starts
 
 
@@ -680,7 +680,7 @@ if __name__ == "__main__":
         False, index=non_windowed_data.index, columns=non_windowed_data.columns
     )
     for idx, treatment_df in non_windowed_data.groupby(
-        axis=1, level=["participant", "treatment_label", "signal_name"]
+        axis=1, level=["participant", "treatment_label", "series_label"]
     ):
         treatment_noisy_mask = get_treatment_noisy_mask(
             treatment_df, excel_sheet_filepath=noisy_labels_excel_sheet_filepath
@@ -722,7 +722,7 @@ if __name__ == "__main__":
         BASE_DIR,
         "data",
         "preprocessed_data",
-        "windowed_data_window_start.pkl",
+        f"{sheet_name}_windowed_data.pkl",
     )
     windowed_data.to_pickle(windowed_data_fp)
 
@@ -730,15 +730,14 @@ if __name__ == "__main__":
         BASE_DIR,
         "data",
         "preprocessed_data",
-        "windowed_noisy_mask_window_start.pkl",
-        ARTIFACTS_ROOT,
+        f"{sheet_name}_windowed_noisy_mask.pkl",
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
-    upload_to_wandb: bool = False
+    upload_to_wandb: bool = True
     if upload_to_wandb:
         preprocessed_data_artifact = wandb.Artifact(
-            PREPROCESSED_DATA_ARTIFACT,
+            name=f"{sheet_name}_preprocessed_data",
             type=PREPROCESSED_DATA_ARTIFACT,
             metadata=metadata,
         )
