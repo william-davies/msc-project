@@ -496,7 +496,7 @@ def plot_n_signals(signals: List[Tuple]) -> None:
     :param signal_two_label:
     :return:
     """
-    signal_name = tuple(map(str, signals[0][0].split_name))
+    signal_name = tuple(map(str, signals[0][0].name))
     signal_label = "_".join(signal_name)
 
     plt.title(signal_label)
@@ -574,8 +574,8 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         window_start=metadata["start_of_central_cropped_window"],
         window_end=metadata["end_of_central_cropped_window"],
     )
-    central_cropped_window = central_cropped_window.drop(
-        columns=["resp", "row_frame"], level="series_label"
+    central_cropped_window = central_cropped_window.xs(
+        "bvp", axis=1, level="series_label", drop_level=False
     )
 
     treatments = central_cropped_window.columns.get_level_values(
@@ -608,7 +608,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
 
     downsampled = downsample(
         moving_averaged_data,
-        original_rate=256,
+        original_rate=sampling_frequency,
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
