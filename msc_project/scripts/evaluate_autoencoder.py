@@ -155,6 +155,25 @@ def save_reconstructed_signals(
     )
 
 
+def show_or_save(plotting_func):
+    """
+    Boiler plate code for plt.show-ing or saving figure.
+    :param plotting_func:
+    :return:
+    """
+
+    def wrapper(title, save_dir: str = "", *args, **kwargs):
+        plotting_func(title=title, *args, **kwargs)
+        if save_dir:
+            plt.savefig(os.path.join(save_dir, title))
+            plt.clf()
+        else:
+            plt.show()
+
+    return wrapper
+
+
+@show_or_save
 def plot_SQI(SQI, title) -> None:
     """
     Plot SQI histogram.
@@ -168,16 +187,15 @@ def plot_SQI(SQI, title) -> None:
     plt.ylabel("count")
     plt.title(title)
     plt.hist(SQI)
-    plt.show()
 
 
-def plot_delta(delta, title):
+@show_or_save
+def plot_delta(delta, title) -> None:
     plt.figure()
     plt.title(title)
     plt.xlabel("delta")
     plt.ylabel("count")
     plt.hist(delta)
-    plt.show()
 
 
 def SQI_plots() -> None:
@@ -186,21 +204,29 @@ def SQI_plots() -> None:
     Plot SQI delta histogram to check the deltas are normally distributed (that's an assumption of the paired t-test).
     :return:
     """
-    plot_SQI(train_SQI, title="original train")
-    plot_SQI(val_SQI, title="original val")
-    plot_SQI(noisy_SQI, title="original noisy")
+    SQI_plots_dir = os.path.join(evaluation_dir, "SQI_plots")
+    os.makedirs(SQI_plots_dir)
+    plot_SQI(SQI=train_SQI, title="original train", save_dir=SQI_plots_dir)
+    plot_SQI(SQI=val_SQI, title="original val", save_dir=SQI_plots_dir)
+    plot_SQI(SQI=noisy_SQI, title="original noisy", save_dir=SQI_plots_dir)
 
-    plot_SQI(reconstructed_train_SQI, title="reconstructed train")
-    plot_SQI(reconstructed_val_SQI, title="reconstructed val")
-    plot_SQI(reconstructed_noisy_SQI, title="reconstructed noisy")
+    plot_SQI(
+        SQI=reconstructed_train_SQI, title="reconstructed train", save_dir=SQI_plots_dir
+    )
+    plot_SQI(
+        SQI=reconstructed_val_SQI, title="reconstructed val", save_dir=SQI_plots_dir
+    )
+    plot_SQI(
+        SQI=reconstructed_noisy_SQI, title="reconstructed noisy", save_dir=SQI_plots_dir
+    )
 
     train_delta = reconstructed_train_SQI - train_SQI
     val_delta = reconstructed_val_SQI - val_SQI
     noisy_delta = reconstructed_noisy_SQI - noisy_SQI
 
-    plot_delta(train_delta, "train delta")
-    plot_delta(val_delta, "val delta")
-    plot_delta(noisy_delta, "noisy delta")
+    plot_delta(delta=train_delta, title="train delta", save_dir=SQI_plots_dir)
+    plot_delta(delta=val_delta, title="val delta", save_dir=SQI_plots_dir)
+    plot_delta(delta=noisy_delta, title="noisy delta", save_dir=SQI_plots_dir)
 
 
 def get_SQI_summary() -> Dict:
@@ -274,7 +300,7 @@ run = wandb.init(
     project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
 )
 
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=35)
+autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=36)
 # %%
 if data_has_num_features_dimension(autoencoder):
 
@@ -314,7 +340,8 @@ else:
     reconstructed_noisy = get_reconstructed_df(noisy)
 
 # %%
-dir_to_upload = os.path.join(BASE_DIR, "results", "evaluation", run.name, "to_upload")
+evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
+dir_to_upload = os.path.join(evaluation_dir, "to_upload")
 os.makedirs(dir_to_upload)
 save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
 
@@ -372,6 +399,7 @@ run.finish()
 
 
 # %%
+@show_or_save
 def plot_boxplot(original_SQI, reconstructed_SQI, split_name: str) -> None:
     plt.figure()
     plt.boxplot(
