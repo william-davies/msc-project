@@ -4,12 +4,10 @@ import sys
 from typing import List, Iterable, Tuple, Dict
 
 import numpy as np
-import numpy.typing
 import pandas as pd
 import scipy.signal
 import matplotlib.pyplot as plt
 import wandb
-from numpy.lib.stride_tricks import sliding_window_view
 
 from msc_project.constants import (
     DATA_DIR,
@@ -23,15 +21,21 @@ from msc_project.constants import (
     ARTIFACTS_ROOT,
     PREPROCESSED_DATA_ARTIFACT,
 )
-from msc_project.scripts.get_raw_data import get_timedelta_index
+from msc_project.scripts.get_sheet_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_noisy_spans
 
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
 
 
+def sliding_window_view(array, window_size):
+    shape = array.shape[:-1] + (array.shape[-1] - window_size + 1, window_size)
+    strides = array.strides + (array.strides[-1],)
+    return np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
+
+
 def get_temporal_subwindow_of_signal(df, window_start, window_end):
     """
-
+    Return dataframe between time window_start and window_ed.
     :param df:
     :param window_start: seconds
     :param window_end: seconds
@@ -42,8 +46,8 @@ def get_temporal_subwindow_of_signal(df, window_start, window_end):
     eps = pd.Timedelta(
         value=1, unit="ns"
     )  # timedelta precision is truncated to nanosecond
-    central = df[start : end - eps]
-    return central
+    subwindow = df[start : end - eps]
+    return subwindow
 
 
 def downsample(original_data, original_rate, downsampled_rate):
@@ -155,7 +159,7 @@ def get_window_columns(offset, step_duration) -> Iterable:
     :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
     dummy_windows = sliding_window_view(
-        non_windowed_data.iloc[:, 0], axis=0, window_shape=window_size
+        non_windowed_data.iloc[:, 0], window_size=window_size
     )[::step_size]
     num_windows = len(dummy_windows)
     final_window_end = offset + num_windows * step_duration
@@ -463,7 +467,7 @@ def plot_moving_average_smoothing(
     :param example_idx:
     :return:
     """
-    window_label = non_averaged_data.iloc[:, example_idx].name
+    window_label = non_averaged_data.iloc[:, example_idx].split_name
 
     non_averaged_example = non_averaged_data.iloc[:, example_idx]
     averaged_example = averaged_data.iloc[:, example_idx]
@@ -497,7 +501,7 @@ def plot_n_signals(signals: List[Tuple]) -> None:
     :param signal_two_label:
     :return:
     """
-    signal_name = tuple(map(str, signals[0][0].name))
+    signal_name = tuple(map(str, signals[0][0].split_name))
     signal_label = "_".join(signal_name)
 
     plt.title(signal_label)
@@ -524,7 +528,7 @@ def plot_baseline_wandering_subtraction(
             if not df.empty
         )
         .iloc[:, example_idx]
-        .name
+        .split_name
     )
 
     plt.figure()
@@ -576,7 +580,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         window_end=metadata["end_of_central_cropped_window"],
     )
     central_cropped_window = central_cropped_window.drop(
-        columns=["resp", "frames"], level="signal_name"
+        columns=["resp", "row_frame"], level="signal_name"
     )
 
     treatments = central_cropped_window.columns.get_level_values(
@@ -650,7 +654,7 @@ if __name__ == "__main__":
     raw_data_artifact = raw_data_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, raw_data_artifact.type)
     )
-    raw_data = pd.read_pickle(os.path.join(raw_data_artifact, "all_participants.pkl"))
+    raw_data = pd.read_pickle(os.path.join(raw_data_artifact, "raw_data.pkl"))
 
     metadata = {
         # central crop
