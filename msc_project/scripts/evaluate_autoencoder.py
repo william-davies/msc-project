@@ -400,46 +400,52 @@ run.finish()
 
 # %%
 @show_or_save
-def plot_boxplot(original_SQI, reconstructed_SQI, split_name: str) -> None:
+def plot_boxplot(original_SQI, reconstructed_SQI, title) -> None:
     plt.figure()
     plt.boxplot(
         x=(original_SQI.squeeze(), reconstructed_SQI.squeeze()),
         labels=("original", "reconstructed"),
     )
-    plt.gca().set_title(f"SQI comparison\n{split_name}")
+    plt.gca().set_title(title)
     plt.ylabel("SQI")
-    plt.show()
 
 
+boxplot_dir = os.path.join(evaluation_dir, "boxplots")
+os.makedirs(boxplot_dir)
 for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
-    plot_boxplot(original_SQI, reconstructed_SQI, split_name=split_name)
+    plot_boxplot(
+        original_SQI=original_SQI,
+        reconstructed_SQI=reconstructed_SQI,
+        title=f"SQI comparison\n{split_name}",
+        save_dir=boxplot_dir,
+    )
 # %%
-run_plots_dir = plot_examples(
-    original_data=train,
-    reconstructed_data=reconstructed_train.to_numpy(),
-    example_type="Train",
-    run_name=run.name,
-    save=True,
-    example_idxs=np.arange(0, len(train), 80),
-    exist_ok=True,
-)
-
-run_plots_dir = plot_examples(
-    original_data=val,
-    reconstructed_data=reconstructed_val.to_numpy(),
-    example_type="Val",
-    run_name=run.name,
-    save=True,
-    example_idxs=np.arange(0, len(val), 50),
-    exist_ok=True,
-)
-
-run_plots_dir = plot_examples(
-    original_data=noisy,
-    reconstructed_data=reconstructed_noisy.to_numpy(),
-    example_type="Noisy",
-    run_name=run.name,
-    save=True,
-    example_idxs=np.arange(0, len(noisy), 20),
-    exist_ok=True,
-)
+# run_plots_dir = plot_examples(
+#     original_data=train,
+#     reconstructed_data=reconstructed_train.to_numpy(),
+#     example_type="Train",
+#     run_name=run.name,
+#     save=True,
+#     example_idxs=np.arange(0, len(train), 80),
+#     exist_ok=True,
+# )
+#
+# run_plots_dir = plot_examples(
+#     original_data=val,
+#     reconstructed_data=reconstructed_val.to_numpy(),
+#     example_type="Val",
+#     run_name=run.name,
+#     save=True,
+#     example_idxs=np.arange(0, len(val), 50),
+#     exist_ok=True,
+# )
+#
+# run_plots_dir = plot_examples(
+#     original_data=noisy,
+#     reconstructed_data=reconstructed_noisy.to_numpy(),
+#     example_type="Noisy",
+#     run_name=run.name,
+#     save=True,
+#     example_idxs=np.arange(0, len(noisy), 20),
+#     exist_ok=True,
+# )
