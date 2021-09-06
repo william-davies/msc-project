@@ -22,6 +22,7 @@ from matplotlib.ticker import MultipleLocator
 from msc_project.scripts.get_preprocessed_data import (
     get_temporal_subwindow_of_signal,
     downsample,
+    normalize_windows,
 )
 from utils import get_final_recorded_idx, Span
 
@@ -34,12 +35,6 @@ TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
 class PhysiologicalTimeseriesPlotter:
     spans_pattern = re.compile("^([\d.]+)-([\d.]+)$")
 
-    def __init__(self):
-        # all data
-        self.data = pd.read_pickle(
-            "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/raw_data.pkl"
-        )
-
     def plot_single_timeseries(
         self,
         participant_dirname,
@@ -48,15 +43,18 @@ class PhysiologicalTimeseriesPlotter:
         series_label,
         save,
         temporal_subwindow_params,
+        noisy_labels_filename: str,
     ):
         """
         Plot graph of signal vs time.
 
         :param participant_dirname: directory contains all sensor data on this participant.
-        :param treatment_labels: list:
-        :param sheet_name: str:
-        :param signals: list:
-        :param save: bool:
+        :param sheet_name:
+        :param treatment_label:
+        :param series_label:
+        :param save:
+        :param temporal_subwindow_params:
+        :param noisy_labels_filename: including .xlsx
         :return:
         """
         self.temporal_subwindow_params = temporal_subwindow_params
@@ -73,19 +71,20 @@ class PhysiologicalTimeseriesPlotter:
         sheet_data = pd.read_pickle(
             f"/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/data/Stress Dataset/dataframes/{sheet_name}_raw_data.pkl"
         )
-        index = (participant_dirname, treatment_label, series_label)
-        signal_timeseries = sheet_data[index]
+        series_index = (participant_dirname, treatment_label, series_label)
+        signal_timeseries = sheet_data[series_index]
+        signal_timeseries = normalize_windows(signal_timeseries)
 
         noisy_spans = self.get_noisy_spans(
             participant_number=participant_number,
             treatment_position=treatment_label[
                 :2
             ],  # get first 2 chars e.g. r1, m2, r3...
+            noisy_labels_filename=noisy_labels_filename,
         )
 
         self.build_single_timeseries_figure(
-            signal_timeseries,
-            noisy_spans,
+            signal_timeseries, noisy_spans, sheet_name=sheet_name
         )
         plt.title(f"{participant_id}\n{sheet_name}\n{treatment_label}-{series_label}")
 
@@ -106,12 +105,11 @@ class PhysiologicalTimeseriesPlotter:
             plt.savefig(save_filepath, format="png")
             plt.clf()
         else:
-            plt.show()
+            pass
+            # plt.show()
 
     def build_single_timeseries_figure(
-        self,
-        signal_timeseries,
-        noisy_spans,
+        self, signal_timeseries, noisy_spans, sheet_name
     ):
         """
         Handles titles, ticks, labels etc. Also plots data itself and noisy/clean spans.
@@ -120,7 +118,6 @@ class PhysiologicalTimeseriesPlotter:
         :param sampling_rate:
         :return:
         """
-        plt.figure()
         ax = plt.gca()
         ax.xaxis.set_major_locator(MultipleLocator(1))
         ax.xaxis.set_major_formatter("{x:.0f}")
@@ -132,7 +129,9 @@ class PhysiologicalTimeseriesPlotter:
         plt.ylabel(signal_timeseries.name)
         # plt.xticks(np.arange(0, 300, 1))
         signal_timeseries = self.get_time_range_signal(signal_timeseries)
-        plt.plot(signal_timeseries.index.total_seconds(), signal_timeseries)
+        plt.plot(
+            signal_timeseries.index.total_seconds(), signal_timeseries, label=sheet_name
+        )
         plt.xlim(self.temporal_subwindow_params[0], self.temporal_subwindow_params[1])
         self.plot_noisy_spans(noisy_spans)
 
@@ -157,7 +156,9 @@ class PhysiologicalTimeseriesPlotter:
         for span in noisy_spans:
             plt.axvspan(span.start, span.end, facecolor="r", alpha=0.3)
 
-    def get_noisy_spans(self, participant_number, treatment_position):
+    def get_noisy_spans(
+        self, participant_number, treatment_position, noisy_labels_filename
+    ):
         """
         I've only labelled Inf BVP at the moment.
         :param participant_number:
@@ -165,9 +166,7 @@ class PhysiologicalTimeseriesPlotter:
         :return:
         """
         excel_sheets = pd.read_excel(
-            os.path.join(
-                BASE_DIR, "data/Stress Dataset/labelling-dataset-less-strict.xlsx"
-            ),
+            os.path.join(BASE_DIR, "data", "Stress Dataset", noisy_labels_filename),
             sheet_name=None,
         )
         participant_key = f"P{participant_number}"
@@ -196,32 +195,48 @@ class PhysiologicalTimeseriesPlotter:
 plotter = PhysiologicalTimeseriesPlotter()
 # ["r1", "m2", "r3", "m4", "r5"]
 
-for participant_dirname in ["0720202421P1_608"]:
-    plotter.plot_single_timeseries(
-        participant_dirname,
-        sheet_name="EmLBVP",
-        treatment_label="r1",
-        series_label="bvp",
-        save=False,
-        temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-    )
+# for participant_dirname in ["0720202421P1_608"]:
+#     plotter.plot_single_timeseries(
+#         participant_dirname,
+#         sheet_name="EmLBVP",
+#         treatment_label="r1",
+#         series_label="bvp",
+#         save=False,
+#         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+#     )
 
 # %%
-plotter.plot_single_timeseries(
-    participant_dirname="0720202421P1_608",
-    sheet_name="Inf",
-    treatment_label="r1",
-    series_label="bvp",
-    save=False,
-    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-)
-plotter.plot_single_timeseries(
-    participant_dirname="0720202421P1_608",
-    sheet_name="EmLBVP",
-    treatment_label="r1",
-    series_label="bvp",
-    save=False,
-    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-)
+plotter = PhysiologicalTimeseriesPlotter()
+# plt.figure()
+# plotter.plot_single_timeseries(
+#     participant_dirname="0720202421P1_608",
+#     sheet_name="Inf",
+#     treatment_label="r1",
+#     series_label="bvp",
+#     save=False,
+#     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+# )
+# plotter.plot_single_timeseries(
+#     participant_dirname="0720202421P1_608",
+#     sheet_name="EmLBVP",
+#     treatment_label="r1",
+#     series_label="bvp",
+#     save=False,
+#     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+# )
+# plt.legend()
+# plt.show()
+
 # %%
-breakpoint = 1
+plt.figure()
+plotter.plot_single_timeseries(
+    participant_dirname="0802184155P23_natural",
+    sheet_name="EmLBVP",
+    treatment_label="r5",
+    series_label="bvp",
+    save=False,
+    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+    noisy_labels_filename="labelling-EmLBVP-dataset-less-strict.xlsx",
+)
+plt.legend()
+plt.show()
