@@ -21,6 +21,7 @@ from msc_project.constants import (
     RAW_DATA_ARTIFACT,
     ARTIFACTS_ROOT,
     PREPROCESSED_DATA_ARTIFACT,
+    SheetNames,
 )
 from msc_project.scripts.get_sheet_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_noisy_spans
@@ -149,7 +150,7 @@ def get_treatment_noisy_mask(treatment_df, excel_sheet_filepath):
 def get_window_columns(offset, step_duration) -> Iterable:
     """
 
-    :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes.
+    :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes. in seconds.
     :param step_duration: seconds
     :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
@@ -162,7 +163,7 @@ def get_window_columns(offset, step_duration) -> Iterable:
     return window_starts
 
 
-def get_windowed_multiindex(non_windowed_data, window_columns) -> pd.MultiIndex:
+def get_windowed_multiindex(non_windowed_data, window_start_times) -> pd.MultiIndex:
     """
     Make a Multiindex with levels: participant, treatment, signal, window
     :return:
@@ -170,7 +171,7 @@ def get_windowed_multiindex(non_windowed_data, window_columns) -> pd.MultiIndex:
     tuples = []
     for signal_multiindex in non_windowed_data.columns.values:
         signal_window_multiindexes = [
-            (*signal_multiindex, window_index) for window_index in window_columns
+            (*signal_multiindex, window_index) for window_index in window_start_times
         ]
         tuples.extend(signal_window_multiindexes)
     multiindex_names = [*non_windowed_data.columns.names, "window_start"]
@@ -612,7 +613,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
-    example_idx = hard[2]
+    example_idx = hard[1]
     plt.close("all")
     plt.figure()
     plot_n_signals(
@@ -639,11 +640,14 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
 
 # %%
 if __name__ == "__main__":
+    testing = False
+    upload_to_wandb: bool = True
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP
+    noisy_labels_filename = "labelling-EmLBVP-dataset-less-strict.xlsx"
+
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
     )
-    testing = False
-    sheet_name = "Inf"
 
     sheet_data_artifact = run.use_artifact(
         artifact_or_name=f"{sheet_name}:v0", type="raw_data"
@@ -672,9 +676,10 @@ if __name__ == "__main__":
     }
 
     non_windowed_data = preprocess_data(sheet_raw_data, metadata)
+
     # window stuff
     noisy_labels_excel_sheet_filepath = os.path.join(
-        BASE_DIR, "data", "Stress Dataset", "labelling-dataset-less-strict.xlsx"
+        BASE_DIR, "data", "Stress Dataset", noisy_labels_filename
     )
     noisy_mask = pd.DataFrame(
         False, index=non_windowed_data.index, columns=non_windowed_data.columns
@@ -690,12 +695,12 @@ if __name__ == "__main__":
     window_size = metadata["window_duration"] * metadata["downsampled_frequency"]
     step_size = metadata["step_duration"] * metadata["downsampled_frequency"]
 
-    window_columns = get_window_columns(
+    window_start_times = get_window_columns(
         offset=non_windowed_data.index[0].total_seconds(),
         step_duration=metadata["step_duration"],
     )
 
-    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_columns)
+    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_start_times)
 
     windowed_data = get_windowed_df(
         non_windowed_data=non_windowed_data,
@@ -734,7 +739,6 @@ if __name__ == "__main__":
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
-    upload_to_wandb: bool = True
     if upload_to_wandb:
         preprocessed_data_artifact = wandb.Artifact(
             name=f"{sheet_name}_preprocessed_data",
