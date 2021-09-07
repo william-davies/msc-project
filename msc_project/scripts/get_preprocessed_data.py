@@ -198,7 +198,7 @@ def get_windowed_df(
     :return: names=['participant', 'treatment_label', 'signal_name', 'window']
     """
     frequency = get_freq(non_windowed_data.index)
-    window_size = window_duration * frequency
+    window_size = safe_float_to_int(window_duration * frequency)
 
     windowed_data = sliding_window_view(
         non_windowed_data, axis=0, window_shape=window_size
@@ -697,7 +697,7 @@ def filter_data(raw_data: pd.DataFrame, metadata: Dict, original_fs) -> pd.DataF
 
 # %%
 if __name__ == "__main__":
-    testing = False
+    run_tests: bool = False
     upload_to_wandb: bool = True
     sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     noisy_labels_filename = "labelling-EmLBVP-dataset-less-strict.xlsx"
@@ -763,23 +763,32 @@ if __name__ == "__main__":
         step_duration=metadata["step_duration"],
     )
 
-    if testing:
+    if run_tests:
         do_tests()
 
+    windowed_raw_data = normalize_windows(windowed_raw_data)
     windowed_filtered_data = normalize_windows(windowed_filtered_data)
 
-    windowed_data_fp = os.path.join(
+    preprocessed_data_dir = os.path.join(
         BASE_DIR,
         "data",
         "preprocessed_data",
-        f"{sheet_name}_windowed_data.pkl",
     )
-    windowed_filtered_data.to_pickle(windowed_data_fp)
+
+    windowed_raw_data_fp = os.path.join(
+        preprocessed_data_dir,
+        f"{sheet_name}_windowed_raw_data.pkl",
+    )
+    windowed_raw_data.to_pickle(windowed_raw_data_fp)
+
+    windowed_preprocessed_data_fp = os.path.join(
+        preprocessed_data_dir,
+        f"{sheet_name}_windowed_preprocessed_data.pkl",
+    )
+    windowed_filtered_data.to_pickle(windowed_preprocessed_data_fp)
 
     windowed_noisy_mask_fp = os.path.join(
-        BASE_DIR,
-        "data",
-        "preprocessed_data",
+        preprocessed_data_dir,
         f"{sheet_name}_windowed_noisy_mask.pkl",
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
@@ -790,7 +799,12 @@ if __name__ == "__main__":
             type=PREPROCESSED_DATA_ARTIFACT,
             metadata=metadata,
         )
-        preprocessed_data_artifact.add_file(windowed_data_fp, "windowed_data.pkl")
+        preprocessed_data_artifact.add_file(
+            windowed_raw_data_fp, "windowed_raw_data.pkl"
+        )
+        preprocessed_data_artifact.add_file(
+            windowed_preprocessed_data_fp, "windowed_preprocessed_data.pkl"
+        )
         preprocessed_data_artifact.add_file(
             windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
         )
