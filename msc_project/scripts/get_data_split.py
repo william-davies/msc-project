@@ -12,6 +12,7 @@ from msc_project.constants import (
     ARTIFACTS_ROOT,
     BASE_DIR,
     DATA_SPLIT_ARTIFACT,
+    SheetNames,
 )
 
 
@@ -81,12 +82,14 @@ class DatasetPreparer:
 
 
 if __name__ == "__main__":
-    run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="data_split")
-
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP
     metadata = {"noise_tolerance": 0}
 
+    run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="data_split")
+
     preprocessed_data_artifact = run.use_artifact(
-        PREPROCESSED_DATA_ARTIFACT + ":latest"
+        artifact_or_name=f"{sheet_name}_preprocessed_data:v0",
+        type=PREPROCESSED_DATA_ARTIFACT,
     )
     preprocessed_data_artifact = preprocessed_data_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, preprocessed_data_artifact.type)
@@ -106,7 +109,7 @@ if __name__ == "__main__":
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
     data_split_artifact = wandb.Artifact(
-        name=DATA_SPLIT_ARTIFACT, type=DATA_SPLIT_ARTIFACT, metadata=metadata
+        name=f"{sheet_name}_data_split", type=DATA_SPLIT_ARTIFACT, metadata=metadata
     )
 
     train_signals_fp = os.path.join(BASE_DIR, "data", "preprocessed_data", "train.pkl")
@@ -121,5 +124,5 @@ if __name__ == "__main__":
     noisy_signals.to_pickle(noisy_signals_fp)
     data_split_artifact.add_file(noisy_signals_fp)
 
-    run.log_artifact((data_split_artifact))
+    run.log_artifact(data_split_artifact)
     run.finish()

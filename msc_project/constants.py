@@ -3,6 +3,8 @@ import os
 import re
 
 # Exclude P7, P14, P15
+from enum import Enum, unique
+
 PARTICIPANT_DIRNAMES_WITH_EXCEL = [
     "0720202421P1_608",
     "0725095437P2_608",
@@ -97,3 +99,8 @@ DATA_SPLIT_ARTIFACT = "data_split"
 TRAINED_MODEL_ARTIFACT = "trained_model"
 MODEL_EVALUATION_ARTIFACT = "model_evaluation"
 ARTIFACTS_ROOT = "wandb_artifacts"
+
+
+@unique
+class SheetNames(Enum):
+    EMPATICA_LEFT_BVP = "EmLBVP"
