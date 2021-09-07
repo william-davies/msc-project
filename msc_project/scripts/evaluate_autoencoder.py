@@ -1,5 +1,6 @@
 # %%
 import json
+import shutil
 from collections import defaultdict
 from typing import List, Dict
 
@@ -24,7 +25,7 @@ from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
 # %%
-from msc_project.scripts.utils import add_num_features_dimension
+from msc_project.scripts.utils import add_num_features_dimension, slugify
 
 
 def read_data_split_into_memory(model_artifact):
@@ -48,16 +49,16 @@ def read_data_split_into_memory(model_artifact):
     return train, val, noisy
 
 
-def read_artifacts_into_memory(model_version: int):
+def read_artifacts_into_memory(run, model_version: int):
     """
     Read model and corresponding data split into memory.
     :param model_version:
     :return:
     """
     model_artifact = run.use_artifact(TRAINED_MODEL_ARTIFACT + f":v{model_version}")
-    model_dir = model_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, model_artifact.type)
-    )
+    root = os.path.join(ARTIFACTS_ROOT, model_artifact.type)
+    shutil.rmtree(path=root, ignore_errors=True)
+    model_dir = model_artifact.download(root=root)
     autoencoder = tf.keras.models.load_model(model_dir)
 
     data_split = read_data_split_into_memory(model_artifact=model_artifact)
@@ -165,7 +166,7 @@ def show_or_save(plotting_func):
     def wrapper(title, save_dir: str = "", *args, **kwargs):
         plotting_func(title=title, *args, **kwargs)
         if save_dir:
-            plt.savefig(os.path.join(save_dir, title))
+            plt.savefig(os.path.join(save_dir, slugify(title)))
             plt.clf()
         else:
             plt.show()
@@ -293,159 +294,165 @@ def data_has_num_features_dimension(autoencoder):
 
 
 # %%
-upload_artifact: bool = False
+if __name__ == "__main__":
+    upload_artifact: bool = False
+    model_version: int = 28
 
-
-run = wandb.init(
-    project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
-)
-
-autoencoder, (train, val, noisy) = read_artifacts_into_memory(model_version=36)
-# %%
-if data_has_num_features_dimension(autoencoder):
-
-    def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Reconstruct original data.
-        :param original_data:
-        :return:
-        """
-        original_data_model_input = add_num_features_dimension(original_data)
-        reconstructed_values = tf.stop_gradient(autoencoder(original_data_model_input))
-        reconstructed_values = reconstructed_values.numpy().squeeze()
-
-        reconstructed_df = original_data.copy()
-        reconstructed_df.iloc[:, :] = reconstructed_values
-        return reconstructed_df
-
-    reconstructed_train = get_reconstructed_df(train)
-    reconstructed_val = get_reconstructed_df(val)
-    reconstructed_noisy = get_reconstructed_df(noisy)
-
-else:
-
-    def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
-        """
-        Reconstruct original data.
-        :param original_data:
-        :return:
-        """
-        reconstructed_values = tf.stop_gradient(autoencoder(original_data.to_numpy()))
-        reconstructed_df = original_data.copy()
-        reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
-        return reconstructed_df
-
-    reconstructed_train = get_reconstructed_df(train)
-    reconstructed_val = get_reconstructed_df(val)
-    reconstructed_noisy = get_reconstructed_df(noisy)
-
-# %%
-evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
-dir_to_upload = os.path.join(evaluation_dir, "to_upload")
-os.makedirs(dir_to_upload)
-save_reconstructed_signals(reconstructed_train, reconstructed_val, reconstructed_noisy)
-
-# %%
-# expected range of heart rate (Hz)
-SQI_HR_range_min = 0.8
-SQI_HR_range_max = 2
-
-(
-    train_SQI,
-    val_SQI,
-    noisy_SQI,
-    reconstructed_train_SQI,
-    reconstructed_val_SQI,
-    reconstructed_noisy_SQI,
-) = (
-    get_SQI(
-        signal,
-        band_of_interest_lower_freq=SQI_HR_range_min,
-        band_of_interest_upper_freq=SQI_HR_range_max,
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
     )
-    for signal in (
-        train,
-        val,
-        noisy,
-        reconstructed_train,
-        reconstructed_val,
-        reconstructed_noisy,
+
+    autoencoder, (train, val, noisy) = read_artifacts_into_memory(
+        run=run, model_version=model_version
     )
-)
+    # %%
+    if data_has_num_features_dimension(autoencoder):
 
+        def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+            """
+            Reconstruct original data.
+            :param original_data:
+            :return:
+            """
+            original_data_model_input = add_num_features_dimension(original_data)
+            reconstructed_values = tf.stop_gradient(
+                autoencoder(original_data_model_input)
+            )
+            reconstructed_values = reconstructed_values.numpy().squeeze()
 
-# %%
-SQI_plots()
+            reconstructed_df = original_data.copy()
+            reconstructed_df.iloc[:, :] = reconstructed_values
+            return reconstructed_df
 
-# %%
-SQI_items = (
-    ("train", (train_SQI, reconstructed_train_SQI)),
-    ("val", (val_SQI, reconstructed_val_SQI)),
-    ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
-)
-SQI_summary = get_SQI_summary()
+        reconstructed_train = get_reconstructed_df(train)
+        reconstructed_val = get_reconstructed_df(val)
+        reconstructed_noisy = get_reconstructed_df(noisy)
 
-with open(os.path.join(dir_to_upload, "SQI_summary.json"), "w") as fp:
-    json.dump(SQI_summary, fp, indent=4)
-# %%
-# guard to save wandb storage
-if upload_artifact:
-    evaluation_artifact = wandb.Artifact(
-        MODEL_EVALUATION_ARTIFACT, type=MODEL_EVALUATION_ARTIFACT
+    else:
+
+        def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+            """
+            Reconstruct original data.
+            :param original_data:
+            :return:
+            """
+            reconstructed_values = tf.stop_gradient(
+                autoencoder(original_data.to_numpy())
+            )
+            reconstructed_df = original_data.copy()
+            reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
+            return reconstructed_df
+
+        reconstructed_train = get_reconstructed_df(train)
+        reconstructed_val = get_reconstructed_df(val)
+        reconstructed_noisy = get_reconstructed_df(noisy)
+
+    # %%
+    evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
+    dir_to_upload = os.path.join(evaluation_dir, "to_upload")
+    os.makedirs(dir_to_upload)
+    save_reconstructed_signals(
+        reconstructed_train, reconstructed_val, reconstructed_noisy
     )
-    evaluation_artifact.add_dir(dir_to_upload)
-    run.log_artifact(evaluation_artifact)
-run.finish()
 
+    # %%
+    # expected range of heart rate (Hz)
+    SQI_HR_range_min = 0.8
+    SQI_HR_range_max = 2
 
-# %%
-@show_or_save
-def plot_boxplot(original_SQI, reconstructed_SQI, title) -> None:
-    plt.figure()
-    plt.boxplot(
-        x=(original_SQI.squeeze(), reconstructed_SQI.squeeze()),
-        labels=("original", "reconstructed"),
+    (
+        train_SQI,
+        val_SQI,
+        noisy_SQI,
+        reconstructed_train_SQI,
+        reconstructed_val_SQI,
+        reconstructed_noisy_SQI,
+    ) = (
+        get_SQI(
+            signal,
+            band_of_interest_lower_freq=SQI_HR_range_min,
+            band_of_interest_upper_freq=SQI_HR_range_max,
+        )
+        for signal in (
+            train,
+            val,
+            noisy,
+            reconstructed_train,
+            reconstructed_val,
+            reconstructed_noisy,
+        )
     )
-    plt.gca().set_title(title)
-    plt.ylabel("SQI")
 
+    # %%
+    SQI_plots()
 
-boxplot_dir = os.path.join(evaluation_dir, "boxplots")
-os.makedirs(boxplot_dir)
-for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
-    plot_boxplot(
-        original_SQI=original_SQI,
-        reconstructed_SQI=reconstructed_SQI,
-        title=f"SQI comparison\n{split_name}",
-        save_dir=boxplot_dir,
+    # %%
+    SQI_items = (
+        ("train", (train_SQI, reconstructed_train_SQI)),
+        ("val", (val_SQI, reconstructed_val_SQI)),
+        ("noisy", (noisy_SQI, reconstructed_noisy_SQI)),
     )
-# %%
-# run_plots_dir = plot_examples(
-#     original_data=train,
-#     reconstructed_data=reconstructed_train.to_numpy(),
-#     example_type="Train",
-#     run_name=run.name,
-#     save=True,
-#     example_idxs=np.arange(0, len(train), 80),
-#     exist_ok=True,
-# )
-#
-# run_plots_dir = plot_examples(
-#     original_data=val,
-#     reconstructed_data=reconstructed_val.to_numpy(),
-#     example_type="Val",
-#     run_name=run.name,
-#     save=True,
-#     example_idxs=np.arange(0, len(val), 50),
-#     exist_ok=True,
-# )
-#
-# run_plots_dir = plot_examples(
-#     original_data=noisy,
-#     reconstructed_data=reconstructed_noisy.to_numpy(),
-#     example_type="Noisy",
-#     run_name=run.name,
-#     save=True,
-#     example_idxs=np.arange(0, len(noisy), 20),
-#     exist_ok=True,
-# )
+    SQI_summary = get_SQI_summary()
+
+    with open(os.path.join(dir_to_upload, "SQI_summary.json"), "w") as fp:
+        json.dump(SQI_summary, fp, indent=4)
+    # %%
+    # guard to save wandb storage
+    if upload_artifact:
+        evaluation_artifact = wandb.Artifact(
+            MODEL_EVALUATION_ARTIFACT, type=MODEL_EVALUATION_ARTIFACT
+        )
+        evaluation_artifact.add_dir(dir_to_upload)
+        run.log_artifact(evaluation_artifact)
+    run.finish()
+
+    # %%
+    @show_or_save
+    def plot_boxplot(original_SQI, reconstructed_SQI, title) -> None:
+        plt.figure()
+        plt.boxplot(
+            x=(original_SQI.squeeze(), reconstructed_SQI.squeeze()),
+            labels=("original", "reconstructed"),
+        )
+        plt.gca().set_title(title)
+        plt.ylabel("SQI")
+
+    boxplot_dir = os.path.join(evaluation_dir, "boxplots")
+    os.makedirs(boxplot_dir)
+    for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
+        plot_boxplot(
+            original_SQI=original_SQI,
+            reconstructed_SQI=reconstructed_SQI,
+            title=f"SQI comparison\n{split_name}",
+            save_dir=boxplot_dir,
+        )
+    # %%
+    run_plots_dir = plot_examples(
+        original_data=train,
+        reconstructed_data=reconstructed_train.to_numpy(),
+        example_type="Train",
+        run_name=run.name,
+        save=True,
+        example_idxs=np.arange(0, len(train), 80),
+        exist_ok=True,
+    )
+
+    run_plots_dir = plot_examples(
+        original_data=val,
+        reconstructed_data=reconstructed_val.to_numpy(),
+        example_type="Val",
+        run_name=run.name,
+        save=True,
+        example_idxs=np.arange(0, len(val), 50),
+        exist_ok=True,
+    )
+
+    run_plots_dir = plot_examples(
+        original_data=noisy,
+        reconstructed_data=reconstructed_noisy.to_numpy(),
+        example_type="Noisy",
+        run_name=run.name,
+        save=True,
+        example_idxs=np.arange(0, len(noisy), 20),
+        exist_ok=True,
+    )
