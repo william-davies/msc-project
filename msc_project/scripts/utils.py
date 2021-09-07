@@ -137,3 +137,13 @@ def slugify(value, allow_unicode=False):
         )
     value = re.sub(r"[^\w\s-]", "", value.lower())
     return re.sub(r"[-\s]+", "-", value).strip("-_")
+
+
+def safe_float_to_int(float_value: float):
+    """
+    Convert float to int if float is an integer.
+    :param float_value:
+    :return:
+    """
+    assert float_value.is_integer()
+    return int(float_value)

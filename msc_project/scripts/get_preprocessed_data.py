@@ -24,7 +24,7 @@ from msc_project.constants import (
     SheetNames,
 )
 from msc_project.scripts.get_sheet_raw_data import get_timedelta_index
-from msc_project.scripts.utils import get_noisy_spans
+from msc_project.scripts.utils import get_noisy_spans, safe_float_to_int
 
 TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
 
@@ -56,8 +56,7 @@ def downsample(original_data, original_rate, downsampled_rate):
     :return: pd.DataFrame:
     """
     num = len(original_data) * downsampled_rate / original_rate
-    assert num.is_integer()
-    num = int(num)
+    num = safe_float_to_int(num)
 
     downsampled_signal, downsampled_t = scipy.signal.resample(
         x=original_data, num=num, t=original_data.index
@@ -147,19 +146,26 @@ def get_treatment_noisy_mask(treatment_df, excel_sheet_filepath):
 # %%
 
 
-def get_window_columns(offset, step_duration) -> Iterable:
+def get_window_start_times(
+    series, window_duration: float, step_duration: float
+) -> Iterable:
     """
-
+    Probably very unnecessary to do the whole sliding window but I think this is secure and robust.
     :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes. in seconds.
     :param step_duration: seconds
     :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
-    dummy_windows = sliding_window_view(
-        non_windowed_data.iloc[:, 0], window_shape=window_size
-    )[::step_size]
+    fs = get_freq(series.index)
+    window_size = window_duration * fs
+    window_size = safe_float_to_int(window_size)
+    step_size = step_duration * fs
+    step_size = safe_float_to_int(step_size)
+
+    dummy_windows = sliding_window_view(series, window_shape=window_size)[::step_size]
+    start = series.index[0].total_seconds()
     num_windows = len(dummy_windows)
-    final_window_start = offset + (num_windows - 1) * step_duration
-    window_starts = np.arange(offset, final_window_start + step_duration, step_duration)
+    final_window_start = start + (num_windows - 1) * step_duration
+    window_starts = np.arange(start, final_window_start + step_duration, step_duration)
     return window_starts
 
 
@@ -181,20 +187,22 @@ def get_windowed_multiindex(non_windowed_data, window_start_times) -> pd.MultiIn
 
 def get_windowed_df(
     non_windowed_data: pd.DataFrame,
-    window_size: int,
     window_duration,
+    step_size,
     frequency,
     windowed_multiindex,
 ) -> pd.DataFrame:
     """
 
-    :param non_windowed_data: names=['participant', 'treatment_label', 'signal_name']
+    :param non_windowed_data: names=['participant', 'treatment_label', 'series_label']
     :param window_size: frames
     :param window_duration: seconds
     :param frequency: Hz
     :param windowed_multiindex:
     :return: names=['participant', 'treatment_label', 'signal_name', 'window]
     """
+    window_size = window_duration * frequency
+
     windowed_data = sliding_window_view(
         non_windowed_data, axis=0, window_shape=window_size
     )[::step_size]
@@ -326,10 +334,10 @@ def do_tests():
 
     window_start = float(60)
     window_end = float(70)
-    window = windowed_data[participant_dirname][treatment_label][signal_name][
+    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
         window_start
     ]
-    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
+    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -358,10 +366,10 @@ def do_tests():
     window_start = float(152)
     window_end = float(162)
 
-    window = windowed_data[participant_dirname][treatment_label][signal_name][
+    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
         window_start
     ]
-    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
+    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -388,10 +396,10 @@ def do_tests():
     treatment_label = "m2_hard"
     window_start = float(200)
     window_end = float(210)
-    window = windowed_data[participant_dirname][treatment_label][signal_name][
+    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
         window_start
     ]
-    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
+    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -419,10 +427,10 @@ def do_tests():
 
     window_start = float(230)
     window_end = float(240)
-    window = windowed_data[participant_dirname][treatment_label][signal_name][
+    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
         window_start
     ]
-    full_treatment_signal = non_windowed_data[participant_dirname][treatment_label][
+    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
         signal_name
     ]
     correct_window = full_treatment_signal.iloc[
@@ -563,7 +571,7 @@ def plot_baseline_wandering_subtraction(
     plt.legend()
 
 
-def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
+def filter_data(raw_data: pd.DataFrame, metadata: Dict, original_fs) -> pd.DataFrame:
     """
     EXCLUDES sliding window.
     :param raw_data:
@@ -584,11 +592,10 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
     )
     hard = (treatments == "m4_hard").nonzero()[0]
 
-    sampling_frequency = get_freq(central_cropped_window.index)
     bandpass_filtered_data = bandpass_filter(
         data=central_cropped_window,
         metadata=metadata,
-        sampling_frequency=sampling_frequency,
+        sampling_frequency=original_fs,
     )
 
     if metadata["baseline_wandering_subtraction_window_duration"] is not None:
@@ -609,7 +616,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
 
     downsampled = downsample(
         moving_averaged_data,
-        original_rate=sampling_frequency,
+        original_rate=original_fs,
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
@@ -642,7 +649,7 @@ def preprocess_data(raw_data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
 if __name__ == "__main__":
     testing = False
     upload_to_wandb: bool = True
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     noisy_labels_filename = "labelling-EmLBVP-dataset-less-strict.xlsx"
 
     run = wandb.init(
@@ -674,17 +681,19 @@ if __name__ == "__main__":
         "max_passband_ripple": 3,
         "min_stop_band_attenuation": 6,
     }
-
-    non_windowed_data = preprocess_data(sheet_raw_data, metadata)
+    original_fs = get_freq(sheet_raw_data.index)
+    filtered_data = filter_data(
+        sheet_raw_data, metadata=metadata, original_fs=original_fs
+    )
 
     # window stuff
     noisy_labels_excel_sheet_filepath = os.path.join(
         BASE_DIR, "data", "Stress Dataset", noisy_labels_filename
     )
     noisy_mask = pd.DataFrame(
-        False, index=non_windowed_data.index, columns=non_windowed_data.columns
+        False, index=filtered_data.index, columns=filtered_data.columns
     )
-    for idx, treatment_df in non_windowed_data.groupby(
+    for idx, treatment_df in filtered_data.groupby(
         axis=1, level=["participant", "treatment_label", "series_label"]
     ):
         treatment_noisy_mask = get_treatment_noisy_mask(
@@ -692,36 +701,49 @@ if __name__ == "__main__":
         )
         noisy_mask.loc[:, idx] = treatment_noisy_mask.values
 
-    window_size = metadata["window_duration"] * metadata["downsampled_frequency"]
-    step_size = metadata["step_duration"] * metadata["downsampled_frequency"]
+    original_fs_step_size = metadata["step_duration"] * original_fs
 
-    window_start_times = get_window_columns(
-        offset=non_windowed_data.index[0].total_seconds(),
+    downsampled_step_size = (
+        metadata["step_duration"] * metadata["downsampled_frequency"]
+    )
+
+    filtered_window_start_times = get_window_start_times(
+        series=filtered_data.iloc[:, 0],
+        window_duration=metadata["window_duration"],
         step_duration=metadata["step_duration"],
     )
 
-    windowed_multiindex = get_windowed_multiindex(non_windowed_data, window_start_times)
+    filtered_windowed_multiindex = get_windowed_multiindex(
+        filtered_data, filtered_window_start_times
+    )
 
-    windowed_data = get_windowed_df(
-        non_windowed_data=non_windowed_data,
-        window_size=window_size,
+    windowed_raw_data = get_windowed_df(
+        non_windowed_data=sheet_raw_data,
+        window_duration=metadata["window_duration"],
+        frequency=original_fs,
+        windowed_multiindex=filtered_windowed_multiindex,
+    )
+
+    windowed_filtered_data = get_windowed_df(
+        non_windowed_data=filtered_data,
         window_duration=metadata["window_duration"],
         frequency=metadata["downsampled_frequency"],
-        windowed_multiindex=windowed_multiindex,
+        windowed_multiindex=filtered_windowed_multiindex,
+        step_size=downsampled_step_size,
     )
 
     windowed_noisy_mask = get_windowed_df(
         non_windowed_data=noisy_mask,
-        window_size=window_size,
         window_duration=metadata["window_duration"],
         frequency=metadata["downsampled_frequency"],
-        windowed_multiindex=windowed_multiindex,
+        windowed_multiindex=filtered_windowed_multiindex,
+        step_size=downsampled_step_size,
     )
 
     if testing:
         do_tests()
 
-    windowed_data = normalize_windows(windowed_data)
+    windowed_filtered_data = normalize_windows(windowed_filtered_data)
 
     windowed_data_fp = os.path.join(
         BASE_DIR,
@@ -729,7 +751,7 @@ if __name__ == "__main__":
         "preprocessed_data",
         f"{sheet_name}_windowed_data.pkl",
     )
-    windowed_data.to_pickle(windowed_data_fp)
+    windowed_filtered_data.to_pickle(windowed_data_fp)
 
     windowed_noisy_mask_fp = os.path.join(
         BASE_DIR,
