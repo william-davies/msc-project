@@ -2,7 +2,7 @@
 import json
 import shutil
 from collections import defaultdict
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -20,6 +20,7 @@ from msc_project.constants import (
     ARTIFACTS_ROOT,
     DATA_SPLIT_ARTIFACT,
     MODEL_EVALUATION_ARTIFACT,
+    SheetNames,
 )
 from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
@@ -28,7 +29,7 @@ from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 from msc_project.scripts.utils import add_num_features_dimension, slugify
 
 
-def read_data_split_into_memory(model_artifact):
+def get_data_split_artifact_used_in_training(model_artifact):
     """
     Programmatically get the data split artifact used in model training.
     :param model_artifact:
@@ -38,8 +39,16 @@ def read_data_split_into_memory(model_artifact):
     model_training_used_artifacts = model_training_run.used_artifacts()
     assert len(model_training_used_artifacts) == 1
     data_split_artifact = model_training_used_artifacts[0]
+    return data_split_artifact
 
-    run.use_artifact(data_split_artifact)
+
+def load_data_split(artifact_or_name: Union[wandb.Artifact, str]):
+    """
+    Load DataFrames into memory.
+    :param artifact_or_name:
+    :return:
+    """
+    data_split_artifact = run.use_artifact(artifact_or_name=artifact_or_name)
     data_split_artifact = data_split_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
     )
@@ -49,9 +58,9 @@ def read_data_split_into_memory(model_artifact):
     return train, val, noisy
 
 
-def read_artifacts_into_memory(run, model_version: int):
+def get_model(run, model_version: int):
     """
-    Read model and corresponding data split into memory.
+    Return trained model.
     :param model_version:
     :return:
     """
@@ -60,9 +69,7 @@ def read_artifacts_into_memory(run, model_version: int):
     shutil.rmtree(path=root, ignore_errors=True)
     model_dir = model_artifact.download(root=root)
     autoencoder = tf.keras.models.load_model(model_dir)
-
-    data_split = read_data_split_into_memory(model_artifact=model_artifact)
-    return autoencoder, data_split
+    return autoencoder
 
 
 def plot_examples(
@@ -107,7 +114,7 @@ def plot_examples(
         signal_label = "-".join(window_label[:-1])
         plt.title(f"{example_type} example\n{signal_label}\n")
         plt.xlabel("time in treatment session (s)")
-        signal_name = original_data.index.get_level_values(level="signal_name")[
+        signal_name = original_data.index.get_level_values(level="series_label")[
             example_idx
         ]
         plt.ylabel(signal_name)
@@ -296,15 +303,17 @@ def data_has_num_features_dimension(autoencoder):
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
-    model_version: int = 28
+    model_version: int = 39
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
     )
 
-    autoencoder, (train, val, noisy) = read_artifacts_into_memory(
-        run=run, model_version=model_version
-    )
+    autoencoder = get_model(run=run, model_version=model_version)
+
+    sheet_name = SheetNames.INFINITY.value
+    data_split_artifact = f"{sheet_name}_data_split:v0"
+    train, val, noisy = load_data_split(data_split_artifact)
     # %%
     if data_has_num_features_dimension(autoencoder):
 
