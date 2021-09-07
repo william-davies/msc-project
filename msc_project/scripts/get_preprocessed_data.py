@@ -147,20 +147,17 @@ def get_treatment_noisy_mask(treatment_df, excel_sheet_filepath):
 
 
 def get_window_start_times(
-    series, window_duration: float, step_duration: float
+    series, window_size: int, step_size: int, step_duration: float
 ) -> Iterable:
     """
     Probably very unnecessary to do the whole sliding window but I think this is secure and robust.
-    :param offset: we might not be starting from minute 0 of the treatment. e.g. take central 3 minutes. in seconds.
+
+    :param series: an example series. e.g. BVP series.
+    :param window_size: frames
+    :param step_size: frames
     :param step_duration: seconds
     :return: [window_0_column_name, window_1_column_name, window_2_column_name, ..., window_n_column_name]
     """
-    fs = get_freq(series.index)
-    window_size = window_duration * fs
-    window_size = safe_float_to_int(window_size)
-    step_size = step_duration * fs
-    step_size = safe_float_to_int(step_size)
-
     dummy_windows = sliding_window_view(series, window_shape=window_size)[::step_size]
     start = series.index[0].total_seconds()
     num_windows = len(dummy_windows)
@@ -177,7 +174,8 @@ def get_windowed_multiindex(non_windowed_data, window_start_times) -> pd.MultiIn
     tuples = []
     for signal_multiindex in non_windowed_data.columns.values:
         signal_window_multiindexes = [
-            (*signal_multiindex, window_index) for window_index in window_start_times
+            (*signal_multiindex, window_start_time)
+            for window_start_time in window_start_times
         ]
         tuples.extend(signal_window_multiindexes)
     multiindex_names = [*non_windowed_data.columns.names, "window_start"]
@@ -189,18 +187,17 @@ def get_windowed_df(
     non_windowed_data: pd.DataFrame,
     window_duration,
     step_size,
-    frequency,
     windowed_multiindex,
 ) -> pd.DataFrame:
     """
 
     :param non_windowed_data: names=['participant', 'treatment_label', 'series_label']
-    :param window_size: frames
     :param window_duration: seconds
-    :param frequency: Hz
+    :param step_size: frames
     :param windowed_multiindex:
-    :return: names=['participant', 'treatment_label', 'signal_name', 'window]
+    :return: names=['participant', 'treatment_label', 'signal_name', 'window']
     """
+    frequency = get_freq(non_windowed_data.index)
     window_size = window_duration * frequency
 
     windowed_data = sliding_window_view(
@@ -217,7 +214,23 @@ def get_windowed_df(
     return windowed_df
 
 
-breakpoint = 1
+def populate_noisy_mask(blank_noisy_mask, noisy_labels_excel_sheet_filepath: str):
+    """
+    Population not in-place.
+    :param blank_noisy_mask: all False
+    :param noisy_labels_excel_sheet_filepath:
+    :return:
+    """
+    noisy_mask = blank_noisy_mask.copy()
+    for idx, treatment_df in blank_noisy_mask.groupby(
+        axis=1, level=["participant", "treatment_label", "series_label"]
+    ):
+        treatment_noisy_mask = get_treatment_noisy_mask(
+            treatment_df, excel_sheet_filepath=noisy_labels_excel_sheet_filepath
+        )
+        noisy_mask.loc[:, idx] = treatment_noisy_mask.values
+    return noisy_mask
+
 
 # %%
 
@@ -690,52 +703,63 @@ if __name__ == "__main__":
     noisy_labels_excel_sheet_filepath = os.path.join(
         BASE_DIR, "data", "Stress Dataset", noisy_labels_filename
     )
-    noisy_mask = pd.DataFrame(
+    blank_noisy_mask = pd.DataFrame(
         False, index=filtered_data.index, columns=filtered_data.columns
     )
-    for idx, treatment_df in filtered_data.groupby(
-        axis=1, level=["participant", "treatment_label", "series_label"]
-    ):
-        treatment_noisy_mask = get_treatment_noisy_mask(
-            treatment_df, excel_sheet_filepath=noisy_labels_excel_sheet_filepath
-        )
-        noisy_mask.loc[:, idx] = treatment_noisy_mask.values
-
-    original_fs_step_size = metadata["step_duration"] * original_fs
-
-    downsampled_step_size = (
-        metadata["step_duration"] * metadata["downsampled_frequency"]
+    noisy_mask = populate_noisy_mask(
+        blank_noisy_mask, noisy_labels_excel_sheet_filepath
     )
 
-    filtered_window_start_times = get_window_start_times(
-        series=filtered_data.iloc[:, 0],
-        window_duration=metadata["window_duration"],
+    original_fs_window_size = metadata["window_duration"] * original_fs
+    original_fs_window_size = safe_float_to_int(original_fs_window_size)
+    original_fs_step_size = metadata["step_duration"] * original_fs
+    original_fs_step_size = safe_float_to_int(original_fs_step_size)
+
+    raw_data_window_start_times = get_window_start_times(
+        series=sheet_raw_data.iloc[:, 0],
+        window_size=original_fs_window_size,
+        step_size=original_fs_step_size,
         step_duration=metadata["step_duration"],
     )
-
-    filtered_windowed_multiindex = get_windowed_multiindex(
-        filtered_data, filtered_window_start_times
+    raw_data_windowed_multiindex = get_windowed_multiindex(
+        filtered_data, raw_data_window_start_times
     )
 
     windowed_raw_data = get_windowed_df(
         non_windowed_data=sheet_raw_data,
         window_duration=metadata["window_duration"],
-        frequency=original_fs,
-        windowed_multiindex=filtered_windowed_multiindex,
+        step_size=original_fs_step_size,
+        windowed_multiindex=raw_data_windowed_multiindex,
+    )
+
+    downsampled_window_size = (
+        metadata["window_duration"] * metadata["downsampled_frequency"]
+    )
+    downsampled_window_size = safe_float_to_int(downsampled_window_size)
+    downsampled_step_size = (
+        metadata["step_duration"] * metadata["downsampled_frequency"]
+    )
+    downsampled_step_size = safe_float_to_int(downsampled_step_size)
+
+    filtered_window_start_times = get_window_start_times(
+        series=filtered_data.iloc[:, 0],
+        window_size=downsampled_window_size,
+        step_size=downsampled_step_size,
+        step_duration=metadata["step_duration"],
+    )
+    filtered_windowed_multiindex = get_windowed_multiindex(
+        filtered_data, filtered_window_start_times
     )
 
     windowed_filtered_data = get_windowed_df(
         non_windowed_data=filtered_data,
         window_duration=metadata["window_duration"],
-        frequency=metadata["downsampled_frequency"],
         windowed_multiindex=filtered_windowed_multiindex,
         step_size=downsampled_step_size,
     )
-
     windowed_noisy_mask = get_windowed_df(
         non_windowed_data=noisy_mask,
         window_duration=metadata["window_duration"],
-        frequency=metadata["downsampled_frequency"],
         windowed_multiindex=filtered_windowed_multiindex,
         step_size=downsampled_step_size,
     )
