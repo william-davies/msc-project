@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 
 import wandb
 
@@ -9,9 +10,10 @@ from msc_project.constants import (
     ARTIFACTS_ROOT,
     BASE_DIR,
     TRAINED_MODEL_ARTIFACT,
+    SheetNames,
 )
 
-from msc_project.models.cnn_autoencoder import create_autoencoder
+from msc_project.models.mlp_autoencoder import create_autoencoder
 
 from wandb.keras import WandbCallback
 
@@ -19,6 +21,7 @@ import tensorflow as tf
 import pandas as pd
 
 # %%
+from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimension
 from msc_project.scripts.utils import add_num_features_dimension
 
 
@@ -51,16 +54,12 @@ def init_run(run_config, run_id: str = ""):
     return run
 
 
-def load_data(run, data_split_version: int):
+def load_data(data_split_artifact):
     """
 
-    :param run: so we can "use_artifact" in wandb artifact graph
-    :param data_split_version:
+    :param data_split_artifact:
     :return:
     """
-    data_split_artifact = run.use_artifact(
-        DATA_SPLIT_ARTIFACT + f":v{data_split_version}"
-    )
     data_split_artifact = data_split_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
     )
@@ -70,6 +69,12 @@ def load_data(run, data_split_version: int):
 
 
 def get_autoencoder(run, metadata):
+    """
+    Returns either partially trained autoencoder for resumed run, or brand new autoencoder.
+    :param run:
+    :param metadata:
+    :return:
+    """
     if run.resumed:
         best_model = wandb.restore("model-best.h5", run_path=run.path)
         autoencoder = tf.keras.models.load_model(best_model.name)
@@ -98,14 +103,17 @@ def get_architecture_type(create_autoencoder):
 
 # %%
 if __name__ == "__main__":
-    is_production: bool = True
+    sheet_name = SheetNames.INFINITY.value
+    data_split_version = 0
+
+    is_production: bool = False
     run_config = {
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 5000,
+        "epoch": 30,
         "patience": 1500,
         "min_delta": 1e-3,
         "model_architecture_type": get_architecture_type(create_autoencoder),
@@ -115,7 +123,10 @@ if __name__ == "__main__":
     run_id = ""
     run = init_run(run_config=run_config, run_id=run_id)
 
-    train, val = load_data(run=run, data_split_version=7)
+    data_split_artifact = run.use_artifact(
+        artifact_or_name=f"{sheet_name}_data_split:v{data_split_version}"
+    )
+    train, val = load_data(data_split_artifact=data_split_artifact)
 
     timeseries_length = train.shape[1]
     metadata = {
@@ -135,15 +146,19 @@ if __name__ == "__main__":
     autoencoder = get_autoencoder(run=run, metadata=metadata)
     print(autoencoder.summary())
 
+    if data_has_num_features_dimension(autoencoder):
+        train = add_num_features_dimension(train)
+        val = add_num_features_dimension(val)
+
     history = autoencoder.fit(
-        add_num_features_dimension(train),
-        add_num_features_dimension(train),
+        train,
+        train,
         epochs=metadata["epoch"],
         initial_epoch=get_initial_epoch(run),
         batch_size=metadata["batch_size"],
         validation_data=(
-            add_num_features_dimension(val),
-            add_num_features_dimension(val),
+            val,
+            val,
         ),
         callbacks=[wandbcallback, early_stop],
         shuffle=True,
@@ -155,6 +170,7 @@ if __name__ == "__main__":
     TRAINED_MODEL_DIR = os.path.join(
         BASE_DIR, "data", "preprocessed_data", TRAINED_MODEL_ARTIFACT
     )
+    shutil.rmtree(path=TRAINED_MODEL_DIR, ignore_errors=True)
     autoencoder.save(TRAINED_MODEL_DIR)
     trained_model_artifact.add_dir(TRAINED_MODEL_DIR)
     run.log_artifact(trained_model_artifact)
