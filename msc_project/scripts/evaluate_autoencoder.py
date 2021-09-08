@@ -42,13 +42,36 @@ def get_data_split_artifact_used_in_training(model_artifact):
     return data_split_artifact
 
 
-def load_data_split(artifact_or_name: Union[wandb.Artifact, str]):
+def download_artifact_if_not_already_downloaded(artifact) -> str:
+    root = os.path.join(ARTIFACTS_ROOT, artifact.type, slugify(artifact.name))
+    if os.path.isdir(root):
+        pass
+    else:
+        artifact.download(root=root)
+    return root
+
+
+def get_windowed_raw_data(data_split_artifact):
+    data_split_run = data_split_artifact.logged_by()
+    input_artifacts = data_split_run.used_artifacts()
+    assert input_artifacts.length == 1
+    preprocessed_data_artifact = input_artifacts[0]
+    download_fp = download_artifact_if_not_already_downloaded(
+        preprocessed_data_artifact
+    )
+    windowed_raw_data = pd.read_pickle(
+        os.path.join(download_fp, "windowed_raw_data.pkl")
+    )
+    return windowed_raw_data
+
+
+def load_data_split(data_split_artifact: wandb.Artifact):
     """
     Load DataFrames into memory.
-    :param artifact_or_name:
+    :param data_split_artifact:
     :return:
     """
-    data_split_artifact = run.use_artifact(artifact_or_name=artifact_or_name)
+    data_split_artifact = run.use_artifact(artifact_or_name=data_split_artifact)
     data_split_artifact = data_split_artifact.download(
         root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
     )
@@ -312,6 +335,8 @@ def data_has_num_features_dimension(autoencoder):
 if __name__ == "__main__":
     upload_artifact: bool = False
     model_version: int = 40
+    sheet_name = SheetNames.INFINITY.value
+    data_split_version = 1
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
@@ -319,9 +344,14 @@ if __name__ == "__main__":
 
     autoencoder = get_model(run=run, model_version=model_version)
 
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
-    data_split_artifact = f"{sheet_name}_data_split:v0"
+    # this may not necessarily be the data split used to train the model
+    data_split_artifact_name = f"{sheet_name}_data_split:v{data_split_version}"
+    api = wandb.Api()
+    data_split_artifact = api.artifact(
+        f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
+    )
     train, val, noisy = load_data_split(data_split_artifact)
+    raw_data = get_windowed_raw_data(data_split_artifact)
     # %%
     if data_has_num_features_dimension(autoencoder):
 
@@ -443,6 +473,7 @@ if __name__ == "__main__":
         )
     # %%
     run_plots_dir = plot_examples(
+        raw_data=raw_data,
         preprocessed_data=train,
         reconstructed_data=reconstructed_train,
         example_type="Train",
