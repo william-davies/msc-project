@@ -144,22 +144,23 @@ def plot_examples(
 
         window_starts = preprocessed_data.index.get_level_values(level="window_start")
         window_start = window_starts[example_idx]
-        time = (
-            pd.Timedelta(value=window_start, unit="second") + preprocessed_data.columns
-        )
-        time = time.total_seconds()
+        original_fs_time = get_time_series(window_start, raw_data.columns)
+        downsampled_fs_time = get_time_series(window_start, preprocessed_data.columns)
 
         plt.plot(
-            time, raw_data.loc[window_index].values, "k", label="original raw signal"
+            original_fs_time,
+            raw_data.loc[window_index].values,
+            "k",
+            label="original signal",
         )
         plt.plot(
-            time,
+            downsampled_fs_time,
             preprocessed_data.loc[window_index].values,
             "b",
             label="preprocessed signal",
         )
         plt.plot(
-            time,
+            downsampled_fs_time,
             reconstructed_data.loc[window_index].values,
             "r",
             label="proposed denoising",
