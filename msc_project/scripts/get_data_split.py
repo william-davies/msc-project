@@ -14,11 +14,14 @@ from msc_project.constants import (
     DATA_SPLIT_ARTIFACT,
     SheetNames,
 )
+from msc_project.scripts.evaluate_autoencoder import (
+    download_artifact_if_not_already_downloaded,
+)
 
 
 class DatasetPreparer:
     """
-    Reads preprocessed signal data. Splits it into train, val, noisy.
+    Reads windowed signal data. Splits it into train, val, noisy.
     """
 
     def __init__(self, noise_tolerance, signals, noisy_mask):
@@ -82,28 +85,28 @@ class DatasetPreparer:
 
 
 if __name__ == "__main__":
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP
+    sheet_name = SheetNames.INFINITY.value
+    preprocessed_data_artifact_version = 1
     metadata = {"noise_tolerance": 0}
 
     run = wandb.init(project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="data_split")
 
     preprocessed_data_artifact = run.use_artifact(
-        artifact_or_name=f"{sheet_name}_preprocessed_data:v0",
+        artifact_or_name=f"{sheet_name}_preprocessed_data:v{preprocessed_data_artifact_version}",
         type=PREPROCESSED_DATA_ARTIFACT,
     )
-    preprocessed_data_artifact = preprocessed_data_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, preprocessed_data_artifact.type)
+    download_fp = download_artifact_if_not_already_downloaded(
+        preprocessed_data_artifact
     )
-    signals = pd.read_pickle(
-        os.path.join(preprocessed_data_artifact, "windowed_data.pkl")
+
+    preprocessed_signals = pd.read_pickle(
+        os.path.join(download_fp, "windowed_preprocessed_data.pkl")
     )
-    noisy_mask = pd.read_pickle(
-        os.path.join(preprocessed_data_artifact, "windowed_noisy_mask.pkl")
-    )
+    noisy_mask = pd.read_pickle(os.path.join(download_fp, "windowed_noisy_mask.pkl"))
 
     dataset_preparer = DatasetPreparer(
         noise_tolerance=metadata["noise_tolerance"],
-        signals=signals,
+        signals=preprocessed_signals,
         noisy_mask=noisy_mask,
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
