@@ -384,12 +384,12 @@ def do_tests():
 
     window_start = float(60)
     window_end = float(70)
-    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
-        window_start
-    ]
-    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
-        signal_name
-    ]
+    window = windowed_intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name][window_start]
+    full_treatment_signal = intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name]
     correct_window = full_treatment_signal.iloc[
         int((window_start - SECONDS_IN_MINUTE) * 16) : int(
             (window_end - SECONDS_IN_MINUTE) * 16
@@ -416,12 +416,12 @@ def do_tests():
     window_start = float(152)
     window_end = float(162)
 
-    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
-        window_start
-    ]
-    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
-        signal_name
-    ]
+    window = windowed_intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name][window_start]
+    full_treatment_signal = intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name]
     correct_window = full_treatment_signal.iloc[
         int((window_start - SECONDS_IN_MINUTE) * 16) : int(
             (window_end - SECONDS_IN_MINUTE) * 16
@@ -446,12 +446,12 @@ def do_tests():
     treatment_label = "m2_hard"
     window_start = float(200)
     window_end = float(210)
-    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
-        window_start
-    ]
-    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
-        signal_name
-    ]
+    window = windowed_intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name][window_start]
+    full_treatment_signal = intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name]
     correct_window = full_treatment_signal.iloc[
         int((window_start - SECONDS_IN_MINUTE) * 16) : int(
             (window_end - SECONDS_IN_MINUTE) * 16
@@ -477,12 +477,12 @@ def do_tests():
 
     window_start = float(230)
     window_end = float(240)
-    window = windowed_filtered_data[participant_dirname][treatment_label][signal_name][
-        window_start
-    ]
-    full_treatment_signal = filtered_data[participant_dirname][treatment_label][
-        signal_name
-    ]
+    window = windowed_intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name][window_start]
+    full_treatment_signal = intermediate_preprocessed_data[participant_dirname][
+        treatment_label
+    ][signal_name]
     correct_window = full_treatment_signal.iloc[
         int((window_start - SECONDS_IN_MINUTE) * 16) : int(
             (window_end - SECONDS_IN_MINUTE) * 16
@@ -621,9 +621,74 @@ def plot_baseline_wandering_subtraction(
     plt.legend()
 
 
-def filter_data(raw_data: pd.DataFrame, metadata: Dict, original_fs) -> pd.DataFrame:
+def do_traditional_preprocessing(
+    raw_data: pd.DataFrame, metadata: Dict, original_fs
+) -> pd.DataFrame:
     """
-    EXCLUDES sliding window.
+    EXCLUDES sliding window. Downsamples first as Youngjun recommended.
+    :param raw_data:
+    :param metadata:
+    :return:
+    """
+    central_cropped_window = get_temporal_subwindow_of_signal(
+        raw_data,
+        window_start=metadata["start_of_central_cropped_window"],
+        window_end=metadata["end_of_central_cropped_window"],
+    )
+
+    downsampled = downsample(
+        central_cropped_window,
+        original_rate=original_fs,
+        downsampled_rate=metadata["downsampled_frequency"],
+    )
+
+    bandpass_filtered_data = bandpass_filter(
+        data=downsampled,
+        metadata=metadata,
+        sampling_frequency=original_fs,
+    )
+
+    moving_averaged_data = moving_average(
+        data=bandpass_filtered_data,
+        window_duration=metadata["moving_average_window_duration"],
+        center=True,
+    )
+
+    treatments = central_cropped_window.columns.get_level_values(
+        level="treatment_label"
+    )
+    hard = (treatments == "m4_hard").nonzero()[0]
+
+    example_idx = hard[1]
+    plt.close("all")
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (moving_averaged_data.iloc[:, example_idx], "moving average"),
+            (downsampled.iloc[:, example_idx], "downsampled"),
+        ],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[(moving_averaged_data.iloc[:, example_idx], "moving average")],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[(downsampled.iloc[:, example_idx], "downsampled")],
+    )
+    plt.show()
+
+    preprocessed_data = moving_averaged_data
+    return preprocessed_data
+
+
+def do_intermediate_preprocessing(
+    raw_data: pd.DataFrame, metadata: Dict, original_fs
+) -> pd.DataFrame:
+    """
+    EXCLUDES sliding window. We use this to train the model. Downsample last.
     :param raw_data:
     :param metadata:
     :return:
@@ -696,8 +761,8 @@ def filter_data(raw_data: pd.DataFrame, metadata: Dict, original_fs) -> pd.DataF
 if __name__ == "__main__":
     run_tests: bool = False
     upload_to_wandb: bool = True
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
-    noisy_labels_filename = "labelling-EmLBVP-dataset-less-strict.xlsx"
+    sheet_name = SheetNames.INFINITY.value
+    noisy_labels_filename = "labelling-Inf-dataset-less-strict.xlsx"
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
@@ -733,7 +798,10 @@ if __name__ == "__main__":
         "min_stop_band_attenuation": 6,
     }
     original_fs = get_freq(sheet_raw_data.index)
-    filtered_data = filter_data(
+    traditional_preprocessed_data = do_traditional_preprocessing(
+        sheet_raw_data, metadata=metadata, original_fs=original_fs
+    )
+    intermediate_preprocessed_data = do_intermediate_preprocessing(
         sheet_raw_data, metadata=metadata, original_fs=original_fs
     )
 
@@ -742,7 +810,9 @@ if __name__ == "__main__":
         BASE_DIR, "data", "Stress Dataset", noisy_labels_filename
     )
     blank_noisy_mask = pd.DataFrame(
-        False, index=filtered_data.index, columns=filtered_data.columns
+        False,
+        index=intermediate_preprocessed_data.index,
+        columns=intermediate_preprocessed_data.columns,
     )
     noisy_mask = populate_noisy_mask(
         blank_noisy_mask, noisy_labels_excel_sheet_filepath
@@ -753,8 +823,13 @@ if __name__ == "__main__":
         window_duration=metadata["window_duration"],
         step_duration=metadata["step_duration"],
     )
-    windowed_filtered_data = handle_data_windowing(
-        non_windowed_data=filtered_data,
+    windowed_traditional_preprocessed_data = handle_data_windowing(
+        non_windowed_data=traditional_preprocessed_data,
+        window_duration=metadata["window_duration"],
+        step_duration=metadata["step_duration"],
+    )
+    windowed_intermediate_preprocessed_data = handle_data_windowing(
+        non_windowed_data=intermediate_preprocessed_data,
         window_duration=metadata["window_duration"],
         step_duration=metadata["step_duration"],
     )
@@ -768,7 +843,12 @@ if __name__ == "__main__":
         do_tests()
 
     windowed_raw_data = normalize_windows(windowed_raw_data)
-    windowed_filtered_data = normalize_windows(windowed_filtered_data)
+    windowed_traditional_preprocessed_data = normalize_windows(
+        windowed_traditional_preprocessed_data
+    )
+    windowed_intermediate_preprocessed_data = normalize_windows(
+        windowed_intermediate_preprocessed_data
+    )
 
     preprocessed_data_dir = os.path.join(
         BASE_DIR,
@@ -782,11 +862,21 @@ if __name__ == "__main__":
     )
     windowed_raw_data.to_pickle(windowed_raw_data_fp)
 
-    windowed_preprocessed_data_fp = os.path.join(
+    windowed_traditional_preprocessed_data_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_preprocessed_data.pkl",
+        f"{sheet_name}_windowed_traditional_preprocessed_data.pkl",
     )
-    windowed_filtered_data.to_pickle(windowed_preprocessed_data_fp)
+    windowed_traditional_preprocessed_data.to_pickle(
+        windowed_traditional_preprocessed_data_fp
+    )
+
+    windowed_intermediate_preprocessed_data_fp = os.path.join(
+        preprocessed_data_dir,
+        f"{sheet_name}_windowed_intermediate_preprocessed_data.pkl",
+    )
+    windowed_intermediate_preprocessed_data.to_pickle(
+        windowed_intermediate_preprocessed_data_fp
+    )
 
     windowed_noisy_mask_fp = os.path.join(
         preprocessed_data_dir,
@@ -804,7 +894,12 @@ if __name__ == "__main__":
             windowed_raw_data_fp, "windowed_raw_data.pkl"
         )
         preprocessed_data_artifact.add_file(
-            windowed_preprocessed_data_fp, "windowed_preprocessed_data.pkl"
+            windowed_traditional_preprocessed_data_fp,
+            "windowed_traditional_preprocessed_data.pkl",
+        )
+        preprocessed_data_artifact.add_file(
+            windowed_intermediate_preprocessed_data_fp,
+            "windowed_intermediate_preprocessed_data.pkl",
         )
         preprocessed_data_artifact.add_file(
             windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
