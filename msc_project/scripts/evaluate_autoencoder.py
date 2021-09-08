@@ -54,7 +54,7 @@ def download_artifact_if_not_already_downloaded(artifact) -> str:
 def get_windowed_raw_data(data_split_artifact):
     data_split_run = data_split_artifact.logged_by()
     input_artifacts = data_split_run.used_artifacts()
-    assert input_artifacts.length == 1
+    assert len(input_artifacts) == 1
     preprocessed_data_artifact = input_artifacts[0]
     download_fp = download_artifact_if_not_already_downloaded(
         preprocessed_data_artifact
@@ -96,8 +96,9 @@ def get_model(run, model_version: int):
 
 
 def plot_examples(
+    raw_data: pd.DataFrame,
     preprocessed_data: pd.DataFrame,
-    reconstructed_data,
+    reconstructed_data: pd.DataFrame,
     example_type: str,
     run_name: str,
     save: bool,
@@ -149,13 +150,19 @@ def plot_examples(
         time = time.total_seconds()
 
         plt.plot(
-            time, preprocessed_data.loc[window_index].values, "b", label="preprocessed"
+            time, raw_data.loc[window_index].values, "k", label="original raw signal"
+        )
+        plt.plot(
+            time,
+            preprocessed_data.loc[window_index].values,
+            "b",
+            label="preprocessed signal",
         )
         plt.plot(
             time,
             reconstructed_data.loc[window_index].values,
             "r",
-            label="proposed method",
+            label="proposed denoising",
         )
         plt.legend()
 
@@ -331,6 +338,20 @@ def data_has_num_features_dimension(autoencoder):
         raise ValueError
 
 
+def get_time_series(window_start, original_TimedeltaIndex):
+    """
+    Offset by window_start so that it actually shows the timedelta within the treatment.
+    :param window_start:
+    :param original_TimedeltaIndex:
+    :return:
+    """
+    time_series = (
+        pd.Timedelta(value=window_start, unit="second") + original_TimedeltaIndex
+    )
+    time_series = time_series.total_seconds()
+    return time_series
+
+
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
@@ -344,14 +365,18 @@ if __name__ == "__main__":
 
     autoencoder = get_model(run=run, model_version=model_version)
 
-    # this may not necessarily be the data split used to train the model
+    # this may not necessarily be the data split used to train the model.
+    # in which case `train`, `val` are misleading variable names.
+    # `train`, `val` would basically just be `clean` as opposed to `noisy`.
     data_split_artifact_name = f"{sheet_name}_data_split:v{data_split_version}"
     api = wandb.Api()
     data_split_artifact = api.artifact(
         f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
     )
     train, val, noisy = load_data_split(data_split_artifact)
-    raw_data = get_windowed_raw_data(data_split_artifact)
+    raw_data = get_windowed_raw_data(
+        data_split_artifact
+    ).T  # transpose so examples is row axis. like train/val/noisy
     # %%
     if data_has_num_features_dimension(autoencoder):
 
@@ -479,7 +504,7 @@ if __name__ == "__main__":
         example_type="Train",
         run_name=run.name,
         save=True,
-        example_idxs=np.arange(0, len(train), 80),
+        example_idxs=np.arange(0, len(train), 100),
         exist_ok=True,
     )
 
