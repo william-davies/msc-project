@@ -633,9 +633,6 @@ def filter_data(raw_data: pd.DataFrame, metadata: Dict, original_fs) -> pd.DataF
         window_start=metadata["start_of_central_cropped_window"],
         window_end=metadata["end_of_central_cropped_window"],
     )
-    central_cropped_window = central_cropped_window.xs(
-        "bvp", axis=1, level="series_label", drop_level=False
-    )
 
     treatments = central_cropped_window.columns.get_level_values(
         level="treatment_label"
@@ -712,6 +709,10 @@ if __name__ == "__main__":
     sheet_data_artifact_path = sheet_data_artifact.download(root=ARTIFACTS_ROOT)
     sheet_raw_data = pd.read_pickle(
         os.path.join(sheet_data_artifact_path, f"{sheet_name}_raw_data.pkl")
+    )
+    # frame info is useless. we only care about timedelta from start of treatment. this timedelta is \in (0s, 500s).
+    sheet_raw_data = sheet_raw_data.xs(
+        "bvp", axis=1, level="series_label", drop_level=False
     )
 
     metadata = {
