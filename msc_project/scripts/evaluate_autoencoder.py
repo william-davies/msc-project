@@ -73,7 +73,7 @@ def get_model(run, model_version: int):
 
 
 def plot_examples(
-    original_data: pd.DataFrame,
+    preprocessed_data: pd.DataFrame,
     reconstructed_data,
     example_type: str,
     run_name: str,
@@ -84,7 +84,7 @@ def plot_examples(
 ) -> str:
     """
     Plot original signal(s) and reconstructed signal(s) on same figure. 1 original/reconstructed signal pair per figure.
-    :param original_data:
+    :param preprocessed_data:
     :param reconstructed_data:
     :param example_type: Train/Validation/Noisy
     :param save:
@@ -96,7 +96,7 @@ def plot_examples(
     random_state = np.random.RandomState(42)
     if example_idxs is None:
         example_idxs = random_state.choice(
-            a=len(original_data), size=num_examples, replace=False
+            a=len(preprocessed_data), size=num_examples, replace=False
         )
 
     plt.figure(figsize=(8, 6))
@@ -109,23 +109,31 @@ def plot_examples(
         os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
     for example_idx in example_idxs:
-        window_label = original_data.iloc[example_idx].name
-
-        signal_label = "-".join(window_label[:-1])
+        window_index = preprocessed_data.iloc[example_idx].name
+        signal_label = "-".join(window_index[:-1])
         plt.title(f"{example_type} example\n{signal_label}\n")
         plt.xlabel("time in treatment session (s)")
-        signal_name = original_data.index.get_level_values(level="series_label")[
+        signal_name = preprocessed_data.index.get_level_values(level="series_label")[
             example_idx
         ]
         plt.ylabel(signal_name)
 
-        window_starts = original_data.index.get_level_values(level="window_start")
+        window_starts = preprocessed_data.index.get_level_values(level="window_start")
         window_start = window_starts[example_idx]
-        time = pd.Timedelta(value=window_start, unit="second") + original_data.columns
+        time = (
+            pd.Timedelta(value=window_start, unit="second") + preprocessed_data.columns
+        )
         time = time.total_seconds()
 
-        plt.plot(time, original_data.iloc[example_idx].values, "b", label="original")
-        plt.plot(time, reconstructed_data[example_idx], "r", label="denoised")
+        plt.plot(
+            time, preprocessed_data.loc[window_index].values, "b", label="preprocessed"
+        )
+        plt.plot(
+            time,
+            reconstructed_data.loc[window_index].values,
+            "r",
+            label="proposed method",
+        )
         plt.legend()
 
         if save:
@@ -303,7 +311,7 @@ def data_has_num_features_dimension(autoencoder):
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
-    model_version: int = 39
+    model_version: int = 40
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
@@ -311,25 +319,23 @@ if __name__ == "__main__":
 
     autoencoder = get_model(run=run, model_version=model_version)
 
-    sheet_name = SheetNames.INFINITY.value
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     data_split_artifact = f"{sheet_name}_data_split:v0"
     train, val, noisy = load_data_split(data_split_artifact)
     # %%
     if data_has_num_features_dimension(autoencoder):
 
-        def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+        def get_reconstructed_df(to_reconstruct: pd.DataFrame) -> pd.DataFrame:
             """
-            Reconstruct original data.
-            :param original_data:
+            Reconstruct data.
+            :param to_reconstruct:
             :return:
             """
-            original_data_model_input = add_num_features_dimension(original_data)
-            reconstructed_values = tf.stop_gradient(
-                autoencoder(original_data_model_input)
-            )
+            model_input = add_num_features_dimension(to_reconstruct)
+            reconstructed_values = tf.stop_gradient(autoencoder(model_input))
             reconstructed_values = reconstructed_values.numpy().squeeze()
 
-            reconstructed_df = original_data.copy()
+            reconstructed_df = to_reconstruct.copy()
             reconstructed_df.iloc[:, :] = reconstructed_values
             return reconstructed_df
 
@@ -339,16 +345,16 @@ if __name__ == "__main__":
 
     else:
 
-        def get_reconstructed_df(original_data: pd.DataFrame) -> pd.DataFrame:
+        def get_reconstructed_df(to_reconstruct: pd.DataFrame) -> pd.DataFrame:
             """
             Reconstruct original data.
-            :param original_data:
+            :param to_reconstruct:
             :return:
             """
             reconstructed_values = tf.stop_gradient(
-                autoencoder(original_data.to_numpy())
+                autoencoder(to_reconstruct.to_numpy())
             )
-            reconstructed_df = original_data.copy()
+            reconstructed_df = to_reconstruct.copy()
             reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
             return reconstructed_df
 
@@ -437,8 +443,8 @@ if __name__ == "__main__":
         )
     # %%
     run_plots_dir = plot_examples(
-        original_data=train,
-        reconstructed_data=reconstructed_train.to_numpy(),
+        preprocessed_data=train,
+        reconstructed_data=reconstructed_train,
         example_type="Train",
         run_name=run.name,
         save=True,
@@ -446,22 +452,22 @@ if __name__ == "__main__":
         exist_ok=True,
     )
 
-    run_plots_dir = plot_examples(
-        original_data=val,
-        reconstructed_data=reconstructed_val.to_numpy(),
-        example_type="Val",
-        run_name=run.name,
-        save=True,
-        example_idxs=np.arange(0, len(val), 50),
-        exist_ok=True,
-    )
-
-    run_plots_dir = plot_examples(
-        original_data=noisy,
-        reconstructed_data=reconstructed_noisy.to_numpy(),
-        example_type="Noisy",
-        run_name=run.name,
-        save=True,
-        example_idxs=np.arange(0, len(noisy), 20),
-        exist_ok=True,
-    )
+    # run_plots_dir = plot_examples(
+    #     preprocessed_data=val,
+    #     reconstructed_data=reconstructed_val.to_numpy(),
+    #     example_type="Val",
+    #     run_name=run.name,
+    #     save=True,
+    #     example_idxs=np.arange(0, len(val), 50),
+    #     exist_ok=True,
+    # )
+    #
+    # run_plots_dir = plot_examples(
+    #     preprocessed_data=noisy,
+    #     reconstructed_data=reconstructed_noisy.to_numpy(),
+    #     example_type="Noisy",
+    #     run_name=run.name,
+    #     save=True,
+    #     example_idxs=np.arange(0, len(noisy), 5),
+    #     exist_ok=True,
+    # )
