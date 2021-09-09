@@ -2,7 +2,7 @@
 import json
 import shutil
 from collections import defaultdict
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -49,18 +49,6 @@ def download_artifact_if_not_already_downloaded(artifact) -> str:
     else:
         artifact.download(root=root)
     return root
-
-
-def get_windowed_raw_data(preprocessed_data_fp) -> pd.DataFrame:
-    """
-
-    :param preprocessed_data_fp:
-    :return:
-    """
-    windowed_raw_data = pd.read_pickle(
-        os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
-    )
-    return windowed_raw_data
 
 
 def download_preprocessed_data(data_split_artifact) -> str:
@@ -116,6 +104,7 @@ def plot_examples(
     example_type: str,
     run_name: str,
     save: bool,
+    datasets_to_plot: List[Tuple],
     num_examples: int = 5,
     example_idxs=None,
     exist_ok: bool = False,
@@ -161,12 +150,21 @@ def plot_examples(
         original_fs_time = get_time_series(window_start, raw_data.columns)
         downsampled_fs_time = get_time_series(window_start, preprocessed_data.columns)
 
-        plt.plot(
-            original_fs_time,
-            raw_data.loc[window_index].values,
-            "k",
-            label="original signal",
-        )
+        for (dataset, plot_kwargs) in datasets_to_plot:
+            time = get_time_series(window_start, dataset.columns)
+            signal = dataset.loc[window_index].values
+            plt.plot(
+                time,
+                signal,
+                **plot_kwargs,
+            )
+
+        # plt.plot(
+        #     original_fs_time,
+        #     raw_data.loc[window_index].values,
+        #     "k",
+        #     label="original signal",
+        # )
         plt.plot(
             downsampled_fs_time,
             preprocessed_data.loc[window_index].values,
@@ -372,7 +370,7 @@ if __name__ == "__main__":
     upload_artifact: bool = False
     model_version: int = 40
     sheet_name = SheetNames.INFINITY.value
-    data_split_version = 1
+    data_split_version = 2
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
@@ -395,7 +393,7 @@ if __name__ == "__main__":
         os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
     ).T
     traditional_preprocessed_data = pd.read_pickle(
-        os.path.join(preprocessed_data_fp, "traditional_preprocessed_data.pkl")
+        os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
     ).T
     # %%
     if data_has_num_features_dimension(autoencoder):
@@ -526,6 +524,7 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(train), 100),
         exist_ok=True,
+        datasets_to_plot=[(raw_data, {"color": "k", "label": "original signal"})],
     )
 
     run_plots_dir = plot_examples(
