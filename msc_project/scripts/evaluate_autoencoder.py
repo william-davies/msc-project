@@ -147,8 +147,6 @@ def plot_examples(
 
         window_starts = preprocessed_data.index.get_level_values(level="window_start")
         window_start = window_starts[example_idx]
-        original_fs_time = get_time_series(window_start, raw_data.columns)
-        downsampled_fs_time = get_time_series(window_start, preprocessed_data.columns)
 
         for (dataset, plot_kwargs) in datasets_to_plot:
             time = get_time_series(window_start, dataset.columns)
@@ -158,25 +156,6 @@ def plot_examples(
                 signal,
                 **plot_kwargs,
             )
-
-        # plt.plot(
-        #     original_fs_time,
-        #     raw_data.loc[window_index].values,
-        #     "k",
-        #     label="original signal",
-        # )
-        plt.plot(
-            downsampled_fs_time,
-            preprocessed_data.loc[window_index].values,
-            "b",
-            label="preprocessed signal",
-        )
-        plt.plot(
-            downsampled_fs_time,
-            reconstructed_data.loc[window_index].values,
-            "r",
-            label="proposed denoising",
-        )
         plt.legend()
 
         if save:
@@ -515,6 +494,16 @@ if __name__ == "__main__":
             save_dir=boxplot_dir,
         )
     # %%
+    datasets_to_plot = [
+        (raw_data, {"color": "k", "label": "original signal"}),
+        (
+            traditional_preprocessed_data,
+            {"color": "y", "label": "traditional preprocessing"},
+        ),
+        (train, {"color": "b", "label": "intermediate preprocessing"}),
+    ]
+
+    # datasets_to_plot = [(raw_data, {"color": "k", "label": "original signal"}), (train, {"color": "b", "label": "preprocessed signal"}), (raw_data, {"color": "r", "label": "proposed denoising"}),]
     run_plots_dir = plot_examples(
         raw_data=raw_data,
         preprocessed_data=train,
@@ -524,7 +513,7 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(train), 100),
         exist_ok=True,
-        datasets_to_plot=[(raw_data, {"color": "k", "label": "original signal"})],
+        datasets_to_plot=datasets_to_plot,
     )
 
     run_plots_dir = plot_examples(
