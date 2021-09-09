@@ -51,7 +51,24 @@ def download_artifact_if_not_already_downloaded(artifact) -> str:
     return root
 
 
-def get_windowed_raw_data(data_split_artifact):
+def get_windowed_raw_data(preprocessed_data_fp) -> pd.DataFrame:
+    """
+
+    :param preprocessed_data_fp:
+    :return:
+    """
+    windowed_raw_data = pd.read_pickle(
+        os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
+    )
+    return windowed_raw_data
+
+
+def download_preprocessed_data(data_split_artifact) -> str:
+    """
+    Download `preprocessed_data` artifact that was input into `data_split_artifact`. Return filepath of download.
+    :param data_split_artifact:
+    :return:
+    """
     data_split_run = data_split_artifact.logged_by()
     input_artifacts = data_split_run.used_artifacts()
     assert len(input_artifacts) == 1
@@ -59,10 +76,7 @@ def get_windowed_raw_data(data_split_artifact):
     download_fp = download_artifact_if_not_already_downloaded(
         preprocessed_data_artifact
     )
-    windowed_raw_data = pd.read_pickle(
-        os.path.join(download_fp, "windowed_raw_data.pkl")
-    )
-    return windowed_raw_data
+    return download_fp
 
 
 def load_data_split(data_split_artifact: wandb.Artifact):
@@ -375,9 +389,14 @@ if __name__ == "__main__":
         f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
     )
     train, val, noisy = load_data_split(data_split_artifact)
-    raw_data = get_windowed_raw_data(
-        data_split_artifact
-    ).T  # transpose so examples is row axis. like train/val/noisy
+    preprocessed_data_fp = download_preprocessed_data(data_split_artifact)
+    # transpose so examples is row axis. like train/val/noisy
+    raw_data = pd.read_pickle(
+        os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
+    ).T
+    traditional_preprocessed_data = pd.read_pickle(
+        os.path.join(preprocessed_data_fp, "traditional_preprocessed_data.pkl")
+    ).T
     # %%
     if data_has_num_features_dimension(autoencoder):
 
@@ -509,22 +528,24 @@ if __name__ == "__main__":
         exist_ok=True,
     )
 
-    # run_plots_dir = plot_examples(
-    #     preprocessed_data=val,
-    #     reconstructed_data=reconstructed_val.to_numpy(),
-    #     example_type="Val",
-    #     run_name=run.name,
-    #     save=True,
-    #     example_idxs=np.arange(0, len(val), 50),
-    #     exist_ok=True,
-    # )
-    #
-    # run_plots_dir = plot_examples(
-    #     preprocessed_data=noisy,
-    #     reconstructed_data=reconstructed_noisy.to_numpy(),
-    #     example_type="Noisy",
-    #     run_name=run.name,
-    #     save=True,
-    #     example_idxs=np.arange(0, len(noisy), 5),
-    #     exist_ok=True,
-    # )
+    run_plots_dir = plot_examples(
+        raw_data=raw_data,
+        preprocessed_data=val,
+        reconstructed_data=reconstructed_val,
+        example_type="Val",
+        run_name=run.name,
+        save=True,
+        example_idxs=np.arange(0, len(val), 50),
+        exist_ok=True,
+    )
+
+    run_plots_dir = plot_examples(
+        raw_data=raw_data,
+        preprocessed_data=noisy,
+        reconstructed_data=reconstructed_noisy,
+        example_type="Noisy",
+        run_name=run.name,
+        save=True,
+        example_idxs=np.arange(0, len(noisy), 50),
+        exist_ok=True,
+    )
