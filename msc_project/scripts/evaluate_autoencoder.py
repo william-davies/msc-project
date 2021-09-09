@@ -105,16 +105,22 @@ def plot_examples(
     run_name: str,
     save: bool,
     datasets_to_plot: List[Tuple],
+    windows_to_plot,
     num_examples: int = 5,
     example_idxs=None,
     exist_ok: bool = False,
 ) -> str:
     """
     Plot original signal(s) and reconstructed signal(s) on same figure. 1 original/reconstructed signal pair per figure.
+
+    :param raw_data:
     :param preprocessed_data:
     :param reconstructed_data:
     :param example_type: Train/Validation/Noisy
+    :param run_name:
     :param save:
+    :param datasets_to_plot:
+    :param windows_to_plot: list of MultiIndex window indexes
     :param num_examples:
     :param example_idxs:
     :param exist_ok:
@@ -135,18 +141,14 @@ def plot_examples(
         example_type_plots_dir = os.path.join(run_plots_dir, example_type.lower())
         os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
-    for example_idx in example_idxs:
-        window_index = preprocessed_data.iloc[example_idx].name
+    for window_index in windows_to_plot:
         signal_label = "-".join(window_index[:-1])
         plt.title(f"{example_type} example\n{signal_label}\n")
         plt.xlabel("time in treatment session (s)")
-        signal_name = preprocessed_data.index.get_level_values(level="series_label")[
-            example_idx
-        ]
+        signal_name = window_index[2]
         plt.ylabel(signal_name)
 
-        window_starts = preprocessed_data.index.get_level_values(level="window_start")
-        window_start = window_starts[example_idx]
+        window_start = window_index[3]
 
         for (dataset, plot_kwargs) in datasets_to_plot:
             time = get_time_series(window_start, dataset.columns)
@@ -494,16 +496,18 @@ if __name__ == "__main__":
             save_dir=boxplot_dir,
         )
     # %%
+    raw_dataset_to_plot = (raw_data, {"color": "k", "label": "original signal"})
+    traditional_preprocessed_dataset_to_plot = (
+        traditional_preprocessed_data,
+        {"color": "y", "label": "traditional preprocessing"},
+    )
+
+    windows_to_plot = train.index[np.arange(0, len(train), 500)]
     datasets_to_plot = [
-        (raw_data, {"color": "k", "label": "original signal"}),
-        (
-            traditional_preprocessed_data,
-            {"color": "y", "label": "traditional preprocessing"},
-        ),
+        raw_dataset_to_plot,
+        traditional_preprocessed_dataset_to_plot,
         (train, {"color": "b", "label": "intermediate preprocessing"}),
     ]
-
-    # datasets_to_plot = [(raw_data, {"color": "k", "label": "original signal"}), (train, {"color": "b", "label": "preprocessed signal"}), (raw_data, {"color": "r", "label": "proposed denoising"}),]
     run_plots_dir = plot_examples(
         raw_data=raw_data,
         preprocessed_data=train,
@@ -512,10 +516,17 @@ if __name__ == "__main__":
         run_name=run.name,
         save=True,
         example_idxs=np.arange(0, len(train), 100),
+        windows_to_plot=windows_to_plot,
         exist_ok=True,
         datasets_to_plot=datasets_to_plot,
     )
 
+    windows_to_plot = val.index[np.arange(0, len(val), 200)]
+    datasets_to_plot = [
+        raw_dataset_to_plot,
+        traditional_preprocessed_dataset_to_plot,
+        (val, {"color": "b", "label": "intermediate preprocessing"}),
+    ]
     run_plots_dir = plot_examples(
         raw_data=raw_data,
         preprocessed_data=val,
@@ -525,8 +536,16 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(val), 50),
         exist_ok=True,
+        datasets_to_plot=datasets_to_plot,
+        windows_to_plot=windows_to_plot,
     )
 
+    windows_to_plot = noisy.index[np.arange(0, len(noisy), 200)]
+    datasets_to_plot = [
+        raw_dataset_to_plot,
+        traditional_preprocessed_dataset_to_plot,
+        (noisy, {"color": "b", "label": "intermediate preprocessing"}),
+    ]
     run_plots_dir = plot_examples(
         raw_data=raw_data,
         preprocessed_data=noisy,
@@ -536,4 +555,6 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(noisy), 50),
         exist_ok=True,
+        datasets_to_plot=datasets_to_plot,
+        windows_to_plot=windows_to_plot,
     )
