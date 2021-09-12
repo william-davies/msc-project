@@ -4,3 +4,4 @@ pip3 install pandas==1.3.0
 pip3 install -e .
 pip3 install wandb
 pip3 install numpy==1.20.0
+pip3 install heartpy
