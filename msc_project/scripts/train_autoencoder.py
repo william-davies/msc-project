@@ -25,13 +25,14 @@ from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimen
 from msc_project.scripts.utils import add_num_features_dimension
 
 
-def init_run(run_config, run_id: str = ""):
+def init_run(run_config, run_id: str = "", notes: str = ""):
     """
 
     :param run_config:
     :param run_id: of run you want to resume
     :return:
     """
+    base_init_kwargs = {"save_code": True, "notes": notes}
     if run_id:
         run = wandb.init(
             id=run_id,
@@ -41,6 +42,7 @@ def init_run(run_config, run_id: str = ""):
             config=run_config,
             force=True,
             allow_val_change=False,
+            **base_init_kwargs,
         )
     else:
         run = wandb.init(
@@ -50,6 +52,7 @@ def init_run(run_config, run_id: str = ""):
             config=run_config,
             force=True,
             allow_val_change=False,
+            **base_init_kwargs,
         )
     return run
 
@@ -103,25 +106,26 @@ def get_architecture_type(create_autoencoder):
 
 # %%
 if __name__ == "__main__":
-    sheet_name = SheetNames.INFINITY.value
-    data_split_version = 0
-
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    data_split_version = 1
     is_production: bool = False
+    notes = "foobar"
+
     run_config = {
         "optimizer": "adam",
         "loss": "mae",
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 30,
-        "patience": 1500,
+        "epoch": 10,
+        "patience": 1000,
         "min_delta": 1e-3,
         "model_architecture_type": get_architecture_type(create_autoencoder),
         "is_prod": is_production,
     }
 
     run_id = ""
-    run = init_run(run_config=run_config, run_id=run_id)
+    run = init_run(run_config=run_config, run_id=run_id, notes=notes)
 
     data_split_artifact = run.use_artifact(
         artifact_or_name=f"{sheet_name}_data_split:v{data_split_version}"
