@@ -121,19 +121,35 @@ if __name__ == "__main__":
     print(f"empatica_raw_data_hrv end: {datetime.now()}")
 
     print(f"empatica_traditional_preprocessed_data_hrv start: {datetime.now()}")
-    empatica_traditional_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+    empatica_traditional_preprocessed_data_hrv = get_hrv(
+        signal_data=empatica_traditional_preprocessed_data
+    )
     print(f"empatica_traditional_preprocessed_data_hrv end: {datetime.now()}")
 
     print(f"empatica_intermediate_preprocessed_data_hrv start: {datetime.now()}")
-    empatica_intermediate_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+    empatica_intermediate_preprocessed_data_hrv = get_hrv(
+        signal_data=empatica_intermediate_preprocessed_data
+    )
     print(f"empatica_intermediate_preprocessed_data_hrv end: {datetime.now()}")
 
     print(f"empatica_proposed_denoised_data_hrv start: {datetime.now()}")
-    empatica_proposed_denoised_data_hrv = get_hrv(signal_data=inf_raw_data)
+    empatica_proposed_denoised_data_hrv = get_hrv(
+        signal_data=empatica_proposed_denoised_data
+    )
     print(f"empatica_proposed_denoised_data_hrv end: {datetime.now()}")
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
     inf_raw_data_hrv.to_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
+    empatica_raw_data_hrv.to_pickle(os.path.join(run_dir, "empatica_raw_data_hrv.pkl"))
+    empatica_traditional_preprocessed_data_hrv.to_pickle(
+        os.path.join(run_dir, "empatica_traditional_preprocessed_data_hrv.pkl")
+    )
+    empatica_intermediate_preprocessed_data_hrv.to_pickle(
+        os.path.join(run_dir, "empatica_intermediate_preprocessed_data_hrv.pkl")
+    )
+    empatica_proposed_denoised_data_hrv.to_pickle(
+        os.path.join(run_dir, "empatica_proposed_denoised_data_hrv.pkl")
+    )
 
     # guard to save wandb storage
     if upload_artifact:
