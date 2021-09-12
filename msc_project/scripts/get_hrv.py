@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import heartpy as hp
 import pandas as pd
@@ -76,6 +77,7 @@ def get_artifact_dataframe(
 
 if __name__ == "__main__":
     model_version = 40
+    upload_artifact = False
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -110,25 +112,29 @@ if __name__ == "__main__":
         autoencoder=autoencoder,
     )
 
-    print("inf_raw_data_hrv")
+    print(f"inf_raw_data_hrv start: {datetime.now()}")
     inf_raw_data_hrv = get_hrv(signal_data=inf_raw_data)
+    print(f"inf_raw_data_hrv end: {datetime.now()}")
 
-    # print("empatica_raw_data_hrv")
-    # empatica_raw_data_hrv = get_hrv(signal_data=empatica_raw_data)
-    #
-    # print("empatica_traditional_preprocessed_data_hrv")
-    # empatica_traditional_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
-    #
-    # print("empatica_intermediate_preprocessed_data_hrv")
-    # empatica_intermediate_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
-    #
-    # print("empatica_proposed_denoised_data_hrv")
-    # empatica_proposed_denoised_data_hrv = get_hrv(signal_data=inf_raw_data)
+    print(f"empatica_raw_data_hrv start: {datetime.now()}")
+    empatica_raw_data_hrv = get_hrv(signal_data=empatica_raw_data)
+    print(f"empatica_raw_data_hrv end: {datetime.now()}")
+
+    print(f"empatica_traditional_preprocessed_data_hrv start: {datetime.now()}")
+    empatica_traditional_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+    print(f"empatica_traditional_preprocessed_data_hrv end: {datetime.now()}")
+
+    print(f"empatica_intermediate_preprocessed_data_hrv start: {datetime.now()}")
+    empatica_intermediate_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+    print(f"empatica_intermediate_preprocessed_data_hrv end: {datetime.now()}")
+
+    print(f"empatica_proposed_denoised_data_hrv start: {datetime.now()}")
+    empatica_proposed_denoised_data_hrv = get_hrv(signal_data=inf_raw_data)
+    print(f"empatica_proposed_denoised_data_hrv end: {datetime.now()}")
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
     inf_raw_data_hrv.to_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
 
-    upload_artifact = False
     # guard to save wandb storage
     if upload_artifact:
         hrv_artifact = wandb.Artifact(name="get_hrv", type="get_hrv")
