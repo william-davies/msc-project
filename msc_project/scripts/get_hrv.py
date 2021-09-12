@@ -1,8 +1,15 @@
+import os
+
 import heartpy as hp
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import wandb
 
+from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
+from msc_project.scripts.evaluate_autoencoder import (
+    download_artifact_if_not_already_downloaded,
+)
 from msc_project.scripts.get_preprocessed_data import get_freq
 
 # %%
@@ -31,7 +38,20 @@ def hp_process_wrapper(hrdata, sample_rate, report_time, calc_freq):
         return None
 
 
+def get_infinity_raw_data(run: wandb.Run) -> pd.DataFrame:
+    artifact = run.use_artifact(artifact_or_name="Inf_preprocessed_data:v2")
+    root = download_artifact_if_not_already_downloaded(artifact)
+    inf_raw_data = pd.read_pickle(os.path.join(root, "windowed_raw_data.pkl"))
+    return inf_raw_data
+
+
 if __name__ == "__main__":
+
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
+    )
+
+    inf_raw_data = get_infinity_raw_data(run=run)
 
     all_data = pd.read_pickle(
         "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/Inf_raw_data.pkl"
