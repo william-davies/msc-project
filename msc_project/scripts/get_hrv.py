@@ -127,3 +127,11 @@ if __name__ == "__main__":
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
     inf_raw_data_hrv.to_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
+
+    upload_artifact = False
+    # guard to save wandb storage
+    if upload_artifact:
+        hrv_artifact = wandb.Artifact(name="get_hrv", type="get_hrv")
+        hrv_artifact.add_dir(run_dir)
+        run.log_artifact(hrv_artifact)
+    run.finish()
