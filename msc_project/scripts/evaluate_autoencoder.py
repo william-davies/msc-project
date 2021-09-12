@@ -346,6 +346,31 @@ def get_time_series(window_start, original_TimedeltaIndex):
     return time_series
 
 
+def get_reconstructed_df(to_reconstruct: pd.DataFrame, autoencoder) -> pd.DataFrame:
+    """
+    Reconstruct data. Handles different input shapes.
+    :param to_reconstruct:
+    :return: returns DataFrame with all the useful row and column indexes.
+    """
+    reconstructed_df = to_reconstruct.copy()
+
+    if data_has_num_features_dimension(autoencoder):
+        to_reconstruct = add_num_features_dimension(to_reconstruct)
+    else:
+        to_reconstruct = to_reconstruct.to_numpy()
+
+    reconstructed_values = tf.stop_gradient(autoencoder(to_reconstruct))
+
+    if data_has_num_features_dimension(autoencoder):
+        reconstructed_values = reconstructed_values.numpy().squeeze()
+        reconstructed_df.iloc[:, :] = reconstructed_values
+
+    else:
+        reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
+
+    return reconstructed_df
+
+
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
@@ -377,44 +402,10 @@ if __name__ == "__main__":
         os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
     ).T
     # %%
-    if data_has_num_features_dimension(autoencoder):
 
-        def get_reconstructed_df(to_reconstruct: pd.DataFrame) -> pd.DataFrame:
-            """
-            Reconstruct data.
-            :param to_reconstruct:
-            :return:
-            """
-            model_input = add_num_features_dimension(to_reconstruct)
-            reconstructed_values = tf.stop_gradient(autoencoder(model_input))
-            reconstructed_values = reconstructed_values.numpy().squeeze()
-
-            reconstructed_df = to_reconstruct.copy()
-            reconstructed_df.iloc[:, :] = reconstructed_values
-            return reconstructed_df
-
-        reconstructed_train = get_reconstructed_df(train)
-        reconstructed_val = get_reconstructed_df(val)
-        reconstructed_noisy = get_reconstructed_df(noisy)
-
-    else:
-
-        def get_reconstructed_df(to_reconstruct: pd.DataFrame) -> pd.DataFrame:
-            """
-            Reconstruct original data.
-            :param to_reconstruct:
-            :return:
-            """
-            reconstructed_values = tf.stop_gradient(
-                autoencoder(to_reconstruct.to_numpy())
-            )
-            reconstructed_df = to_reconstruct.copy()
-            reconstructed_df.iloc[:, :] = reconstructed_values.numpy()
-            return reconstructed_df
-
-        reconstructed_train = get_reconstructed_df(train)
-        reconstructed_val = get_reconstructed_df(val)
-        reconstructed_noisy = get_reconstructed_df(noisy)
+    reconstructed_train = get_reconstructed_df(train, autoencoder=autoencoder)
+    reconstructed_val = get_reconstructed_df(val, autoencoder=autoencoder)
+    reconstructed_noisy = get_reconstructed_df(noisy, autoencoder=autoencoder)
 
     # %%
     evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
@@ -540,7 +531,7 @@ if __name__ == "__main__":
         windows_to_plot=windows_to_plot,
     )
 
-    windows_to_plot = noisy.index[np.arange(0, len(noisy), 200)]
+    windows_to_plot = noisy.index[np.arange(0, len(noisy), 50)]
     datasets_to_plot = [
         raw_dataset_to_plot,
         traditional_preprocessed_dataset_to_plot,
@@ -553,7 +544,7 @@ if __name__ == "__main__":
         example_type="Noisy",
         run_name=run.name,
         save=True,
-        example_idxs=np.arange(0, len(noisy), 50),
+        example_idxs=np.arange(0, len(noisy), 100),
         exist_ok=True,
         datasets_to_plot=datasets_to_plot,
         windows_to_plot=windows_to_plot,
