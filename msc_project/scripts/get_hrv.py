@@ -41,6 +41,23 @@ def hp_process_wrapper(hrdata, sample_rate, report_time, calc_freq):
         return None
 
 
+def get_hrv(signal_data: pd.DataFrame) -> pd.DataFrame:
+    """
+
+    :param signal_data:
+    :return:
+    """
+    fs = get_freq(signal_data.index)
+    hrv = signal_data.apply(
+        func=hp_process_wrapper,
+        axis=0,
+        sample_rate=fs,
+        report_time=False,
+        calc_freq=True,
+    )
+    return hrv
+
+
 def get_artifact_dataframe(
     run: wandb.Run, artifact_or_name, pkl_filename: str
 ) -> pd.DataFrame:
@@ -90,20 +107,25 @@ if __name__ == "__main__":
         to_reconstruct=empatica_intermediate_preprocessed_data, autoencoder=autoencoder
     )
 
-    inf_raw_data_hrv = inf_raw_data.apply(
-        func=hp_process_wrapper,
-        axis=0,
-        sample_rate=sample_rate,
-        report_time=False,
-        calc_freq=True,
-    )
+    print("inf_raw_data_hrv")
+    inf_raw_data_hrv = get_hrv(signal_data=inf_raw_data)
+
+    print("empatica_raw_data_hrv")
+    empatica_raw_data_hrv = get_hrv(signal_data=empatica_raw_data)
+
+    print("empatica_traditional_preprocessed_data_hrv")
+    empatica_traditional_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+
+    print("empatica_intermediate_preprocessed_data_hrv")
+    empatica_intermediate_preprocessed_data_hrv = get_hrv(signal_data=inf_raw_data)
+
+    print("empatica_proposed_denoised_data_hrv")
+    empatica_proposed_denoised_data_hrv = get_hrv(signal_data=inf_raw_data)
 
     all_data = pd.read_pickle(
         "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/Inf_raw_data.pkl"
     )
     signal = all_data["0720202421P1_608", "r1", "bvp"]
-
-    sample_rate = get_freq(signal.index)
 
     wd, m = hp.process(signal, sample_rate, report_time=True, calc_freq=True)
 
