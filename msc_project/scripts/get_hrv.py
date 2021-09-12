@@ -9,8 +9,11 @@ import wandb
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
 from msc_project.scripts.evaluate_autoencoder import (
     download_artifact_if_not_already_downloaded,
+    get_model,
+    get_reconstructed_df,
 )
 from msc_project.scripts.get_preprocessed_data import get_freq
+import tensorflow as tf
 
 # %%
 
@@ -38,20 +41,62 @@ def hp_process_wrapper(hrdata, sample_rate, report_time, calc_freq):
         return None
 
 
-def get_infinity_raw_data(run: wandb.Run) -> pd.DataFrame:
-    artifact = run.use_artifact(artifact_or_name="Inf_preprocessed_data:v2")
+def get_artifact_dataframe(
+    run: wandb.Run, artifact_or_name, pkl_filename: str
+) -> pd.DataFrame:
+    """
+    Read DataFrame in artifact.
+    :param run:
+    :param artifact_or_name:
+    :param pkl_filename:
+    :return:
+    """
+    artifact = run.use_artifact(artifact_or_name=artifact_or_name)
     root = download_artifact_if_not_already_downloaded(artifact)
-    inf_raw_data = pd.read_pickle(os.path.join(root, "windowed_raw_data.pkl"))
-    return inf_raw_data
+    df = pd.read_pickle(os.path.join(root, pkl_filename))
+    return df
 
 
 if __name__ == "__main__":
+    model_version = 40
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
     )
 
-    inf_raw_data = get_infinity_raw_data(run=run)
+    inf_raw_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name="Inf_preprocessed_data:v2",
+        pkl_filename="windowed_raw_data.pkl",
+    )
+    empatica_raw_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name="EmLBVP_preprocessed_data:v3",
+        pkl_filename="windowed_raw_data.pkl",
+    )
+    empatica_traditional_preprocessed_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name="EmLBVP_preprocessed_data:v3",
+        pkl_filename="windowed_traditional_preprocessed_data.pkl",
+    )
+    empatica_intermediate_preprocessed_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name="EmLBVP_preprocessed_data:v3",
+        pkl_filename="windowed_intermediate_preprocessed_data.pkl",
+    )
+
+    autoencoder = get_model(run=run, model_version=model_version)
+    empatica_proposed_denoised_data = get_reconstructed_df(
+        to_reconstruct=empatica_intermediate_preprocessed_data, autoencoder=autoencoder
+    )
+
+    inf_raw_data_hrv = inf_raw_data.apply(
+        func=hp_process_wrapper,
+        axis=0,
+        sample_rate=sample_rate,
+        report_time=False,
+        calc_freq=True,
+    )
 
     all_data = pd.read_pickle(
         "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/Inf_raw_data.pkl"
