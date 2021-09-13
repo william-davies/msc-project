@@ -15,7 +15,7 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.get_preprocessed_data import get_freq
 import tensorflow as tf
 
-run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
+run_dir = "/results/hrv_rmse/spring-sunset-337"
 rmse_dir = os.path.join(run_dir, "to_upload")
 
 
@@ -47,3 +47,9 @@ all_rmses = pd.concat(
         "empatica_proposed_denoised",
     ],
 )
+min = all_rmses.min(axis=1)
+max = all_rmses.max(axis=1)
+normalized = all_rmses.subtract(min, axis=0).divide(max - min, axis=0)
+
+normalized.plot.bar()
+plt.show()

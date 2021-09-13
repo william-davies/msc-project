@@ -4,7 +4,7 @@ import wandb
 
 #%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
-from msc_project.scripts.get_hrv import get_artifact_dataframe
+from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
 # inf_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
@@ -44,8 +44,8 @@ def get_rmse(
 
 
 if __name__ == "__main__":
-    get_hrv_version: int = 3
-    upload_artifacts: bool = True
+    get_hrv_version: int = 2
+    upload_artifacts: bool = False
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -112,12 +112,12 @@ if __name__ == "__main__":
         (empatica_proposed_denoised_data_hrv, "empatica_proposed_denoised_data"),
     ]
 
-    for (hrv_data, data_name) in [(inf_raw_data_hrv, "inf_raw_data"), *rmse_info]:
-        hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv.pkl"))
-
     for (hrv_data, data_name) in rmse_info:
         rmse = get_rmse(gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=hrv_data)
         rmse.to_pickle(os.path.join(to_upload_dir, f"{data_name}_rmse.pkl"))
+
+    for (hrv_data, data_name) in [(inf_raw_data_hrv, "inf_raw_data"), *rmse_info]:
+        hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv_of_interest.pkl"))
 
     if upload_artifacts:
         artifact = wandb.Artifact(name="hrv_rmse", type="hrv")

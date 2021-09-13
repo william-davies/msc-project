@@ -112,7 +112,7 @@ if __name__ == "__main__":
         autoencoder=autoencoder,
     ).T
 
-    run_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
+    run_dir = os.path.join(BASE_DIR, "results", "", run.name)
     os.makedirs(run_dir)
 
     print(f"inf_raw_data_hrv start: {datetime.now()}")
