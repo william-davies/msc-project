@@ -115,4 +115,8 @@ if __name__ == "__main__":
         rmse = get_rmse(gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=hrv_data)
         rmse.to_pickle(os.path.join(run_dir, f"{data_name}_rmse.pkl"))
 
-    rmse = get_rmse(inf_raw_data_hrv, empatica_raw_data_hrv)
+    if upload_artifacts:
+        artifact = wandb.Artifact(name="hrv_rmse", type="hrv")
+        artifact.add_dir(run_dir)
+        run.log_artifact(artifact)
+    run.finish()
