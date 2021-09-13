@@ -15,78 +15,35 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.get_preprocessed_data import get_freq
 import tensorflow as tf
 
-emp_base_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/emlbvp_preprocessed_datav3"
+run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
+rmse_dir = os.path.join(run_dir, "to_upload")
 
-all_data = pd.read_pickle(os.path.join(emp_base_dir, "windowed_raw_data.pkl"))
-signal = all_data["0720202421P1_608", "r1", "bvp", 2.0]
-sample_rate = get_freq(signal.index)
-wd, m = hp.process(signal, sample_rate, report_time=True, calc_freq=True)
 
-hp.plotter(wd, m)
+def get_rmse(filename: str) -> pd.DataFrame:
+    return pd.read_pickle(os.path.join(rmse_dir, filename))
 
-# display measures computed
-for measure in m.keys():
-    print("%s: %f" % (measure, m[measure]))
 
-windowed_data = pd.read_pickle(
-    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/inf_preprocessed_datav2/windowed_raw_data.pkl"
+empatica_raw = get_rmse("empatica_raw_data_rmse.pkl")
+empatica_traditional_preprocessed = get_rmse(
+    "empatica_traditional_preprocessed_data_rmse.pkl"
 )
-window = windowed_data["0720202421P1_608", "r1", "bvp", 0.0]
-
-wd, m = hp.process(window, sample_rate, report_time=True, calc_freq=True)
-
-hp.plotter(wd, m)
-
-# display measures computed
-for measure in m.keys():
-    print("%s: %f" % (measure, m[measure]))
-
-# small_windowed_data = windowed_data.loc[:, (['0720202421P1_608','0725095437P2_608'])]
-small_windowed_data = windowed_data.loc[
-    :, (["0720202421P1_608"], slice(None), slice(None), np.arange(20))
-]
-small_windowed_data = windowed_data.loc[
-    :,
-    (
-        ["0720202421P1_608", "0725095437P2_608"],
-        slice(None),
-        slice(None),
-        slice(None),
-    ),
-]
-
-hrv_metrics = small_windowed_data.apply(
-    func=hp_process_wrapper,
-    axis=0,
-    sample_rate=sample_rate,
-    report_time=False,
-    calc_freq=True,
+empatica_intermediate_preprocessed = get_rmse(
+    "empatica_intermediate_preprocessed_data_rmse.pkl"
 )
+empatica_proposed_denoised = get_rmse("empatica_proposed_denoised_data_rmse.pkl")
 
-is_none = hrv_metrics.isnull().all()
-is_none_indexes = is_none.index[is_none]
-
-problematic = small_windowed_data[("0720202421P1_608", "r3", "bvp", 292.0)]
-wd, m = hp.process(window, sample_rate, report_time=True, calc_freq=True)
-hp.plotter(wd, m)
-
-has_none = hrv_metrics["0720202421P1_608", "r3", "bvp", 0.0]
-
-wd_keys = set(wd.keys())
-m_keys = set(m.keys())
-intersect = wd_keys & m_keys
-
-
-def get_key_types(mydict):
-    for key in mydict.keys():
-        print(key)
-        print(type(mydict[key]))
-
-
-def get_HRV_metrics(signal_data: pd.DataFrame) -> pd.DataFrame:
-    """
-
-    :param signal_data:
-    :return:
-    """
-    pass
+all_rmses = pd.concat(
+    objs=[
+        empatica_raw,
+        empatica_traditional_preprocessed,
+        empatica_intermediate_preprocessed,
+        empatica_proposed_denoised,
+    ],
+    axis=1,
+    keys=[
+        "empatica_raw",
+        "empatica_traditional_preprocessed",
+        "empatica_intermediate_preprocessed",
+        "empatica_proposed_denoised",
+    ],
+)
