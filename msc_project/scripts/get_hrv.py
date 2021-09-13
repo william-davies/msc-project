@@ -77,7 +77,7 @@ def get_artifact_dataframe(
 
 if __name__ == "__main__":
     model_version = 40
-    upload_artifact = False
+    upload_artifact = True
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -110,9 +110,10 @@ if __name__ == "__main__":
     empatica_proposed_denoised_data = get_reconstructed_df(
         to_reconstruct=empatica_intermediate_preprocessed_data.T,
         autoencoder=autoencoder,
-    )
+    ).T
 
     print(f"inf_raw_data_hrv start: {datetime.now()}")
+    # inf_raw_data_hrv = get_hrv(signal_data=inf_raw_data.loc[:, ['0720202421P1_608','0725095437P2_608']])
     inf_raw_data_hrv = get_hrv(signal_data=inf_raw_data)
     print(f"inf_raw_data_hrv end: {datetime.now()}")
 
@@ -139,6 +140,8 @@ if __name__ == "__main__":
     print(f"empatica_proposed_denoised_data_hrv end: {datetime.now()}")
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
+    os.makedirs(run_dir)
+
     inf_raw_data_hrv.to_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
     empatica_raw_data_hrv.to_pickle(os.path.join(run_dir, "empatica_raw_data_hrv.pkl"))
     empatica_traditional_preprocessed_data_hrv.to_pickle(
