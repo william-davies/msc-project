@@ -98,32 +98,21 @@ if __name__ == "__main__":
     run_dir = os.path.join(BASE_DIR, "results", "hrv_rmse", run.name)
     os.makedirs(run_dir)
 
-    empatica_raw_data_rmse = get_rmse(
-        gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=empatica_raw_data_hrv
-    )
-    empatica_raw_data_rmse.to_pickle(
-        os.path.join(run_dir, "empatica_raw_data_rmse.pkl")
-    )
-    empatica_traditional_preprocessed_data_rmse = get_rmse(
-        gt_hrv_metrics=inf_raw_data_hrv,
-        other_hrv_metrics=empatica_traditional_preprocessed_data_hrv,
-    )
-    empatica_traditional_preprocessed_data_rmse.to_pickle(
-        os.path.join(run_dir, "empatica_traditional_preprocessed_data_rmse.pkl")
-    )
-    empatica_intermediate_preprocessed_data_rmse = get_rmse(
-        gt_hrv_metrics=inf_raw_data_hrv,
-        other_hrv_metrics=empatica_intermediate_preprocessed_data_hrv,
-    )
-    empatica_intermediate_preprocessed_data_rmse.to_pickle(
-        os.path.join(run_dir, "empatica_intermediate_preprocessed_data_rmse.pkl")
-    )
-    empatica_proposed_denoised_data_rmse = get_rmse(
-        gt_hrv_metrics=inf_raw_data_hrv,
-        other_hrv_metrics=empatica_proposed_denoised_data_hrv,
-    )
-    empatica_proposed_denoised_data_rmse.to_pickle(
-        os.path.join(run_dir, "empatica_proposed_denoised_data_rmse.pkl")
-    )
+    rmse_info = [
+        (empatica_raw_data_hrv, "empatica_raw_data"),
+        (
+            empatica_traditional_preprocessed_data_hrv,
+            "empatica_traditional_preprocessed_data",
+        ),
+        (
+            empatica_intermediate_preprocessed_data_hrv,
+            "empatica_intermediate_preprocessed_data",
+        ),
+        (empatica_proposed_denoised_data_hrv, "empatica_proposed_denoised_data"),
+    ]
+
+    for (hrv_data, data_name) in rmse_info:
+        rmse = get_rmse(gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=hrv_data)
+        rmse.to_pickle(os.path.join(run_dir, f"{data_name}_rmse.pkl"))
 
     rmse = get_rmse(inf_raw_data_hrv, empatica_raw_data_hrv)
