@@ -15,12 +15,11 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.get_preprocessed_data import get_freq
 import tensorflow as tf
 
+emp_base_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/emlbvp_preprocessed_datav3"
 
-all_data = pd.read_pickle(
-    "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/Inf_raw_data.pkl"
-)
-signal = all_data["0720202421P1_608", "r1", "bvp"]
-
+all_data = pd.read_pickle(os.path.join(emp_base_dir, "windowed_raw_data.pkl"))
+signal = all_data["0720202421P1_608", "r1", "bvp", 2.0]
+sample_rate = get_freq(signal.index)
 wd, m = hp.process(signal, sample_rate, report_time=True, calc_freq=True)
 
 hp.plotter(wd, m)
