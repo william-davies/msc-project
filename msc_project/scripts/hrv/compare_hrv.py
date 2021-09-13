@@ -1,126 +1,55 @@
 import os
+
+import heartpy as hp
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 import wandb
 
-#%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.evaluate_autoencoder import (
+    download_artifact_if_not_already_downloaded,
+    get_model,
+    get_reconstructed_df,
+)
+from msc_project.scripts.get_preprocessed_data import get_freq
+import tensorflow as tf
 
-# run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
-# inf_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
-# empatica_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "empatica_raw_data_hrv.pkl"))
-
-metrics_of_interest = [
-    "bpm",
-    "ibi",
-    "sdnn",
-    "rmssd",
-    "pnn20",
-    "pnn50",
-    "hf",
-    "sdsd",
-    "hr_mad",
-]
+run_dir = "/results/hrv_rmse/spring-sunset-337"
+rmse_dir = os.path.join(run_dir, "to_upload")
 
 
-def filter_metrics_of_interest(heartpy_output: pd.DataFrame) -> pd.DataFrame:
-    return heartpy_output.loc[metrics_of_interest]
+def get_rmse(filename: str) -> pd.DataFrame:
+    return pd.read_pickle(os.path.join(rmse_dir, filename))
 
 
-# %%
-def get_rmse(
-    gt_hrv_metrics: pd.DataFrame, other_hrv_metrics: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    Get root mean square error. `gt_hrv_metrics` and `other_hrv_metrics` must have exactly the same shape, index, columns.
-    :param gt_hrv_metrics: rows is hrv metric. columns is multiindex window.
-    :param other_hrv_metrics:
-    :return:
-    """
-    delta = gt_hrv_metrics - other_hrv_metrics
-    mean_square = (delta ** 2).mean(axis=1)
-    rmse = mean_square ** 0.5
-    return rmse
+empatica_raw = get_rmse("empatica_raw_data_rmse.pkl")
+empatica_traditional_preprocessed = get_rmse(
+    "empatica_traditional_preprocessed_data_rmse.pkl"
+)
+empatica_intermediate_preprocessed = get_rmse(
+    "empatica_intermediate_preprocessed_data_rmse.pkl"
+)
+empatica_proposed_denoised = get_rmse("empatica_proposed_denoised_data_rmse.pkl")
 
+all_rmses = pd.concat(
+    objs=[
+        empatica_raw,
+        empatica_traditional_preprocessed,
+        empatica_intermediate_preprocessed,
+        empatica_proposed_denoised,
+    ],
+    axis=1,
+    keys=[
+        "empatica_raw",
+        "empatica_traditional_preprocessed",
+        "empatica_intermediate_preprocessed",
+        "empatica_proposed_denoised",
+    ],
+)
+min = all_rmses.min(axis=1)
+max = all_rmses.max(axis=1)
+normalized = all_rmses.subtract(min, axis=0).divide(max - min, axis=0)
 
-if __name__ == "__main__":
-    get_hrv_version: int = 2
-    upload_artifacts: bool = False
-
-    run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME,
-        job_type="hrv_evaluation",
-        save_code=True,
-    )
-
-    inf_raw_data_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="inf_raw_data_hrv.pkl",
-    )
-
-    empatica_raw_data_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="empatica_raw_data_hrv.pkl",
-    )
-
-    empatica_traditional_preprocessed_data_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="empatica_traditional_preprocessed_data_hrv.pkl",
-    )
-
-    empatica_intermediate_preprocessed_data_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="empatica_intermediate_preprocessed_data_hrv.pkl",
-    )
-
-    empatica_proposed_denoised_data_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="empatica_proposed_denoised_data_hrv.pkl",
-    )
-
-    inf_raw_data_hrv = filter_metrics_of_interest(inf_raw_data_heartpy_output)
-    empatica_raw_data_hrv = filter_metrics_of_interest(empatica_raw_data_heartpy_output)
-    empatica_traditional_preprocessed_data_hrv = filter_metrics_of_interest(
-        empatica_traditional_preprocessed_data_heartpy_output
-    )
-    empatica_intermediate_preprocessed_data_hrv = filter_metrics_of_interest(
-        empatica_intermediate_preprocessed_data_heartpy_output
-    )
-    empatica_proposed_denoised_data_hrv = filter_metrics_of_interest(
-        empatica_proposed_denoised_data_heartpy_output
-    )
-
-    run_dir = os.path.join(BASE_DIR, "results", "hrv_rmse", run.name)
-    to_upload_dir = os.path.join(run_dir, "to_upload")
-    os.makedirs(to_upload_dir)
-
-    rmse_info = [
-        (empatica_raw_data_hrv, "empatica_raw_data"),
-        (
-            empatica_traditional_preprocessed_data_hrv,
-            "empatica_traditional_preprocessed_data",
-        ),
-        (
-            empatica_intermediate_preprocessed_data_hrv,
-            "empatica_intermediate_preprocessed_data",
-        ),
-        (empatica_proposed_denoised_data_hrv, "empatica_proposed_denoised_data"),
-    ]
-
-    for (hrv_data, data_name) in rmse_info:
-        rmse = get_rmse(gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=hrv_data)
-        rmse.to_pickle(os.path.join(to_upload_dir, f"{data_name}_rmse.pkl"))
-
-    for (hrv_data, data_name) in [(inf_raw_data_hrv, "inf_raw_data"), *rmse_info]:
-        hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv_of_interest.pkl"))
-
-    if upload_artifacts:
-        artifact = wandb.Artifact(name="hrv_rmse", type="hrv")
-        artifact.add_dir(to_upload_dir)
-        run.log_artifact(artifact)
-    run.finish()
+normalized.plot.bar()
+plt.show()
