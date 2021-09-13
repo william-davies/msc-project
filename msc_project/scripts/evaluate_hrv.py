@@ -23,7 +23,7 @@ metrics_of_interest = [
 ]
 
 
-def get_hrv_metrics(heartpy_output: pd.DataFrame) -> pd.DataFrame:
+def filter_metrics_of_interest(heartpy_output: pd.DataFrame) -> pd.DataFrame:
     return heartpy_output.loc[metrics_of_interest]
 
 
@@ -83,20 +83,21 @@ if __name__ == "__main__":
         pkl_filename="empatica_proposed_denoised_data_hrv.pkl",
     )
 
-    inf_raw_data_hrv = get_hrv_metrics(inf_raw_data_heartpy_output)
-    empatica_raw_data_hrv = get_hrv_metrics(empatica_raw_data_heartpy_output)
-    empatica_traditional_preprocessed_data_hrv = get_hrv_metrics(
+    inf_raw_data_hrv = filter_metrics_of_interest(inf_raw_data_heartpy_output)
+    empatica_raw_data_hrv = filter_metrics_of_interest(empatica_raw_data_heartpy_output)
+    empatica_traditional_preprocessed_data_hrv = filter_metrics_of_interest(
         empatica_traditional_preprocessed_data_heartpy_output
     )
-    empatica_intermediate_preprocessed_data_hrv = get_hrv_metrics(
+    empatica_intermediate_preprocessed_data_hrv = filter_metrics_of_interest(
         empatica_intermediate_preprocessed_data_heartpy_output
     )
-    empatica_proposed_denoised_data_hrv = get_hrv_metrics(
+    empatica_proposed_denoised_data_hrv = filter_metrics_of_interest(
         empatica_proposed_denoised_data_heartpy_output
     )
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv_rmse", run.name)
-    os.makedirs(run_dir)
+    to_upload_dir = os.path.join(run_dir, "to_upload")
+    os.makedirs(to_upload_dir)
 
     rmse_info = [
         (empatica_raw_data_hrv, "empatica_raw_data"),
@@ -111,12 +112,15 @@ if __name__ == "__main__":
         (empatica_proposed_denoised_data_hrv, "empatica_proposed_denoised_data"),
     ]
 
+    for (hrv_data, data_name) in [(inf_raw_data_hrv, "inf_raw_data"), *rmse_info]:
+        hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv.pkl"))
+
     for (hrv_data, data_name) in rmse_info:
         rmse = get_rmse(gt_hrv_metrics=inf_raw_data_hrv, other_hrv_metrics=hrv_data)
-        rmse.to_pickle(os.path.join(run_dir, f"{data_name}_rmse.pkl"))
+        rmse.to_pickle(os.path.join(to_upload_dir, f"{data_name}_rmse.pkl"))
 
     if upload_artifacts:
         artifact = wandb.Artifact(name="hrv_rmse", type="hrv")
-        artifact.add_dir(run_dir)
+        artifact.add_dir(to_upload_dir)
         run.log_artifact(artifact)
     run.finish()
