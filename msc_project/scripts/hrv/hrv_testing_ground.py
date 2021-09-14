@@ -41,6 +41,15 @@ def replace_masked_with_nan(df: pd.DataFrame) -> pd.DataFrame:
     return replaced
 
 
+def get_nans_per_metric(metrics: pd.DataFrame) -> pd.Series:
+    """
+    Sometimes heartpy fails to compute a metric. Often when there are no consecutive differences (i.e. no consecutive 3 detected peaks).
+    :return:
+    """
+    isna = metrics.isna()
+    return isna.sum(axis=1)
+
+
 if __name__ == "__main__":
     run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
 
@@ -56,4 +65,37 @@ if __name__ == "__main__":
         "empatica_proposed_denoised_data_hrv_of_interest.pkl"
     )
 
-    rmse = get_rmse(gt_hrv_metrics=inf_raw, other_hrv_metrics=emp_raw)
+    nan_counts = []
+    for metrics in (inf_raw, emp_raw, emp_traditional, emp_intermediate, emp_proposed):
+        nan_count = get_nans_per_metric(metrics=metrics)
+        nan_counts.append(nan_count)
+
+    all_nan_counts = pd.concat(
+        objs=nan_counts,
+        axis=1,
+        keys=[
+            "inf_raw",
+            "empatica_raw",
+            "empatica_traditional_preprocessed",
+            "empatica_intermediate_preprocessed",
+            "empatica_proposed_denoised",
+        ],
+    )
+    all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
+
+    rmses = []
+    for metrics in (emp_raw, emp_traditional, emp_intermediate, emp_proposed):
+        rmse = get_rmse(gt_hrv_metrics=inf_raw, other_hrv_metrics=metrics)
+        rmses.append(rmse)
+
+    all_rmses = pd.concat(
+        objs=rmses,
+        axis=1,
+        keys=[
+            "empatica_raw",
+            "empatica_traditional_preprocessed",
+            "empatica_intermediate_preprocessed",
+            "empatica_proposed_denoised",
+        ],
+    )
+    all_rmses.to_pickle(os.path.join(run_dir, "all_rmses.pkl"))
