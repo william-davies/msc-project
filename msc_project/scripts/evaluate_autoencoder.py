@@ -43,11 +43,21 @@ def get_data_split_artifact_used_in_training(model_artifact):
 
 
 def download_artifact_if_not_already_downloaded(artifact) -> str:
-    root = os.path.join(ARTIFACTS_ROOT, artifact.type, slugify(artifact.name))
+    root = get_artifact_filepath_root(artifact)
     if os.path.isdir(root):
         pass
     else:
         artifact.download(root=root)
+    return root
+
+
+def get_artifact_filepath_root(artifact):
+    """
+
+    :param artifact:
+    :return:
+    """
+    root = os.path.join(ARTIFACTS_ROOT, artifact.type, slugify(artifact.name))
     return root
 
 
@@ -202,10 +212,10 @@ def show_or_save(plotting_func):
     :return:
     """
 
-    def wrapper(title, save_dir: str = "", *args, **kwargs):
-        plotting_func(title=title, *args, **kwargs)
-        if save_dir:
-            plt.savefig(os.path.join(save_dir, slugify(title)))
+    def wrapper(save_filepath: str = "", *args, **kwargs):
+        plotting_func(*args, **kwargs)
+        if save_filepath:
+            plt.savefig(save_filepath)
             plt.clf()
         else:
             plt.show()
@@ -374,12 +384,16 @@ def get_reconstructed_df(to_reconstruct: pd.DataFrame, autoencoder) -> pd.DataFr
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
-    model_version: int = 40
-    sheet_name = SheetNames.INFINITY.value
-    data_split_version = 2
+    model_version: int = 43
+    sheet_name_to_evaluate_on = SheetNames.EMPATICA_LEFT_BVP.value
+    data_split_version = 1
+    notes = "MLP bottleneck 8. Trained on Emp. Evaluated on Emp."
 
     run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="model_evaluation"
+        project=DENOISING_AUTOENCODER_PROJECT_NAME,
+        job_type="model_evaluation",
+        notes=notes,
+        save_code=True,
     )
 
     autoencoder = get_model(run=run, model_version=model_version)
@@ -387,7 +401,9 @@ if __name__ == "__main__":
     # this may not necessarily be the data split used to train the model.
     # in which case `train`, `val` are misleading variable names.
     # `train`, `val` would basically just be `clean` as opposed to `noisy`.
-    data_split_artifact_name = f"{sheet_name}_data_split:v{data_split_version}"
+    data_split_artifact_name = (
+        f"{sheet_name_to_evaluate_on}_data_split:v{data_split_version}"
+    )
     api = wandb.Api()
     data_split_artifact = api.artifact(
         f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
