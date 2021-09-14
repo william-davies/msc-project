@@ -15,41 +15,42 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.get_preprocessed_data import get_freq
 import tensorflow as tf
 
-run_dir = "/results/hrv_rmse/spring-sunset-337"
-rmse_dir = os.path.join(run_dir, "to_upload")
+
+def normalize_rmse(raw_rmse):
+    min = raw_rmse.min(axis=1)
+    max = raw_rmse.max(axis=1)
+    normalized = raw_rmse.subtract(min, axis=0).divide(max - min, axis=0)
+    return normalized
 
 
-def get_rmse(filename: str) -> pd.DataFrame:
-    return pd.read_pickle(os.path.join(rmse_dir, filename))
+if __name__ == "__main__":
+    run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
 
+    all_rmses = pd.read_pickle(os.path.join(run_dir, "all_rmses.pkl"))
+    normalized = normalize_rmse(all_rmses)
 
-empatica_raw = get_rmse("empatica_raw_data_rmse.pkl")
-empatica_traditional_preprocessed = get_rmse(
-    "empatica_traditional_preprocessed_data_rmse.pkl"
-)
-empatica_intermediate_preprocessed = get_rmse(
-    "empatica_intermediate_preprocessed_data_rmse.pkl"
-)
-empatica_proposed_denoised = get_rmse("empatica_proposed_denoised_data_rmse.pkl")
+    normalized.plot.bar()
+    plt.show()
 
-all_rmses = pd.concat(
-    objs=[
-        empatica_raw,
-        empatica_traditional_preprocessed,
-        empatica_intermediate_preprocessed,
-        empatica_proposed_denoised,
-    ],
-    axis=1,
-    keys=[
-        "empatica_raw",
-        "empatica_traditional_preprocessed",
-        "empatica_intermediate_preprocessed",
-        "empatica_proposed_denoised",
-    ],
-)
-min = all_rmses.min(axis=1)
-max = all_rmses.max(axis=1)
-normalized = all_rmses.subtract(min, axis=0).divide(max - min, axis=0)
+    all_rmses.loc["ibi"].plot.bar()
+    plt.show()
 
-normalized.plot.bar()
-plt.show()
+    for index, row in all_rmses.iterrows():
+        row.plot.bar()
+        plt.title(row.name)
+        plt.tight_layout()
+        plt.show()
+
+    rmse_plots_dir = os.path.join(run_dir, "rmse_plots", "include_raw")
+    for index, row in all_rmses.iterrows():
+        row = row[:]
+        row.plot.bar()
+        plt.title(row.name)
+        plt.ylabel("rmse")
+
+        for index, value in enumerate(row):
+            plt.text(index, value, "{0:.1f}".format(value))
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(rmse_plots_dir, f"{row.name}.png"))
+        plt.clf()
