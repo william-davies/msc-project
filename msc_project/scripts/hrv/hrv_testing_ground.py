@@ -50,6 +50,19 @@ def get_nans_per_metric(metrics: pd.DataFrame) -> pd.Series:
     return isna.sum(axis=1)
 
 
+def get_clean_window_indexes(windowed_noisy_mask, noise_tolerance=0):
+    """
+
+    :param windowed_noisy_mask:
+    :param noise_tolerance: between 0 and 1
+    :return:
+    """
+    noisy_proportions = windowed_noisy_mask.sum(axis=0) / windowed_noisy_mask.shape[0]
+    is_clean = noisy_proportions <= noise_tolerance
+    clean_indexes = is_clean.index[is_clean]
+    return clean_indexes
+
+
 if __name__ == "__main__":
     run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
 
@@ -64,6 +77,15 @@ if __name__ == "__main__":
     emp_proposed = read_hrv_of_interest(
         "empatica_proposed_denoised_data_hrv_of_interest.pkl"
     )
+
+    # %%
+    inf_windowed_noisy_mask = pd.read_pickle(
+        "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/inf_preprocessed_datav2/windowed_noisy_mask.pkl"
+    )
+    clean_window_indexes = get_clean_window_indexes(
+        windowed_noisy_mask=inf_windowed_noisy_mask
+    )
+    # %%
 
     nan_counts = []
     for metrics in (inf_raw, emp_raw, emp_traditional, emp_intermediate, emp_proposed):
