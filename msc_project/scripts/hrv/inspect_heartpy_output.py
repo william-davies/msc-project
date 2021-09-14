@@ -38,6 +38,7 @@ def plot_window(window_index):
             working_data=heartpy_output[window_index],
             measures=heartpy_output[window_index],
             title=f"{name}\n{window_index}",
+            show=False,
             save_filepath=os.path.join(window_dir, name),
         )
 
@@ -100,7 +101,7 @@ if __name__ == "__main__":
     signal_plots_dir = os.path.join(filtered_dir, "signal_plots")
     # os.makedirs(signal_plots_dir)
 
-    num_examples_to_plot: int = 1
+    num_examples_to_plot: int = 20
     window_indexes = np.random.choice(
         a=inf_raw_data_heartpy_output.columns, size=num_examples_to_plot, replace=False
     )
