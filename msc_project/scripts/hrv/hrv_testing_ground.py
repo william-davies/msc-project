@@ -1,4 +1,6 @@
 import os
+from typing import List, Iterable
+
 import pandas as pd
 import wandb
 import numpy as np
@@ -41,12 +43,12 @@ def replace_masked_with_nan(df: pd.DataFrame) -> pd.DataFrame:
     return replaced
 
 
-def get_nans_per_metric(metrics: pd.DataFrame) -> pd.Series:
+def get_nans_per_metric(metric_set: pd.DataFrame) -> pd.Series:
     """
     Sometimes heartpy fails to compute a metric. Often when there are no consecutive differences (i.e. no consecutive 3 detected peaks).
     :return:
     """
-    isna = metrics.isna()
+    isna = metric_set.isna()
     return isna.sum(axis=1)
 
 
@@ -61,6 +63,31 @@ def get_clean_window_indexes(windowed_noisy_mask, noise_tolerance=0):
     is_clean = noisy_proportions <= noise_tolerance
     clean_indexes = is_clean.index[is_clean]
     return clean_indexes
+
+
+def get_all_nan_counts(metric_sets: Iterable[pd.DataFrame]):
+    """
+
+    :param metric_sets:
+    :return:
+    """
+    nan_counts = []
+    for metric_set in metric_sets:
+        nan_count = get_nans_per_metric(metric_set=metric_set)
+        nan_counts.append(nan_count)
+
+    all_nan_counts = pd.concat(
+        objs=nan_counts,
+        axis=1,
+        keys=[
+            "inf_raw",
+            "empatica_raw",
+            "empatica_traditional_preprocessed",
+            "empatica_intermediate_preprocessed",
+            "empatica_proposed_denoised",
+        ],
+    )
+    return all_nan_counts
 
 
 if __name__ == "__main__":
@@ -85,23 +112,18 @@ if __name__ == "__main__":
     clean_window_indexes = get_clean_window_indexes(
         windowed_noisy_mask=inf_windowed_noisy_mask
     )
+
+    # %%
+    filtered_inf_raw = inf_raw[clean_window_indexes]
+    filtered_emp_raw = emp_raw[clean_window_indexes]
+    filtered_emp_traditional = emp_traditional[clean_window_indexes]
+    filtered_emp_intermediate = emp_intermediate[clean_window_indexes]
+    filtered_emp_proposed = emp_proposed[clean_window_indexes]
+
     # %%
 
-    nan_counts = []
-    for metrics in (inf_raw, emp_raw, emp_traditional, emp_intermediate, emp_proposed):
-        nan_count = get_nans_per_metric(metrics=metrics)
-        nan_counts.append(nan_count)
-
-    all_nan_counts = pd.concat(
-        objs=nan_counts,
-        axis=1,
-        keys=[
-            "inf_raw",
-            "empatica_raw",
-            "empatica_traditional_preprocessed",
-            "empatica_intermediate_preprocessed",
-            "empatica_proposed_denoised",
-        ],
+    all_nan_counts = get_all_nan_counts(
+        metric_sets=(inf_raw, emp_raw, emp_traditional, emp_intermediate, emp_proposed)
     )
     all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
 
