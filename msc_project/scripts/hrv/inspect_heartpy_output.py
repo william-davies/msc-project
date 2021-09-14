@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import pandas as pd
 import wandb
 import heartpy
@@ -82,5 +83,9 @@ if __name__ == "__main__":
         pkl_filename="empatica_proposed_denoised_data_hrv.pkl",
     )[clean_window_indexes]
 
-    window_index = inf_raw_data_heartpy_output.columns[0]
-    plot_window(window_index)
+    num_examples_to_plot: int = 10
+    window_indexes = np.random.choice(
+        a=inf_raw_data_heartpy_output.columns, size=num_examples_to_plot, replace=False
+    )
+    for window_index in window_indexes:
+        plot_window(window_index)
