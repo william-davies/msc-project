@@ -65,7 +65,7 @@ def get_clean_window_indexes(windowed_noisy_mask, noise_tolerance=0):
     return clean_indexes
 
 
-def get_all_nan_counts(metric_sets: Iterable[pd.DataFrame]):
+def get_all_nan_counts(metric_sets: Iterable[pd.DataFrame]) -> pd.DataFrame:
     """
 
     :param metric_sets:
@@ -88,6 +88,25 @@ def get_all_nan_counts(metric_sets: Iterable[pd.DataFrame]):
         ],
     )
     return all_nan_counts
+
+
+def get_all_rmses(metric_sets: Iterable[pd.DataFrame]) -> pd.DataFrame:
+    rmses = []
+    for metric_set in metric_sets:
+        rmse = get_rmse(gt_hrv_metrics=inf_raw, other_hrv_metrics=metric_set)
+        rmses.append(rmse)
+
+    all_rmses = pd.concat(
+        objs=rmses,
+        axis=1,
+        keys=[
+            "empatica_raw",
+            "empatica_traditional_preprocessed",
+            "empatica_intermediate_preprocessed",
+            "empatica_proposed_denoised",
+        ],
+    )
+    return all_rmses
 
 
 if __name__ == "__main__":
@@ -127,19 +146,7 @@ if __name__ == "__main__":
     )
     all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
 
-    rmses = []
-    for metrics in (emp_raw, emp_traditional, emp_intermediate, emp_proposed):
-        rmse = get_rmse(gt_hrv_metrics=inf_raw, other_hrv_metrics=metrics)
-        rmses.append(rmse)
-
-    all_rmses = pd.concat(
-        objs=rmses,
-        axis=1,
-        keys=[
-            "empatica_raw",
-            "empatica_traditional_preprocessed",
-            "empatica_intermediate_preprocessed",
-            "empatica_proposed_denoised",
-        ],
+    all_rmses = get_all_rmses(
+        metric_sets=(emp_raw, emp_traditional, emp_intermediate, emp_proposed)
     )
     all_rmses.to_pickle(os.path.join(run_dir, "all_rmses.pkl"))
