@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
 from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.hrv.hrv_testing_ground import get_clean_window_indexes
 
 
 def plot_window(window_index):
@@ -16,39 +17,24 @@ def plot_window(window_index):
     :return:
     """
     plot_info = [
-        (inf_raw, "inf raw"),
-        (emp_raw, "emp raw"),
-        (emp_traditional, "emp traditional"),
-        (emp_intermediate, "emp intermediate"),
-        (emp_proposed, "emp proposed denoised"),
+        (inf_raw_data_heartpy_output, "inf raw"),
+        (empatica_raw_data_heartpy_output, "emp raw"),
+        (empatica_traditional_preprocessed_data_heartpy_output, "emp traditional"),
+        (empatica_intermediate_preprocessed_data_heartpy_output, "emp intermediate"),
+        (empatica_proposed_denoised_data_heartpy_output, "emp proposed denoised"),
     ]
     for heartpy_output, name in plot_info:
         heartpy.plotter(
             working_data=heartpy_output[window_index],
             measures=heartpy_output[window_index],
+            title=name,
         )
-        plt.title(name)
         plt.show()
 
 
 if __name__ == "__main__":
     run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
     filtered_dir = os.path.join(run_dir, "only_clean_inf_windows")
-
-    inf_raw = pd.read_pickle(os.path.join(filtered_dir, "inf_raw_metrics.pkl"))
-    emp_raw = pd.read_pickle(os.path.join(filtered_dir, "emp_raw_metrics.pkl"))
-    emp_traditional = pd.read_pickle(
-        os.path.join(filtered_dir, "emp_traditional_metrics.pkl")
-    )
-    emp_intermediate = pd.read_pickle(
-        os.path.join(filtered_dir, "emp_intermediate_metrics.pkl")
-    )
-    emp_proposed = pd.read_pickle(
-        os.path.join(filtered_dir, "emp_proposed_metrics.pkl")
-    )
-
-    window_index = inf_raw.columns[0]
-    plot_window(window_index)
 
     get_hrv_version: int = 3
     upload_artifacts: bool = False
@@ -59,43 +45,42 @@ if __name__ == "__main__":
         save_code=True,
     )
 
+    inf_windowed_noisy_mask = pd.read_pickle(
+        "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/inf_preprocessed_datav2/windowed_noisy_mask.pkl"
+    )
+    clean_window_indexes = get_clean_window_indexes(
+        windowed_noisy_mask=inf_windowed_noisy_mask
+    )
+
     inf_raw_data_heartpy_output = get_artifact_dataframe(
         run=run,
         artifact_or_name=f"get_hrv:v{get_hrv_version}",
         pkl_filename="inf_raw_data_hrv.pkl",
-    )
+    )[clean_window_indexes]
 
     empatica_raw_data_heartpy_output = get_artifact_dataframe(
         run=run,
         artifact_or_name=f"get_hrv:v{get_hrv_version}",
         pkl_filename="empatica_raw_data_hrv.pkl",
-    )
+    )[clean_window_indexes]
 
     empatica_traditional_preprocessed_data_heartpy_output = get_artifact_dataframe(
         run=run,
         artifact_or_name=f"get_hrv:v{get_hrv_version}",
         pkl_filename="empatica_traditional_preprocessed_data_hrv.pkl",
-    )
+    )[clean_window_indexes]
 
     empatica_intermediate_preprocessed_data_heartpy_output = get_artifact_dataframe(
         run=run,
         artifact_or_name=f"get_hrv:v{get_hrv_version}",
         pkl_filename="empatica_intermediate_preprocessed_data_hrv.pkl",
-    )
+    )[clean_window_indexes]
 
     empatica_proposed_denoised_data_heartpy_output = get_artifact_dataframe(
         run=run,
         artifact_or_name=f"get_hrv:v{get_hrv_version}",
         pkl_filename="empatica_proposed_denoised_data_hrv.pkl",
-    )
-    window_index = ("0720202421P1_608", "r1", "bvp", 0.0)
+    )[clean_window_indexes]
+
+    window_index = inf_raw_data_heartpy_output.columns[0]
     plot_window(window_index)
-
-    column = inf_raw_data_heartpy_output.iloc[:, 0]
-    column = inf_raw_data_heartpy_output[window_index]
-    column = empatica_raw_data_heartpy_output[window_index]
-    column = empatica_traditional_preprocessed_data_heartpy_output[window_index]
-    column = empatica_intermediate_preprocessed_data_heartpy_output[window_index]
-    column = empatica_proposed_denoised_data_heartpy_output[window_index]
-
-    heartpy.plotter(working_data=column, measures=column)
