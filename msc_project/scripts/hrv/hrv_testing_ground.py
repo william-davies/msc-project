@@ -140,13 +140,37 @@ if __name__ == "__main__":
     filtered_emp_proposed = emp_proposed[clean_window_indexes]
 
     # %%
+    filtered_dir = os.path.join(run_dir, "only_clean_inf_windows")
+    # os.makedirs(filtered_dir)
+    filtered_all_nan_counts = get_all_nan_counts(
+        metric_sets=(
+            filtered_inf_raw,
+            filtered_emp_raw,
+            filtered_emp_traditional,
+            filtered_emp_intermediate,
+            filtered_emp_proposed,
+        )
+    )
+    filtered_all_nan_counts.to_pickle(os.path.join(filtered_dir, "all_nan_counts.pkl"))
 
-    all_nan_counts = get_all_nan_counts(
+    filtered_all_rmses = get_all_rmses(
+        metric_sets=(
+            filtered_emp_raw,
+            filtered_emp_traditional,
+            filtered_emp_intermediate,
+            filtered_emp_proposed,
+        )
+    )
+    filtered_all_rmses.to_pickle(os.path.join(filtered_dir, "all_rmses.pkl"))
+
+    # %%
+
+    not_filtered_all_nan_counts = get_all_nan_counts(
         metric_sets=(inf_raw, emp_raw, emp_traditional, emp_intermediate, emp_proposed)
     )
-    all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
+    not_filtered_all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
 
-    all_rmses = get_all_rmses(
+    not_filtered_all_rmses = get_all_rmses(
         metric_sets=(emp_raw, emp_traditional, emp_intermediate, emp_proposed)
     )
-    all_rmses.to_pickle(os.path.join(run_dir, "all_rmses.pkl"))
+    not_filtered_all_rmses.to_pickle(os.path.join(run_dir, "all_rmses.pkl"))
