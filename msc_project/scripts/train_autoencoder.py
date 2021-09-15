@@ -25,7 +25,12 @@ from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimen
 from msc_project.scripts.utils import add_num_features_dimension
 
 
-def init_run(run_config, run_id: str = "", notes: str = ""):
+def init_run(
+    run_config,
+    run_id: str = "",
+    notes: str = "",
+    project=DENOISING_AUTOENCODER_PROJECT_NAME,
+):
     """
 
     :param run_config:
@@ -37,7 +42,7 @@ def init_run(run_config, run_id: str = "", notes: str = ""):
         run = wandb.init(
             id=run_id,
             resume="must",
-            project=DENOISING_AUTOENCODER_PROJECT_NAME,
+            project=project,
             job_type="model_train",
             config=run_config,
             force=True,
@@ -47,7 +52,7 @@ def init_run(run_config, run_id: str = "", notes: str = ""):
     else:
         run = wandb.init(
             resume="never",
-            project=DENOISING_AUTOENCODER_PROJECT_NAME,
+            project=project,
             job_type="model_train",
             config=run_config,
             force=True,
@@ -109,7 +114,7 @@ if __name__ == "__main__":
     sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     data_split_version = 1
     is_production: bool = False
-    notes = "foobar"
+    notes = "MLP trained on Empatica. Bottleneck size 8."
 
     run_config = {
         "optimizer": "adam",
@@ -117,7 +122,7 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 10,
+        "epoch": 5000,
         "patience": 1000,
         "min_delta": 1e-3,
         "model_architecture_type": get_architecture_type(create_autoencoder),
