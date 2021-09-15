@@ -76,19 +76,20 @@ def load_data(data_split_artifact):
     return train, val
 
 
-def get_autoencoder(run, metadata):
+def get_model(run, config, model_instantiator=create_autoencoder):
     """
-    Returns either partially trained autoencoder for resumed run, or brand new autoencoder.
+    Returns either partially trained model for resumed run, or brand new model.
     :param run:
-    :param metadata:
+    :param config:
+    :param model_instantiator: instantiates new model
     :return:
     """
     if run.resumed:
         best_model = wandb.restore("model-best.h5", run_path=run.path)
-        autoencoder = tf.keras.models.load_model(best_model.name)
+        model = tf.keras.models.load_model(best_model.name)
     else:
-        autoencoder = create_autoencoder(metadata)
-    return autoencoder
+        model = model_instantiator(config)
+    return model
 
 
 def get_initial_epoch(run):
@@ -107,6 +108,17 @@ def get_initial_epoch(run):
 def get_architecture_type(create_autoencoder):
     module = create_autoencoder.__module__
     return module.split(".")[-1]
+
+
+def save_model(save_path: str, model):
+    """
+    Deletes save destination directory first.
+    :param save_path:
+    :param model:
+    :return:
+    """
+    shutil.rmtree(path=save_path, ignore_errors=True)
+    model.save(save_path)
 
 
 # %%
@@ -152,7 +164,7 @@ if __name__ == "__main__":
         baseline=None,
         restore_best_weights=True,
     )
-    autoencoder = get_autoencoder(run=run, metadata=metadata)
+    autoencoder = get_model(run=run, config=metadata)
     print(autoencoder.summary())
 
     if data_has_num_features_dimension(autoencoder):
@@ -179,8 +191,7 @@ if __name__ == "__main__":
     TRAINED_MODEL_DIR = os.path.join(
         BASE_DIR, "data", "preprocessed_data", TRAINED_MODEL_ARTIFACT
     )
-    shutil.rmtree(path=TRAINED_MODEL_DIR, ignore_errors=True)
-    autoencoder.save(TRAINED_MODEL_DIR)
+    save_model(save_path=TRAINED_MODEL_DIR, model=autoencoder)
     trained_model_artifact.add_dir(TRAINED_MODEL_DIR)
     run.log_artifact(trained_model_artifact)
     run.finish()
