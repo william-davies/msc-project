@@ -21,19 +21,17 @@ from msc_project.scripts.get_preprocessed_data import downsample, get_freq
 from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 
 
-def get_labels(windowed_data):
-    treatment_multiindex = windowed_data.columns.droplevel(
-        level=["series_label", "window_start"]
-    )
-    treatments = windowed_data.columns.get_level_values(level="treatment_label")
-    m4_hard = treatments == "m4_hard"
-    m2_hard = treatments == "m2_hard"
-    hard = m4_hard | m2_hard
-    high_stress = treatment_multiindex[hard.nonzero()[0]]
+def get_labels(windowed_data: pd.DataFrame) -> pd.DataFrame:
+    """
 
+    :param windowed_data:
+    :return:
+    """
     label_df = pd.DataFrame(
-        data=hard, index=treatment_multiindex, columns=["is_high_stress"]
+        data=False, columns=windowed_data.columns, index=["is_high_stress"]
     )
+    label_df.loc["is_high_stress", (slice(None), "m2_hard")] = True
+    label_df.loc["is_high_stress", (slice(None), "m4_hard")] = True
     return label_df
 
 
