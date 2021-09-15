@@ -86,6 +86,8 @@ if __name__ == "__main__":
         autoencoder=autoencoder,
     ).T
 
+    labels = get_labels(windowed_data=raw_data)
+
     only_downsampled_data.to_pickle(os.path.join(run_dir, "only_downsampled_data.pkl"))
     traditional_preprocessed_data.to_pickle(
         os.path.join(run_dir, "traditional_preprocessed_data.pkl")
@@ -96,6 +98,7 @@ if __name__ == "__main__":
     proposed_denoised_data.to_pickle(
         os.path.join(run_dir, "proposed_denoised_data.pkl")
     )
+    labels.to_pickle(os.path.join(run_dir, "labels.pkl"))
 
     if upload_artifact:
         artifact = wandb.Artifact(name=f"{sheet_name}", type="preprocessed_data")
