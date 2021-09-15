@@ -44,6 +44,7 @@ def handle_data_split(signals: pd.DataFrame, data_name: str):
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
     save_dir = os.path.join(run_dir, data_name)
+    os.makedirs(save_dir)
     train_signals.to_pickle(os.path.join(save_dir, "train.pkl"))
     val_signals.to_pickle(os.path.join(save_dir, "val.pkl"))
     noisy_signals.to_pickle(os.path.join(save_dir, "noisy.pkl"))
@@ -81,10 +82,33 @@ if __name__ == "__main__":
         artifact_or_name=stress_prediction_preprocessed_data_artifact,
         pkl_filename="only_downsampled_data.pkl",
     )
-
-    dataset_preparer = DatasetPreparer(
-        noise_tolerance=0,
-        signals=only_downsampled_data,
-        noisy_mask=noisy_mask,
+    traditional_preprocessed_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=stress_prediction_preprocessed_data_artifact,
+        pkl_filename="traditional_preprocessed_data.pkl",
     )
-    train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
+    intermediate_preprocessed_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=stress_prediction_preprocessed_data_artifact,
+        pkl_filename="intermediate_preprocessed_data.pkl",
+    )
+    proposed_denoised_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=stress_prediction_preprocessed_data_artifact,
+        pkl_filename="proposed_denoised_data.pkl",
+    )
+    labels = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=stress_prediction_preprocessed_data_artifact,
+        pkl_filename="labels.pkl",
+    )
+
+    handle_data_split(signals=only_downsampled_data, data_name="only_downsampled")
+    handle_data_split(
+        signals=traditional_preprocessed_data, data_name="traditional_preprocessed"
+    )
+    handle_data_split(
+        signals=intermediate_preprocessed_data, data_name="intermediate_preprocessed"
+    )
+    handle_data_split(signals=proposed_denoised_data, data_name="proposed_denoised")
+    handle_data_split(signals=labels, data_name="labels")
