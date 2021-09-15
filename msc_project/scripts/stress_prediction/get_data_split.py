@@ -1,3 +1,7 @@
+"""
+Split various datas (only downsampled, traditional preprocessed etc.) into train, val, noisy.
+Save and upload split DataFrames.
+"""
 import os
 
 import pandas as pd
@@ -52,6 +56,8 @@ def handle_data_split(signals: pd.DataFrame, data_name: str):
 
 
 if __name__ == "__main__":
+    upload_artifact: bool = True
+
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME, job_type="data_split", save_code=True
     )
@@ -112,3 +118,12 @@ if __name__ == "__main__":
     )
     handle_data_split(signals=proposed_denoised_data, data_name="proposed_denoised")
     handle_data_split(signals=labels, data_name="labels")
+
+    if upload_artifact:
+        artifact_type = "data_split"
+        artifact = wandb.Artifact(
+            name=f"{sheet_name}_{artifact_type}", type=artifact_type
+        )
+        artifact.add_dir(run_dir)
+        run.log_artifact(artifact, type=artifact_type)
+    run.finish()
