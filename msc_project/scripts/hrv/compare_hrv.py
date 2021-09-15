@@ -23,6 +23,21 @@ def normalize_rmse(raw_rmse):
     return normalized
 
 
+def make_plots(data, save_dir, ylabel):
+    for index, row in data.iterrows():
+        row = row[1:]
+        row.plot.bar()
+        plt.title(row.name)
+        plt.ylabel(ylabel)
+
+        for index, value in enumerate(row):
+            plt.text(index, value, "{0:.3g}".format(value))
+
+        plt.tight_layout()
+        plt.savefig(os.path.join(save_dir, f"{row.name}.png"))
+        plt.clf()
+
+
 if __name__ == "__main__":
     run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
 
@@ -33,16 +48,4 @@ if __name__ == "__main__":
     rmse_plots_dir = os.path.join(
         run_dir, "only_clean_inf_windows", "rmse_plots", "exclude_raw"
     )
-    # os.makedirs(rmse_plots_dir)
-    for index, row in all_rmses.iterrows():
-        row = row[1:]
-        row.plot.bar()
-        plt.title(row.name)
-        plt.ylabel("rmse")
-
-        for index, value in enumerate(row):
-            plt.text(index, value, "{0:.3g}".format(value))
-
-        plt.tight_layout()
-        plt.savefig(os.path.join(rmse_plots_dir, f"{row.name}.png"))
-        plt.clf()
+    make_plots(data=all_rmses, save_dir=rmse_plots_dir, ylabel="rmse")
