@@ -1,3 +1,9 @@
+"""
+Preprocess data for stress prediction task.
+1. Downsample raw data
+2. Get proposed denoised data
+3. Copy over traditional and intermediate preprocessed data
+"""
 import os
 
 import wandb
@@ -15,14 +21,14 @@ from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 if __name__ == "__main__":
     run = wandb.init(
         project="stress-prediction",
-        job_type="stress_prediction_preprocess_data",
+        job_type="preprocess_data",
         save_code=True,
     )
     sheet_name = SheetNames.INFINITY.value
     preprocessed_data_artifact_version: int = 2
     downsampled_rate: float = 16
     model_version: int = 40
-    upload_artifact: bool = False
+    upload_artifact: bool = True
 
     run_dir = os.path.join(BASE_DIR, "data", "stress_prediction", sheet_name, run.name)
     os.makedirs(run_dir)
@@ -55,7 +61,9 @@ if __name__ == "__main__":
         downsampled_rate=downsampled_rate,
     )
 
-    autoencoder = get_model(run=run, model_version=model_version)
+    autoencoder = get_model(
+        run=run, model_version=model_version, project=DENOISING_AUTOENCODER_PROJECT_NAME
+    )
     proposed_denoised_data = get_reconstructed_df(
         to_reconstruct=intermediate_preprocessed_data.T,
         autoencoder=autoencoder,

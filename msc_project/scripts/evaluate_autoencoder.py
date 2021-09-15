@@ -93,13 +93,15 @@ def load_data_split(data_split_artifact: wandb.Artifact):
     return train, val, noisy
 
 
-def get_model(run, model_version: int):
+def get_model(run, model_version: int, project: str = ""):
     """
     Return trained model.
     :param model_version:
     :return:
     """
-    model_artifact = run.use_artifact(TRAINED_MODEL_ARTIFACT + f":v{model_version}")
+    model_artifact = run.use_artifact(
+        f"{project}/{TRAINED_MODEL_ARTIFACT}:v{model_version}"
+    )
     root = os.path.join(ARTIFACTS_ROOT, model_artifact.type)
     shutil.rmtree(path=root, ignore_errors=True)
     model_dir = model_artifact.download(root=root)
