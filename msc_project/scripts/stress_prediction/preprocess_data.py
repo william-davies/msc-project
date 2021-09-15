@@ -22,16 +22,19 @@ from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 
 
 def get_labels(windowed_data):
-    treatment_multiindex = windowed_data.columns.droplevel(level="window_start")
+    treatment_multiindex = windowed_data.columns.droplevel(
+        level=["series_label", "window_start"]
+    )
     treatments = windowed_data.columns.get_level_values(level="treatment_label")
     m4_hard = treatments == "m4_hard"
     m2_hard = treatments == "m2_hard"
     hard = m4_hard | m2_hard
-    not_hard = ~hard
     high_stress = treatment_multiindex[hard.nonzero()[0]]
-    low_stress = treatment_multiindex[not_hard.nonzero()[0]]
 
-    label_df = pd.DataFrame(data=high_stress, columns=treatment_multiindex)
+    label_df = pd.DataFrame(
+        data=hard, index=treatment_multiindex, columns=["is_high_stress"]
+    )
+    return label_df
 
 
 if __name__ == "__main__":
