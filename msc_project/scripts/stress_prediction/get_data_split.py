@@ -9,6 +9,7 @@ from msc_project.constants import (
     SheetNames,
     PREPROCESSED_DATA_ARTIFACT,
 )
+from msc_project.scripts.get_data_split import DatasetPreparer
 from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 
 
@@ -33,22 +34,29 @@ if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
     preprocessed_data_artifact_version = 1
 
-    preprocessed_data_artifact = run.use_artifact(
+    stress_prediction_preprocessed_data_artifact = run.use_artifact(
         artifact_or_name=f"{sheet_name}:v{preprocessed_data_artifact_version}",
         type=PREPROCESSED_DATA_ARTIFACT,
     )
 
+    autoencoder_preprocessed_data_artifact = get_autoencoder_preprocessed_data_artifact(
+        stress_prediction_preprocessed_data_artifact
+    )
+    noisy_mask = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=autoencoder_preprocessed_data_artifact,
+        pkl_filename="windowed_noisy_mask.pkl",
+    )
+
     only_downsampled_data = get_artifact_dataframe(
         run=run,
-        artifact_or_name=preprocessed_data_artifact,
+        artifact_or_name=stress_prediction_preprocessed_data_artifact,
         pkl_filename="only_downsampled_data.pkl",
     )
 
-    noisy_mask = pd.read_pickle(os.path.join(download_fp, "windowed_noisy_mask.pkl"))
-
     dataset_preparer = DatasetPreparer(
-        noise_tolerance=metadata["noise_tolerance"],
-        signals=intermediate_preprocessed_signals,
+        noise_tolerance=0,
+        signals=only_downsampled_data,
         noisy_mask=noisy_mask,
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
