@@ -1,2 +1,2 @@
 # have to change the port and the number after the @ (idk what it's called) every invocation of this script
-rsync -av --filter="merge filter.txt" -e 'ssh -p 17049' ./ root@6.tcp.ngrok.io:/content/msc_project/
+rsync -av --filter="merge filter.txt" -e 'ssh -p '$2 ./ root@$1.tcp.ngrok.io:/content/msc_project/
