@@ -950,6 +950,12 @@ if __name__ == "__main__":
     )
     windowed_raw_data.to_pickle(windowed_raw_data_fp)
 
+    windowed_only_downsampled_data_fp = os.path.join(
+        preprocessed_data_dir,
+        f"{sheet_name}_windowed_only_downsampled_data.pkl",
+    )
+    windowed_only_downsampled_data.to_pickle(windowed_only_downsampled_data_fp)
+
     windowed_traditional_preprocessed_data_fp = os.path.join(
         preprocessed_data_dir,
         f"{sheet_name}_windowed_traditional_preprocessed_data.pkl",
