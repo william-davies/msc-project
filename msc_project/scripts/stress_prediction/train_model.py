@@ -19,6 +19,7 @@ from msc_project.scripts.train_autoencoder import (
     get_model,
     get_initial_epoch,
     save_model,
+    get_architecture_type,
 )
 import tensorflow as tf
 
@@ -41,6 +42,7 @@ if __name__ == "__main__":
         "patience": 500,
         "min_delta": 1e-3,
         "data_name": data_name,
+        "model_architecture_type": get_architecture_type(instantiate_predictor),
     }
 
     run = init_run(
