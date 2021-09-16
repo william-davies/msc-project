@@ -1,0 +1,20 @@
++ /msc_project/
++ /msc_project/*.py
+
++ /msc_project/scripts/
++ /msc_project/scripts/*.py
++ /msc_project/scripts/*/
++ /msc_project/scripts/*/*.py
+
++ /msc_project/models/
++ /msc_project/models/*.py
++ /msc_project/models/*/
++ /msc_project/models/*/*.py
+
+
++ /msc_project/scripts/stress_prediction/
++ /msc_project/scripts/stress_prediction/*.py
+
++ /setup.py
++ /colab-setup.sh
+- /**
