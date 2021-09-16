@@ -4,6 +4,7 @@ Save and upload split DataFrames.
 """
 import os
 
+import matplotlib.pyplot as plt
 import pandas as pd
 
 import wandb
@@ -32,7 +33,7 @@ def get_autoencoder_preprocessed_data_artifact(
     return preprocessed_data_artifacts[0]
 
 
-def handle_data_split(signals: pd.DataFrame, data_name: str):
+def handle_data_split(signals: pd.DataFrame, data_name: str, noise_tolerance: float):
     """
     Split data and save.
 
@@ -57,9 +58,13 @@ def handle_data_split(signals: pd.DataFrame, data_name: str):
 
 if __name__ == "__main__":
     upload_artifact: bool = True
+    config = {"noise_tolerance": 0}
 
     run = wandb.init(
-        project=STRESS_PREDICTION_PROJECT_NAME, job_type="data_split", save_code=True
+        project=STRESS_PREDICTION_PROJECT_NAME,
+        job_type="data_split",
+        config=config,
+        save_code=True,
     )
     sheet_name = SheetNames.INFINITY.value
     preprocessed_data_artifact_version = 1
@@ -109,15 +114,29 @@ if __name__ == "__main__":
         pkl_filename="labels.pkl",
     )
 
-    handle_data_split(signals=only_downsampled_data, data_name="only_downsampled")
     handle_data_split(
-        signals=traditional_preprocessed_data, data_name="traditional_preprocessed"
+        signals=only_downsampled_data,
+        data_name="only_downsampled",
+        noise_tolerance=config["noise_tolerance"],
     )
     handle_data_split(
-        signals=intermediate_preprocessed_data, data_name="intermediate_preprocessed"
+        signals=traditional_preprocessed_data,
+        data_name="traditional_preprocessed",
+        noise_tolerance=config["noise_tolerance"],
     )
-    handle_data_split(signals=proposed_denoised_data, data_name="proposed_denoised")
-    handle_data_split(signals=labels, data_name="labels")
+    handle_data_split(
+        signals=intermediate_preprocessed_data,
+        data_name="intermediate_preprocessed",
+        noise_tolerance=config["noise_tolerance"],
+    )
+    handle_data_split(
+        signals=proposed_denoised_data,
+        data_name="proposed_denoised",
+        noise_tolerance=config["noise_tolerance"],
+    )
+    handle_data_split(
+        signals=labels, data_name="labels", noise_tolerance=config["noise_tolerance"]
+    )
 
     if upload_artifact:
         artifact_type = "data_split"
@@ -127,3 +146,9 @@ if __name__ == "__main__":
         artifact.add_dir(run_dir)
         run.log_artifact(artifact, type=artifact_type)
     run.finish()
+
+    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
+    means = noisy_proportions.groupby("participant").mean()
+    means.plot.bar()
+    plt.tight_layout()
+    plt.show()
