@@ -3,6 +3,7 @@ Split various datas (only downsampled, traditional preprocessed etc.) into train
 Save and upload split DataFrames.
 """
 import os
+from typing import Iterable
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -33,7 +34,12 @@ def get_autoencoder_preprocessed_data_artifact(
     return preprocessed_data_artifacts[0]
 
 
-def handle_data_split(signals: pd.DataFrame, data_name: str, noise_tolerance: float):
+def handle_data_split(
+    signals: pd.DataFrame,
+    data_name: str,
+    noise_tolerance: float,
+    validation_participants: Iterable[str] = None,
+):
     """
     Split data and save.
 
@@ -42,9 +48,10 @@ def handle_data_split(signals: pd.DataFrame, data_name: str, noise_tolerance: fl
     :return:
     """
     dataset_preparer = DatasetPreparer(
-        noise_tolerance=0,
+        noise_tolerance=noise_tolerance,
         signals=signals,
         noisy_mask=noisy_mask,
+        validation_participants=validation_participants,
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
@@ -58,7 +65,14 @@ def handle_data_split(signals: pd.DataFrame, data_name: str, noise_tolerance: fl
 
 if __name__ == "__main__":
     upload_artifact: bool = True
-    config = {"noise_tolerance": 0}
+    validation_participants = [
+        "0720202421P1_608",
+        "0725095437P2_608",
+        "0726094551P5_609",
+        "0802131257P22_608",
+        "0730114205P18_lamp",
+    ]
+    config = {"noise_tolerance": 1, "validation_participants": validation_participants}
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -134,8 +148,12 @@ if __name__ == "__main__":
         data_name="proposed_denoised",
         noise_tolerance=config["noise_tolerance"],
     )
+
     handle_data_split(
-        signals=labels, data_name="labels", noise_tolerance=config["noise_tolerance"]
+        signals=labels,
+        data_name="labels",
+        noise_tolerance=config["noise_tolerance"],
+        validation_participants=validation_participants,
     )
 
     if upload_artifact:
