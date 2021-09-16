@@ -659,24 +659,66 @@ def do_traditional_preprocessing(
     )
     hard = (treatments == "m4_hard").nonzero()[0]
 
-    example_idx = hard[1]
+    example_idx = hard[0]
     plt.close("all")
     plt.figure()
     plot_n_signals(
         signals=[
-            (moving_averaged_data.iloc[:, example_idx], "moving average"),
+            (central_cropped_window.iloc[:, example_idx], "central"),
             (downsampled.iloc[:, example_idx], "downsampled"),
+        ],
+    )
+    plt.show()
+
+    plt.close("all")
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (normalize_windows(downsampled.iloc[:, example_idx]), "downsampled"),
+            (
+                normalize_windows(bandpass_filtered_data.iloc[:, example_idx]),
+                "bandpass filtered",
+            ),
+        ],
+    )
+    plt.show()
+
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (normalize_windows(downsampled.iloc[:, example_idx]), "downsampled"),
         ],
     )
     plt.show()
     plt.figure()
     plot_n_signals(
-        signals=[(moving_averaged_data.iloc[:, example_idx], "moving average")],
+        signals=[
+            (
+                normalize_windows(bandpass_filtered_data.iloc[:, example_idx]),
+                "bandpass filtered",
+            ),
+        ],
+    )
+    plt.show()
+
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (
+                normalize_windows(bandpass_filtered_data.iloc[:, example_idx]),
+                "bandpass filtered",
+            ),
+        ],
     )
     plt.show()
     plt.figure()
     plot_n_signals(
-        signals=[(downsampled.iloc[:, example_idx], "downsampled")],
+        signals=[
+            (
+                normalize_windows(moving_averaged_data.iloc[:, example_idx]),
+                "moving average",
+            ),
+        ],
     )
     plt.show()
 
@@ -732,7 +774,39 @@ def do_intermediate_preprocessing(
         downsampled_rate=metadata["downsampled_frequency"],
     )
 
-    example_idx = hard[1]
+    example_idx = hard[2]
+    plt.close("all")
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (central_cropped_window.iloc[:, example_idx], "central"),
+        ],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (bandpass_filtered_data.iloc[:, example_idx], "bandpass"),
+        ],
+    )
+    plt.show()
+
+    plt.close("all")
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (bandpass_filtered_data.iloc[:, example_idx], "bandpass"),
+        ],
+    )
+    plt.show()
+    plt.figure()
+    plot_n_signals(
+        signals=[
+            (moving_averaged_data.iloc[:, example_idx], "moving average"),
+        ],
+    )
+    plt.show()
+
     plt.close("all")
     plt.figure()
     plot_n_signals(
@@ -761,8 +835,9 @@ def do_intermediate_preprocessing(
 if __name__ == "__main__":
     run_tests: bool = False
     upload_to_wandb: bool = True
-    sheet_name = SheetNames.INFINITY.value
-    noisy_labels_filename = "labelling-Inf-dataset-less-strict.xlsx"
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    # noisy_labels_filename = "labelling-Inf-dataset-less-strict.xlsx"
+    noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
@@ -798,6 +873,11 @@ if __name__ == "__main__":
         "min_stop_band_attenuation": 6,
     }
     original_fs = get_freq(sheet_raw_data.index)
+    only_downsampled_data = downsample(
+        original_data=sheet_raw_data,
+        original_rate=original_fs,
+        downsampled_rate=metadata["downsampled_frequency"],
+    )
     traditional_preprocessed_data = do_traditional_preprocessing(
         sheet_raw_data, metadata=metadata, original_fs=original_fs
     )
@@ -820,6 +900,11 @@ if __name__ == "__main__":
 
     windowed_raw_data = handle_data_windowing(
         non_windowed_data=sheet_raw_data,
+        window_duration=metadata["window_duration"],
+        step_duration=metadata["step_duration"],
+    )
+    windowed_only_downsampled_data = handle_data_windowing(
+        non_windowed_data=only_downsampled_data,
         window_duration=metadata["window_duration"],
         step_duration=metadata["step_duration"],
     )
@@ -853,7 +938,10 @@ if __name__ == "__main__":
     preprocessed_data_dir = os.path.join(
         BASE_DIR,
         "data",
+        DENOISING_AUTOENCODER_PROJECT_NAME,
         "preprocessed_data",
+        sheet_name,
+        run.name,
     )
 
     windowed_raw_data_fp = os.path.join(
@@ -890,20 +978,7 @@ if __name__ == "__main__":
             type=PREPROCESSED_DATA_ARTIFACT,
             metadata=metadata,
         )
-        preprocessed_data_artifact.add_file(
-            windowed_raw_data_fp, "windowed_raw_data.pkl"
-        )
-        preprocessed_data_artifact.add_file(
-            windowed_traditional_preprocessed_data_fp,
-            "windowed_traditional_preprocessed_data.pkl",
-        )
-        preprocessed_data_artifact.add_file(
-            windowed_intermediate_preprocessed_data_fp,
-            "windowed_intermediate_preprocessed_data.pkl",
-        )
-        preprocessed_data_artifact.add_file(
-            windowed_noisy_mask_fp, "windowed_noisy_mask.pkl"
-        )
+        preprocessed_data_artifact.add_dir(preprocessed_data_dir)
         preprocessed_data_artifact.add_file(
             noisy_labels_excel_sheet_filepath, "noisy-labels.xlsx"
         )
