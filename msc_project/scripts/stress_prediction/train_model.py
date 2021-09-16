@@ -9,7 +9,10 @@ from msc_project.constants import (
     BASE_DIR,
     STRESS_PREDICTION_PROJECT_NAME,
 )
-from msc_project.models.stress_prediction.mlp import instantiate_predictor
+
+# from msc_project.models.stress_prediction.mlp import instantiate_predictor
+from msc_project.models.stress_prediction.lstm import instantiate_predictor
+from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimension
 from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 from msc_project.scripts.train_autoencoder import (
     init_run,
@@ -19,9 +22,11 @@ from msc_project.scripts.train_autoencoder import (
 )
 import tensorflow as tf
 
+from msc_project.scripts.utils import add_num_features_dimension
+
 if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
-    data_split_version = 0
+    data_split_version = 1
     notes = ""
     run_id = ""
     data_name: str = "only_downsampled"
@@ -29,11 +34,11 @@ if __name__ == "__main__":
     run_config = {
         "optimizer": "adam",
         "loss": "binary_crossentropy",
-        "metric": [None],
+        "metric": ["accuracy"],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 5,
-        "patience": 1000,
+        "epoch": 10,
+        "patience": 500,
         "min_delta": 1e-3,
         "data_name": data_name,
     }
@@ -89,6 +94,10 @@ if __name__ == "__main__":
     )
     print(f"predictor.summary(): {predictor.summary()}")
 
+    if data_has_num_features_dimension(predictor):
+        train_X = add_num_features_dimension(train_X)
+        val_X = add_num_features_dimension(val_X)
+
     history = predictor.fit(
         train_X,
         train_y,
@@ -109,7 +118,6 @@ if __name__ == "__main__":
     trained_model_dir = os.path.join(
         BASE_DIR, "data", "stress_prediction", TRAINED_MODEL_ARTIFACT
     )
-    os.makedirs(trained_model_dir)
     save_model(save_path=trained_model_dir, model=predictor)
     trained_model_artifact.add_dir(trained_model_dir)
     run.log_artifact(trained_model_artifact)
