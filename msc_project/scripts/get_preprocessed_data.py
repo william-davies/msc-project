@@ -835,12 +835,13 @@ def do_intermediate_preprocessing(
 if __name__ == "__main__":
     run_tests: bool = False
     upload_to_wandb: bool = True
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
-    # noisy_labels_filename = "labelling-Inf-dataset-less-strict.xlsx"
+    sheet_name = SheetNames.INFINITY.value
     noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
 
     run = wandb.init(
-        project=DENOISING_AUTOENCODER_PROJECT_NAME, job_type="preprocessed_data"
+        project=DENOISING_AUTOENCODER_PROJECT_NAME,
+        job_type="preprocessed_data",
+        save_code=True,
     )
 
     sheet_data_artifact = run.use_artifact(
@@ -928,6 +929,7 @@ if __name__ == "__main__":
         do_tests()
 
     windowed_raw_data = normalize_windows(windowed_raw_data)
+    windowed_only_downsampled_data = normalize_windows(windowed_only_downsampled_data)
     windowed_traditional_preprocessed_data = normalize_windows(
         windowed_traditional_preprocessed_data
     )
@@ -946,19 +948,19 @@ if __name__ == "__main__":
 
     windowed_raw_data_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_raw_data.pkl",
+        f"windowed_raw_data.pkl",
     )
     windowed_raw_data.to_pickle(windowed_raw_data_fp)
 
     windowed_only_downsampled_data_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_only_downsampled_data.pkl",
+        f"windowed_only_downsampled_data.pkl",
     )
     windowed_only_downsampled_data.to_pickle(windowed_only_downsampled_data_fp)
 
     windowed_traditional_preprocessed_data_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_traditional_preprocessed_data.pkl",
+        f"windowed_traditional_preprocessed_data.pkl",
     )
     windowed_traditional_preprocessed_data.to_pickle(
         windowed_traditional_preprocessed_data_fp
@@ -966,7 +968,7 @@ if __name__ == "__main__":
 
     windowed_intermediate_preprocessed_data_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_intermediate_preprocessed_data.pkl",
+        f"windowed_intermediate_preprocessed_data.pkl",
     )
     windowed_intermediate_preprocessed_data.to_pickle(
         windowed_intermediate_preprocessed_data_fp
@@ -974,7 +976,7 @@ if __name__ == "__main__":
 
     windowed_noisy_mask_fp = os.path.join(
         preprocessed_data_dir,
-        f"{sheet_name}_windowed_noisy_mask.pkl",
+        f"windowed_noisy_mask.pkl",
     )
     windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
 
