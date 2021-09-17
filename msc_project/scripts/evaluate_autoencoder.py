@@ -445,18 +445,10 @@ if __name__ == "__main__":
     raw_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
     ).T
-    idx = pd.IndexSlice
-    sorted = raw_data.sort_index(
-        level="window_start", inplace=False, ascending=True, sort_remaining=False
-    )
-    central_3_minutes_raw_data = sorted.loc[idx[:, :, :, 60 : 4 * 60]]
 
     window_starts = raw_data.index.get_level_values(level="window_start")
     central_3_minutes = np.logical_and(window_starts >= 60, window_starts <= 4 * 60)
-    central_3_minutes_raw_data = sorted.loc[idx[:, :, :, 60 : 4 * 60]]
-    central_3_minutes_raw_data = raw_data.groupby(level="window_start").filter(
-        lambda s: (s.index.get_level_values("window_start") >= 2).any()
-    )
+    central_3_minutes_raw_data = raw_data.iloc[central_3_minutes]
 
     traditional_preprocessed_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
