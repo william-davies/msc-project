@@ -874,8 +874,13 @@ if __name__ == "__main__":
         "min_stop_band_attenuation": 6,
     }
     original_fs = get_freq(sheet_raw_data.index)
+    central_3_minutes = get_temporal_subwindow_of_signal(
+        sheet_raw_data,
+        window_start=metadata["start_of_central_cropped_window"],
+        window_end=metadata["end_of_central_cropped_window"],
+    )
     only_downsampled_data = downsample(
-        original_data=sheet_raw_data,
+        original_data=central_3_minutes,
         original_rate=original_fs,
         downsampled_rate=metadata["downsampled_frequency"],
     )
@@ -945,6 +950,7 @@ if __name__ == "__main__":
         sheet_name,
         run.name,
     )
+    os.makedirs(preprocessed_data_dir)
 
     windowed_raw_data_fp = os.path.join(
         preprocessed_data_dir,
