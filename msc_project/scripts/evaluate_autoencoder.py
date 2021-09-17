@@ -26,6 +26,7 @@ from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
 # %%
+from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 from msc_project.scripts.utils import add_num_features_dimension, slugify
 
 
@@ -93,15 +94,13 @@ def load_data_split(data_split_artifact: wandb.Artifact):
     return train, val, noisy
 
 
-def get_model(run, model_version: int, project: str = ""):
+def get_model(run, artifact_or_name):
     """
     Return trained model.
     :param model_version:
     :return:
     """
-    model_artifact = run.use_artifact(
-        f"{project}/{TRAINED_MODEL_ARTIFACT}:v{model_version}"
-    )
+    model_artifact = run.use_artifact(artifact_or_name)
     root = os.path.join(ARTIFACTS_ROOT, model_artifact.type)
     shutil.rmtree(path=root, ignore_errors=True)
     model_dir = model_artifact.download(root=root)
@@ -328,14 +327,14 @@ def get_SQI(
     return SQI_df
 
 
-def data_has_num_features_dimension(autoencoder):
+def data_has_num_features_dimension(model):
     """
     LSTM and CNN have input and output (batch_size, num_timesteps, num_features)
     MLP has input and output (batch_size, num_timesteps)
-    :param autoencoder:
+    :param model:
     :return:
     """
-    input_shape = autoencoder.input.shape
+    input_shape = model.input.shape
     if len(input_shape) == 3:
         return True
     elif len(input_shape) == 2:
@@ -386,10 +385,10 @@ def get_reconstructed_df(to_reconstruct: pd.DataFrame, autoencoder) -> pd.DataFr
 # %%
 if __name__ == "__main__":
     upload_artifact: bool = False
-    model_version: int = 43
-    sheet_name_to_evaluate_on = SheetNames.EMPATICA_LEFT_BVP.value
-    data_split_version = 1
-    notes = "MLP bottleneck 8. Trained on Emp. Evaluated on Emp."
+    sheet_name_to_evaluate_on = SheetNames.INFINITY.value
+    data_split_version = 4
+    notes = ""
+    data_name: str = "only_downsampled"
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -398,7 +397,7 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    autoencoder = get_model(run=run, model_version=model_version)
+    autoencoder = get_model(run=run, artifact_or_name="trained_on_Inf:v5")
 
     # this may not necessarily be the data split used to train the model.
     # in which case `train`, `val` are misleading variable names.
@@ -406,11 +405,24 @@ if __name__ == "__main__":
     data_split_artifact_name = (
         f"{sheet_name_to_evaluate_on}_data_split:v{data_split_version}"
     )
-    api = wandb.Api()
-    data_split_artifact = api.artifact(
+    data_split_artifact = run.use_artifact(
         f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
     )
-    train, val, noisy = load_data_split(data_split_artifact)
+    train = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=data_split_artifact,
+        pkl_filename=os.path.join(data_name, "train.pkl"),
+    )
+    val = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=data_split_artifact,
+        pkl_filename=os.path.join(data_name, "val.pkl"),
+    )
+    noisy = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=data_split_artifact,
+        pkl_filename=os.path.join(data_name, "noisy.pkl"),
+    )
     preprocessed_data_fp = download_preprocessed_data(data_split_artifact)
     # transpose so examples is row axis. like train/val/noisy
     raw_data = pd.read_pickle(
