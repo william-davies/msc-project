@@ -38,6 +38,7 @@ def handle_data_split(
     signals: pd.DataFrame,
     data_name: str,
     noise_tolerance: float,
+    noisy_mask,
     validation_participants: Iterable[str] = None,
 ):
     """
@@ -73,9 +74,10 @@ if __name__ == "__main__":
         "0730114205P18_lamp",
     ]
     config = {"noise_tolerance": 1, "validation_participants": validation_participants}
+    project = STRESS_PREDICTION_PROJECT_NAME
 
     run = wandb.init(
-        project=STRESS_PREDICTION_PROJECT_NAME,
+        project=project,
         job_type="data_split",
         config=config,
         save_code=True,
@@ -84,7 +86,7 @@ if __name__ == "__main__":
     preprocessed_data_artifact_version = 1
 
     run_dir = os.path.join(
-        BASE_DIR, "data", "stress_prediction", "data_split", sheet_name, run.name
+        BASE_DIR, "data", project, "data_split", sheet_name, run.name
     )
     os.makedirs(run_dir)
 
@@ -132,21 +134,25 @@ if __name__ == "__main__":
         signals=only_downsampled_data,
         data_name="only_downsampled",
         noise_tolerance=config["noise_tolerance"],
+        noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=traditional_preprocessed_data,
         data_name="traditional_preprocessed",
         noise_tolerance=config["noise_tolerance"],
+        noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=intermediate_preprocessed_data,
         data_name="intermediate_preprocessed",
         noise_tolerance=config["noise_tolerance"],
+        noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=proposed_denoised_data,
         data_name="proposed_denoised",
         noise_tolerance=config["noise_tolerance"],
+        noisy_mask=noisy_mask,
     )
 
     handle_data_split(
@@ -154,12 +160,13 @@ if __name__ == "__main__":
         data_name="labels",
         noise_tolerance=config["noise_tolerance"],
         validation_participants=validation_participants,
+        noisy_mask=noisy_mask,
     )
 
     if upload_artifact:
         artifact_type = "data_split"
         artifact = wandb.Artifact(
-            name=f"{sheet_name}_{artifact_type}", type=artifact_type
+            name=f"{sheet_name}_{artifact_type}", type=artifact_type, metadata=config
         )
         artifact.add_dir(run_dir)
         run.log_artifact(artifact, type=artifact_type)
