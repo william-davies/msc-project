@@ -399,9 +399,10 @@ if __name__ == "__main__":
     upload_artifact: bool = False
     sheet_name_to_evaluate_on = SheetNames.INFINITY.value
     data_split_version = 4
-    notes = ""
-    data_name: str = "only_downsampled"
+    data_name: str = "intermediate_preprocessed"
     config = {"data_name": data_name}
+    model_artifact_name = "trained_model:v40"
+    notes = ""
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -411,7 +412,7 @@ if __name__ == "__main__":
         config=config,
     )
 
-    autoencoder = get_model(run=run, artifact_or_name="trained_on_Inf:v5")
+    autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
 
     # this may not necessarily be the data split used to train the model.
     # in which case `train`, `val` are misleading variable names.
@@ -455,9 +456,9 @@ if __name__ == "__main__":
     evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
     dir_to_upload = os.path.join(evaluation_dir, "to_upload")
     os.makedirs(dir_to_upload)
-    save_reconstructed_signals(
-        reconstructed_train, reconstructed_val, reconstructed_noisy
-    )
+    # save_reconstructed_signals(
+    #     reconstructed_train, reconstructed_val, reconstructed_noisy
+    # )
 
     # %%
     # expected range of heart rate (Hz)
@@ -540,9 +541,22 @@ if __name__ == "__main__":
     windows_to_plot = train.index[np.arange(0, len(train), 500)]
     datasets_to_plot = [
         raw_dataset_to_plot,
-        traditional_preprocessed_dataset_to_plot,
+        # traditional_preprocessed_dataset_to_plot,
         (train, {"color": "b", "label": "intermediate preprocessing"}),
+        (reconstructed_train, {"color": "g", "label": "reconstructed"}),
     ]
+
+    def get_datasets_to_plot(intermediate_preprocessed, reconstructed):
+        datasets_to_plot = [
+            raw_dataset_to_plot,
+            (
+                intermediate_preprocessed,
+                {"color": "b", "label": "intermediate preprocessing"},
+            ),
+            (reconstructed, {"color": "g", "label": "reconstructed"}),
+        ]
+        return datasets_to_plot
+
     run_plots_dir = plot_examples(
         raw_data=raw_data,
         preprocessed_data=train,
@@ -553,7 +567,9 @@ if __name__ == "__main__":
         example_idxs=np.arange(0, len(train), 100),
         windows_to_plot=windows_to_plot,
         exist_ok=True,
-        datasets_to_plot=datasets_to_plot,
+        datasets_to_plot=get_datasets_to_plot(
+            intermediate_preprocessed=train, reconstructed=reconstructed_train
+        ),
     )
 
     windows_to_plot = val.index[np.arange(0, len(val), 200)]
@@ -571,7 +587,9 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(val), 50),
         exist_ok=True,
-        datasets_to_plot=datasets_to_plot,
+        datasets_to_plot=get_datasets_to_plot(
+            intermediate_preprocessed=val, reconstructed=reconstructed_val
+        ),
         windows_to_plot=windows_to_plot,
     )
 
@@ -590,6 +608,8 @@ if __name__ == "__main__":
         save=True,
         example_idxs=np.arange(0, len(noisy), 100),
         exist_ok=True,
-        datasets_to_plot=datasets_to_plot,
+        datasets_to_plot=get_datasets_to_plot(
+            intermediate_preprocessed=noisy, reconstructed=reconstructed_noisy
+        ),
         windows_to_plot=windows_to_plot,
     )
