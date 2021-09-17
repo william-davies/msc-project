@@ -20,8 +20,10 @@ from msc_project.constants import (
     MODEL_EVALUATION_ARTIFACT,
     SheetNames,
 )
-from msc_project.scripts.get_preprocessed_data import get_freq
-
+from msc_project.scripts.get_preprocessed_data import (
+    get_freq,
+    get_temporal_subwindow_of_signal,
+)
 
 # %%
 from msc_project.scripts.utils import (
@@ -399,7 +401,7 @@ if __name__ == "__main__":
     upload_artifact: bool = False
     sheet_name_to_evaluate_on = SheetNames.INFINITY.value
     data_split_version = 4
-    data_name: str = "intermediate_preprocessed"
+    data_name: str = "only_downsampled"
     config = {"data_name": data_name}
     model_artifact_name = "trained_model:v40"
     notes = ""
@@ -443,6 +445,19 @@ if __name__ == "__main__":
     raw_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
     ).T
+    idx = pd.IndexSlice
+    sorted = raw_data.sort_index(
+        level="window_start", inplace=False, ascending=True, sort_remaining=False
+    )
+    central_3_minutes_raw_data = sorted.loc[idx[:, :, :, 60 : 4 * 60]]
+
+    window_starts = raw_data.index.get_level_values(level="window_start")
+    central_3_minutes = np.logical_and(window_starts >= 60, window_starts <= 4 * 60)
+    central_3_minutes_raw_data = sorted.loc[idx[:, :, :, 60 : 4 * 60]]
+    central_3_minutes_raw_data = raw_data.groupby(level="window_start").filter(
+        lambda s: (s.index.get_level_values("window_start") >= 2).any()
+    )
+
     traditional_preprocessed_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
     ).T
@@ -551,7 +566,7 @@ if __name__ == "__main__":
             raw_dataset_to_plot,
             (
                 intermediate_preprocessed,
-                {"color": "b", "label": "intermediate preprocessing"},
+                {"color": "b", "label": "ae input"},
             ),
             (reconstructed, {"color": "g", "label": "reconstructed"}),
         ]
