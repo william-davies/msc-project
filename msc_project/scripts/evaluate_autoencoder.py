@@ -239,7 +239,7 @@ def SQI_plots() -> None:
     Plot SQI delta histogram to check the deltas are normally distributed (that's an assumption of the paired t-test).
     :return:
     """
-    SQI_plots_dir = os.path.join(evaluation_dir, "SQI_plots")
+    SQI_plots_dir = os.path.join(model_dir, "SQI_plots")
     os.makedirs(SQI_plots_dir)
     plot_SQI(
         SQI=train_SQI,
@@ -450,6 +450,15 @@ if __name__ == "__main__":
     central_3_minutes = np.logical_and(window_starts >= 60, window_starts <= 4 * 60)
     central_3_minutes_raw_data = raw_data.iloc[central_3_minutes]
 
+    raw_signal_SQI = get_SQI(
+        data=central_3_minutes_raw_data,
+        band_of_interest_lower_freq=SQI_HR_range_min,
+        band_of_interest_upper_freq=SQI_HR_range_max,
+    )
+    raw_signal_train_SQI = raw_signal_SQI.loc[train.index]
+    raw_signal_val_SQI = raw_signal_SQI.loc[val.index]
+    raw_signal_noisy_SQI = raw_signal_SQI.loc[noisy.index]
+
     traditional_preprocessed_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
     ).T
@@ -460,8 +469,11 @@ if __name__ == "__main__":
     reconstructed_noisy = get_reconstructed_df(noisy, autoencoder=autoencoder)
 
     # %%
-    evaluation_dir = os.path.join(BASE_DIR, "results", "evaluation", run.name)
-    dir_to_upload = os.path.join(evaluation_dir, "to_upload")
+    data_split_dir = os.path.join(
+        BASE_DIR, "results", "evaluation", data_split_artifact.name
+    )
+    model_dir = os.path.join(data_split_dir, model_artifact_name)
+    dir_to_upload = os.path.join(model_dir, "to_upload")
     os.makedirs(dir_to_upload)
     # save_reconstructed_signals(
     #     reconstructed_train, reconstructed_val, reconstructed_noisy
@@ -529,7 +541,7 @@ if __name__ == "__main__":
         plt.gca().set_title(title)
         plt.ylabel("SQI")
 
-    boxplot_dir = os.path.join(evaluation_dir, "boxplots")
+    boxplot_dir = os.path.join(model_dir, "boxplots")
     os.makedirs(boxplot_dir)
     for split_name, (original_SQI, reconstructed_SQI) in SQI_items:
         plot_boxplot(
