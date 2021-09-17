@@ -2,7 +2,7 @@
 import json
 import shutil
 from collections import defaultdict
-from typing import List, Dict, Union, Tuple
+from typing import List, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -16,20 +16,18 @@ import scipy.stats
 from msc_project.constants import (
     BASE_DIR,
     DENOISING_AUTOENCODER_PROJECT_NAME,
-    TRAINED_MODEL_ARTIFACT,
     ARTIFACTS_ROOT,
-    DATA_SPLIT_ARTIFACT,
     MODEL_EVALUATION_ARTIFACT,
     SheetNames,
 )
-from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
+from msc_project.scripts.get_preprocessed_data import get_freq
 
 
 # %%
 from msc_project.scripts.utils import (
     add_num_features_dimension,
-    slugify,
     get_artifact_dataframe,
+    download_artifact_if_not_already_downloaded,
 )
 
 
@@ -44,25 +42,6 @@ def get_data_split_artifact_used_in_training(model_artifact):
     assert len(model_training_used_artifacts) == 1
     data_split_artifact = model_training_used_artifacts[0]
     return data_split_artifact
-
-
-def download_artifact_if_not_already_downloaded(artifact) -> str:
-    root = get_artifact_filepath_root(artifact)
-    if os.path.isdir(root):
-        pass
-    else:
-        artifact.download(root=root)
-    return root
-
-
-def get_artifact_filepath_root(artifact):
-    """
-
-    :param artifact:
-    :return:
-    """
-    root = os.path.join(ARTIFACTS_ROOT, artifact.type, slugify(artifact.name))
-    return root
 
 
 def download_preprocessed_data(data_split_artifact) -> str:
@@ -260,27 +239,57 @@ def SQI_plots() -> None:
     """
     SQI_plots_dir = os.path.join(evaluation_dir, "SQI_plots")
     os.makedirs(SQI_plots_dir)
-    plot_SQI(SQI=train_SQI, title="original train", save_dir=SQI_plots_dir)
-    plot_SQI(SQI=val_SQI, title="original val", save_dir=SQI_plots_dir)
-    plot_SQI(SQI=noisy_SQI, title="original noisy", save_dir=SQI_plots_dir)
+    plot_SQI(
+        SQI=train_SQI,
+        title="original train",
+        save_filepath=os.path.join(SQI_plots_dir, "original train.png"),
+    )
+    plot_SQI(
+        SQI=val_SQI,
+        title="original val",
+        save_filepath=os.path.join(SQI_plots_dir, "original val.png"),
+    )
+    plot_SQI(
+        SQI=noisy_SQI,
+        title="original noisy",
+        save_filepath=os.path.join(SQI_plots_dir, "original noisy.png"),
+    )
 
     plot_SQI(
-        SQI=reconstructed_train_SQI, title="reconstructed train", save_dir=SQI_plots_dir
+        SQI=reconstructed_train_SQI,
+        title="reconstructed train",
+        save_filepath=os.path.join(SQI_plots_dir, "reconstructed train.png"),
     )
     plot_SQI(
-        SQI=reconstructed_val_SQI, title="reconstructed val", save_dir=SQI_plots_dir
+        SQI=reconstructed_val_SQI,
+        title="reconstructed val",
+        save_filepath=os.path.join(SQI_plots_dir, "reconstructed val.png"),
     )
     plot_SQI(
-        SQI=reconstructed_noisy_SQI, title="reconstructed noisy", save_dir=SQI_plots_dir
+        SQI=reconstructed_noisy_SQI,
+        title="reconstructed noisy",
+        save_filepath=os.path.join(SQI_plots_dir, "reconstructed noisy.png"),
     )
 
     train_delta = reconstructed_train_SQI - train_SQI
     val_delta = reconstructed_val_SQI - val_SQI
     noisy_delta = reconstructed_noisy_SQI - noisy_SQI
 
-    plot_delta(delta=train_delta, title="train delta", save_dir=SQI_plots_dir)
-    plot_delta(delta=val_delta, title="val delta", save_dir=SQI_plots_dir)
-    plot_delta(delta=noisy_delta, title="noisy delta", save_dir=SQI_plots_dir)
+    plot_delta(
+        delta=train_delta,
+        title="train delta",
+        save_filepath=os.path.join(SQI_plots_dir, "train delta.png"),
+    )
+    plot_delta(
+        delta=val_delta,
+        title="val delta",
+        save_filepath=os.path.join(SQI_plots_dir, "val delta.png"),
+    )
+    plot_delta(
+        delta=noisy_delta,
+        title="noisy delta",
+        save_filepath=os.path.join(SQI_plots_dir, "noisy delta.png"),
+    )
 
 
 def get_SQI_summary() -> Dict:
@@ -519,7 +528,7 @@ if __name__ == "__main__":
             original_SQI=original_SQI,
             reconstructed_SQI=reconstructed_SQI,
             title=f"SQI comparison\n{split_name}",
-            save_dir=boxplot_dir,
+            save_filepath=os.path.join(boxplot_dir, split_name),
         )
     # %%
     raw_dataset_to_plot = (raw_data, {"color": "k", "label": "original signal"})
