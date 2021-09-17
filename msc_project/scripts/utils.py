@@ -4,6 +4,7 @@ import unicodedata
 
 import pandas as pd
 import numpy as np
+import wandb
 
 from msc_project.constants import (
     BASE_DIR,
@@ -11,6 +12,9 @@ from msc_project.constants import (
     SPAN_PATTERN,
     PARTICIPANT_DIRNAME_PATTERN,
     PARTICIPANT_NUMBER_GROUP_IDX,
+)
+from msc_project.scripts.evaluate_autoencoder import (
+    download_artifact_if_not_already_downloaded,
 )
 
 
@@ -147,3 +151,19 @@ def safe_float_to_int(float_value: float):
     """
     assert float_value.is_integer()
     return int(float_value)
+
+
+def get_artifact_dataframe(
+    run: wandb.sdk.wandb_run.Run, artifact_or_name, pkl_filename: str
+) -> pd.DataFrame:
+    """
+    Read DataFrame in artifact.
+    :param run:
+    :param artifact_or_name:
+    :param pkl_filename:
+    :return:
+    """
+    artifact = run.use_artifact(artifact_or_name=artifact_or_name)
+    root = download_artifact_if_not_already_downloaded(artifact)
+    df = pd.read_pickle(os.path.join(root, pkl_filename))
+    return df

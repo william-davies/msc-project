@@ -3,20 +3,17 @@ from datetime import datetime
 
 import heartpy as hp
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
 import wandb
 
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
 from msc_project.scripts.evaluate_autoencoder import (
-    download_artifact_if_not_already_downloaded,
     get_model,
     get_reconstructed_df,
 )
 from msc_project.scripts.get_preprocessed_data import get_freq
-import tensorflow as tf
 
 # %%
+from msc_project.scripts.utils import get_artifact_dataframe
 
 
 def hp_process_wrapper(hrdata, sample_rate, report_time, calc_freq):
@@ -57,22 +54,6 @@ def get_hrv(signal_data: pd.DataFrame) -> pd.DataFrame:
         calc_freq=True,
     )
     return hrv
-
-
-def get_artifact_dataframe(
-    run: wandb.sdk.wandb_run.Run, artifact_or_name, pkl_filename: str
-) -> pd.DataFrame:
-    """
-    Read DataFrame in artifact.
-    :param run:
-    :param artifact_or_name:
-    :param pkl_filename:
-    :return:
-    """
-    artifact = run.use_artifact(artifact_or_name=artifact_or_name)
-    root = download_artifact_if_not_already_downloaded(artifact)
-    df = pd.read_pickle(os.path.join(root, pkl_filename))
-    return df
 
 
 if __name__ == "__main__":

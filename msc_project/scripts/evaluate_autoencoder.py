@@ -26,8 +26,11 @@ from msc_project.scripts.get_preprocessed_data import get_freq, plot_n_signals
 
 
 # %%
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
-from msc_project.scripts.utils import add_num_features_dimension, slugify
+from msc_project.scripts.utils import (
+    add_num_features_dimension,
+    slugify,
+    get_artifact_dataframe,
+)
 
 
 def get_data_split_artifact_used_in_training(model_artifact):
@@ -389,12 +392,14 @@ if __name__ == "__main__":
     data_split_version = 4
     notes = ""
     data_name: str = "only_downsampled"
+    config = {"data_name": data_name}
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
         job_type="model_evaluation",
         notes=notes,
         save_code=True,
+        config=config,
     )
 
     autoencoder = get_model(run=run, artifact_or_name="trained_on_Inf:v5")
