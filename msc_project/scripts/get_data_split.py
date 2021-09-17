@@ -17,6 +17,8 @@ from msc_project.constants import (
 from msc_project.scripts.evaluate_autoencoder import (
     download_artifact_if_not_already_downloaded,
 )
+from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.stress_prediction.get_data_split import handle_data_split
 
 
 class DatasetPreparer:
@@ -97,29 +99,59 @@ class DatasetPreparer:
 
 
 if __name__ == "__main__":
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    sheet_name = SheetNames.INFINITY.value
     preprocessed_data_artifact_version = 3
     config = {"noise_tolerance": 0}
+    job_type = "data_split"
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
-        job_type="data_split",
+        job_type=job_type,
         config=config,
         save_code=True,
     )
+
+    run_dir = os.path.join(
+        BASE_DIR,
+        "data",
+        DENOISING_AUTOENCODER_PROJECT_NAME,
+        job_type,
+        sheet_name,
+        run.name,
+    )
+    os.makedirs(run_dir)
 
     preprocessed_data_artifact = run.use_artifact(
         artifact_or_name=f"{sheet_name}_preprocessed_data:v{preprocessed_data_artifact_version}",
         type=PREPROCESSED_DATA_ARTIFACT,
     )
-    download_fp = download_artifact_if_not_already_downloaded(
-        preprocessed_data_artifact
+
+    only_downsampled_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact,
+        pkl_filename="only_downsampled_data.pkl",
+    )
+    traditional_preprocessed_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact,
+        pkl_filename="traditional_preprocessed_data.pkl",
+    )
+    intermediate_preprocessed_signals = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact,
+        pkl_filename="windowed_intermediate_preprocessed_data.pkl",
+    )
+    noisy_mask = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact,
+        pkl_filename="windowed_noisy_mask.pkl",
     )
 
-    intermediate_preprocessed_signals = pd.read_pickle(
-        os.path.join(download_fp, "windowed_intermediate_preprocessed_data.pkl")
+    handle_data_split(
+        signals=only_downsampled_data,
+        data_name="only_downsampled",
+        noise_tolerance=config["noise_tolerance"],
     )
-    noisy_mask = pd.read_pickle(os.path.join(download_fp, "windowed_noisy_mask.pkl"))
 
     dataset_preparer = DatasetPreparer(
         noise_tolerance=config["noise_tolerance"],
