@@ -22,6 +22,7 @@ import pandas as pd
 
 # %%
 from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimension
+from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 from msc_project.scripts.utils import add_num_features_dimension
 
 
@@ -60,20 +61,6 @@ def init_run(
             **base_init_kwargs,
         )
     return run
-
-
-def load_data(data_split_artifact):
-    """
-
-    :param data_split_artifact:
-    :return:
-    """
-    data_split_artifact = data_split_artifact.download(
-        root=os.path.join(ARTIFACTS_ROOT, data_split_artifact.type)
-    )
-    train = pd.read_pickle(os.path.join(data_split_artifact, "train.pkl"))
-    val = pd.read_pickle(os.path.join(data_split_artifact, "val.pkl"))
-    return train, val
 
 
 def get_model(run, config, model_instantiator=create_autoencoder):
@@ -123,10 +110,12 @@ def save_model(save_path: str, model):
 
 # %%
 if __name__ == "__main__":
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
-    data_split_version = 1
+    sheet_name = SheetNames.INFINITY.value
+    data_split_version = 3
     is_production: bool = False
-    notes = "MLP trained on Empatica. Bottleneck size 8."
+    notes = ""
+    data_name: str = "only_downsampled"
+    run_id = ""
 
     run_config = {
         "optimizer": "adam",
@@ -134,20 +123,35 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 5000,
+        "epoch": 5,
         "patience": 1000,
         "min_delta": 1e-3,
         "model_architecture_type": get_architecture_type(create_autoencoder),
         "is_prod": is_production,
+        "sheet_name": sheet_name,
+        "data_name": data_name,
     }
 
-    run_id = ""
-    run = init_run(run_config=run_config, run_id=run_id, notes=notes)
+    run = init_run(
+        run_config=run_config,
+        run_id=run_id,
+        notes=notes,
+        project=DENOISING_AUTOENCODER_PROJECT_NAME,
+    )
 
     data_split_artifact = run.use_artifact(
         artifact_or_name=f"{sheet_name}_data_split:v{data_split_version}"
     )
-    train, val = load_data(data_split_artifact=data_split_artifact)
+    train = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=data_split_artifact,
+        pkl_filename=os.path.join(data_name, "train.pkl"),
+    )
+    val = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=data_split_artifact,
+        pkl_filename=os.path.join(data_name, "val.pkl"),
+    )
 
     timeseries_length = train.shape[1]
     metadata = {
@@ -164,7 +168,9 @@ if __name__ == "__main__":
         baseline=None,
         restore_best_weights=True,
     )
-    autoencoder = get_model(run=run, config=metadata)
+    autoencoder = get_model(
+        run=run, config=metadata, model_instantiator=create_autoencoder
+    )
     print(autoencoder.summary())
 
     if data_has_num_features_dimension(autoencoder):
@@ -186,12 +192,12 @@ if __name__ == "__main__":
     )
 
     trained_model_artifact = wandb.Artifact(
-        TRAINED_MODEL_ARTIFACT, type=TRAINED_MODEL_ARTIFACT, metadata=metadata
+        name=f"trained_on_{sheet_name}", type=TRAINED_MODEL_ARTIFACT, metadata=metadata
     )
-    TRAINED_MODEL_DIR = os.path.join(
-        BASE_DIR, "data", "preprocessed_data", TRAINED_MODEL_ARTIFACT
+    trained_model_dir = os.path.join(
+        BASE_DIR, "data", DENOISING_AUTOENCODER_PROJECT_NAME, TRAINED_MODEL_ARTIFACT
     )
-    save_model(save_path=TRAINED_MODEL_DIR, model=autoencoder)
-    trained_model_artifact.add_dir(TRAINED_MODEL_DIR)
+    save_model(save_path=trained_model_dir, model=autoencoder)
+    trained_model_artifact.add_dir(trained_model_dir)
     run.log_artifact(trained_model_artifact)
     run.finish()
