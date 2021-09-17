@@ -36,9 +36,9 @@ def get_autoencoder_preprocessed_data_artifact(
 
 def handle_data_split(
     signals: pd.DataFrame,
-    data_name: str,
     noise_tolerance: float,
     noisy_mask,
+    save_dir,
     validation_participants: Iterable[str] = None,
 ):
     """
@@ -56,7 +56,6 @@ def handle_data_split(
     )
     train_signals, val_signals, noisy_signals = dataset_preparer.get_dataset()
 
-    save_dir = os.path.join(run_dir, data_name)
     os.makedirs(save_dir)
     train_signals.to_pickle(os.path.join(save_dir, "train.pkl"))
     val_signals.to_pickle(os.path.join(save_dir, "val.pkl"))
@@ -132,32 +131,32 @@ if __name__ == "__main__":
 
     handle_data_split(
         signals=only_downsampled_data,
-        data_name="only_downsampled",
+        save_dir=os.path.join(run_dir, "only_downsampled"),
         noise_tolerance=config["noise_tolerance"],
         noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=traditional_preprocessed_data,
-        data_name="traditional_preprocessed",
+        save_dir=os.path.join(run_dir, "traditional_preprocessed"),
         noise_tolerance=config["noise_tolerance"],
         noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=intermediate_preprocessed_data,
-        data_name="intermediate_preprocessed",
+        save_dir=os.path.join(run_dir, "intermediate_preprocessed"),
         noise_tolerance=config["noise_tolerance"],
         noisy_mask=noisy_mask,
     )
     handle_data_split(
         signals=proposed_denoised_data,
-        data_name="proposed_denoised",
+        save_dir=os.path.join(run_dir, "proposed_denoised"),
         noise_tolerance=config["noise_tolerance"],
         noisy_mask=noisy_mask,
     )
 
     handle_data_split(
         signals=labels,
-        data_name="labels",
+        save_dir=os.path.join(run_dir, "labels"),
         noise_tolerance=config["noise_tolerance"],
         validation_participants=validation_participants,
         noisy_mask=noisy_mask,
