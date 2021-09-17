@@ -16,7 +16,7 @@ from msc_project.constants import (
     PREPROCESSED_DATA_ARTIFACT,
     BASE_DIR,
 )
-from msc_project.scripts.get_data_split import DatasetPreparer
+from msc_project.scripts.dataset_preparer import DatasetPreparer
 from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 
 
