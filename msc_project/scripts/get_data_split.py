@@ -93,21 +93,11 @@ if __name__ == "__main__":
         name=f"{sheet_name}_data_split", type=DATA_SPLIT_ARTIFACT, metadata=config
     )
 
-    train_signals_fp = os.path.join(BASE_DIR, "data", "preprocessed_data", "train.pkl")
-    train_signals.to_pickle(train_signals_fp)
-    data_split_artifact.add_file(train_signals_fp)
-
-    val_signals_fp = os.path.join(BASE_DIR, "data", "preprocessed_data", "val.pkl")
-    val_signals.to_pickle(val_signals_fp)
-    data_split_artifact.add_file(val_signals_fp)
-
-    noisy_signals_fp = os.path.join(BASE_DIR, "data", "preprocessed_data", "noisy.pkl")
-    noisy_signals.to_pickle(noisy_signals_fp)
-    data_split_artifact.add_file(noisy_signals_fp)
-
-    data_split_artifact.add_file(
-        "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/dummy_file.txt"
-    )
-
-    run.log_artifact(data_split_artifact)
+    upload_artifact: bool = True
+    if upload_artifact:
+        artifact = wandb.Artifact(
+            name=f"{sheet_name}_{job_type}", type=job_type, metadata=config
+        )
+        artifact.add_dir(run_dir)
+        run.log_artifact(artifact, type=job_type)
     run.finish()
