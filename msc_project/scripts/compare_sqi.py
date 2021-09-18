@@ -1,6 +1,7 @@
 import os
 
 import pandas as pd
+import scipy.stats
 from matplotlib import pyplot as plt
 
 from msc_project.constants import SheetNames
@@ -8,7 +9,7 @@ from msc_project.constants import SheetNames
 
 # %%
 split_name = "train"
-sheet_name = "inf"
+sheet_name = "emp"
 sqi_dir = f"/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/{sheet_name}_sqi"
 
 filename = f"{split_name}.pkl"
@@ -31,16 +32,18 @@ all_sqis = (
 )
 all_sqis = tuple(map(pd.DataFrame.squeeze, all_sqis))
 
+labels = [
+    "raw",
+    "only downsampled",
+    "downsampled + ae",
+    "intermediate preprocessing",
+    "intermediate preprocessing + ae",
+]
+
 fig, ax = plt.subplots()
 bp = plt.boxplot(
     x=(all_sqis),
-    labels=(
-        "raw",
-        "only downsampled",
-        "downsampled + ae",
-        "intermediate_preprocessing",
-        "intermediate_preprocessing+ae",
-    ),
+    labels=labels,
 )
 
 for i, line in enumerate(bp["medians"]):
@@ -62,3 +65,27 @@ plt.setp(
 )
 plt.tight_layout()
 plt.show()
+
+# %%
+pvalues = pd.DataFrame(index=labels, columns=labels)
+pvalues.index.name = "less"
+pvalues.columns.name = "greater"
+pvalues.style.set_caption("Hello World")
+
+for row in range(pvalues.shape[0]):
+    less = all_sqis[row]
+    for col in range(pvalues.shape[1]):
+        greater = all_sqis[col]
+        _, pvalue = scipy.stats.ttest_rel(
+            greater.squeeze(),
+            less.squeeze(),
+            alternative="greater",
+        )
+        pvalues.iloc[row, col] = pvalue
+
+
+_, pvalue = scipy.stats.ttest_rel(
+    downsampled_plus_ae.squeeze(),
+    raw.squeeze(),
+    alternative="greater",
+)
