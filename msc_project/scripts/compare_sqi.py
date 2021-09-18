@@ -40,31 +40,35 @@ labels = [
     "intermediate preprocessing + ae",
 ]
 
-fig, ax = plt.subplots()
-bp = plt.boxplot(
-    x=(all_sqis),
-    labels=labels,
-)
 
-for i, line in enumerate(bp["medians"]):
-    x, y = line.get_xydata()[1]
-    mean = all_sqis[i].mean()
-    std = all_sqis[i].std()
-    text = " μ={:.2f}\n σ={:.2f}".format(mean, std)
-    ax.annotate(text, xy=(x, y))
+def make_boxplots(all_sqis, labels):
+    fig, ax = plt.subplots()
+    bp = plt.boxplot(
+        x=all_sqis,
+        labels=labels,
+    )
+
+    for i, line in enumerate(bp["medians"]):
+        x, y = line.get_xydata()[1]
+        mean = all_sqis[i].mean()
+        std = all_sqis[i].std()
+        text = " μ={:.2f}\n σ={:.2f}".format(mean, std)
+        ax.annotate(text, xy=(x, y))
+
+    plt.ylabel("SQI")
+    plt.xlabel("processing")
+    plt.title(f"{sheet_name} {split_name}")
+    plt.setp(
+        plt.gca().get_xticklabels(),
+        rotation=30,
+        horizontalalignment="right",
+        fontsize="x-small",
+    )
+    plt.tight_layout()
+    plt.show()
 
 
-plt.ylabel("SQI")
-plt.xlabel("processing")
-plt.title(f"{sheet_name} {split_name}")
-plt.setp(
-    plt.gca().get_xticklabels(),
-    rotation=30,
-    horizontalalignment="right",
-    fontsize="x-small",
-)
-plt.tight_layout()
-plt.show()
+make_boxplots(all_sqis=all_sqis, labels=labels)
 
 # %%
 pvalues = pd.DataFrame(index=labels, columns=labels)
@@ -84,8 +88,4 @@ for row in range(pvalues.shape[0]):
         pvalues.iloc[row, col] = pvalue
 
 
-_, pvalue = scipy.stats.ttest_rel(
-    downsampled_plus_ae.squeeze(),
-    raw.squeeze(),
-    alternative="greater",
-)
+pvalues.to_csv(os.path.join(sqi_dir, f"{split_name}.csv"))
