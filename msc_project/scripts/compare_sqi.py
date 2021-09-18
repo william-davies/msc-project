@@ -3,11 +3,15 @@ import os
 import pandas as pd
 from matplotlib import pyplot as plt
 
-sqi_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/inf_sqi"
+from msc_project.constants import SheetNames
+
 
 # %%
-split = "noisy"
-filename = f"{split}.pkl"
+split_name = "train"
+sheet_name = "inf"
+sqi_dir = f"/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/{sheet_name}_sqi"
+
+filename = f"{split_name}.pkl"
 raw = pd.read_pickle(os.path.join(sqi_dir, "raw", filename))
 only_downsampled = pd.read_pickle(os.path.join(sqi_dir, "only_downsample", filename))
 downsampled_plus_ae = pd.read_pickle(os.path.join(sqi_dir, "downsample+ae", filename))
@@ -49,7 +53,7 @@ for i, line in enumerate(bp["medians"]):
 
 plt.ylabel("SQI")
 plt.xlabel("processing")
-plt.title(split)
+plt.title(f"{sheet_name} {split_name}")
 plt.setp(
     plt.gca().get_xticklabels(),
     rotation=30,
