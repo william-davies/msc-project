@@ -18,16 +18,18 @@ intermediate_preprocessing_plus_ae = pd.read_pickle(
     os.path.join(sqi_dir, "intermediate_preprocessing+ae", filename)
 )
 
+all_sqis = (
+    raw,
+    only_downsampled,
+    downsampled_plus_ae,
+    intermediate_preprocessing,
+    intermediate_preprocessing_plus_ae,
+)
+all_sqis = tuple(map(pd.DataFrame.squeeze, all_sqis))
 
-plt.figure()
-plt.boxplot(
-    x=(
-        raw.squeeze(),
-        only_downsampled.squeeze(),
-        downsampled_plus_ae.squeeze(),
-        intermediate_preprocessing.squeeze(),
-        intermediate_preprocessing_plus_ae.squeeze(),
-    ),
+fig, ax = plt.subplots()
+bp = plt.boxplot(
+    x=(all_sqis),
     labels=(
         "raw",
         "only downsampled",
@@ -36,6 +38,15 @@ plt.boxplot(
         "intermediate_preprocessing+ae",
     ),
 )
+
+for i, line in enumerate(bp["medians"]):
+    x, y = line.get_xydata()[1]
+    mean = all_sqis[i].mean()
+    std = all_sqis[i].std()
+    text = " μ={:.2f}\n σ={:.2f}".format(mean, std)
+    ax.annotate(text, xy=(x, y))
+
+
 plt.ylabel("SQI")
 plt.xlabel("processing")
 plt.title(split)
