@@ -57,7 +57,7 @@ def get_hrv(signal_data: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    model_version = 40
+    model_artifact_name = "trained_model:v40"
     upload_artifact = True
 
     run = wandb.init(
@@ -87,7 +87,7 @@ if __name__ == "__main__":
         pkl_filename="windowed_intermediate_preprocessed_data.pkl",
     )
 
-    autoencoder = get_model(run=run, model_version=model_version)
+    autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
     empatica_proposed_denoised_data = get_reconstructed_df(
         to_reconstruct=empatica_intermediate_preprocessed_data.T,
         autoencoder=autoencoder,
