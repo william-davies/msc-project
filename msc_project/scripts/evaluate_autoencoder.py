@@ -97,7 +97,7 @@ def plot_examples(
     example_type: str,
     datasets_to_plot: List[Tuple],
     windows_to_plot,
-    save_dir: str,
+    save_dir: str = "",
     exist_ok: bool = False,
 ) -> None:
     """
