@@ -23,6 +23,14 @@ def get_signal_processed_data(run, data_split_artifact):
     return signal_processed
 
 
+def get_data_split_indexes(run, data_split_artifact):
+    train, val, noisy = get_only_downsampled_data(
+        run=run, data_split_artifact=data_split_artifact
+    )
+    indexes = tuple(map(lambda split: split.index, (train, val, noisy)))
+    return indexes
+
+
 def get_data_split(run, data_split_artifact, data_name):
     """
 
@@ -112,6 +120,10 @@ if __name__ == "__main__":
         run=run,
         model_artifact_name=model_artifact_name,
         data_split_artifact=data_split_artifact,
+    )
+
+    train_index, val_index, noisy_index = get_data_split_indexes(
+        run=run, data_split_artifact=data_split_artifact
     )
 
     datasets_to_plot = [
