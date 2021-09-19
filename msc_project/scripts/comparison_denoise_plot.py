@@ -7,6 +7,7 @@ from msc_project.constants import SheetNames, DENOISING_AUTOENCODER_PROJECT_NAME
 from msc_project.scripts.evaluate_autoencoder import (
     get_model,
     download_preprocessed_data,
+    get_reconstructed_df,
 )
 from msc_project.scripts.utils import get_artifact_dataframe
 
@@ -58,14 +59,29 @@ def get_raw_data(data_split_artifact, train_index, val_index, noisy_index):
     return train, val, noisy
 
 
-def get_only_downsampled_data():
+def get_only_downsampled_data(run, data_split_artifact):
     return get_data_split(
         run=run, data_split_artifact=data_split_artifact, data_name="only_downsampled"
     )
 
 
-def get_autoencoder_denoised_data():
+def get_autoencoder_denoised_data(run, model_artifact_name, data_split_artifact):
+    downsampled_train, downsampled_val, downsampled_noisy = get_only_downsampled_data(
+        run=run, data_split_artifact=data_split_artifact
+    )
     autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
+
+    reconstructed_train = get_reconstructed_df(
+        to_reconstruct=downsampled_train, autoencoder=autoencoder
+    )
+    reconstructed_val = get_reconstructed_df(
+        to_reconstruct=downsampled_val, autoencoder=autoencoder
+    )
+    reconstructed_noisy = get_reconstructed_df(
+        to_reconstruct=downsampled_noisy, autoencoder=autoencoder
+    )
+
+    return reconstructed_train, reconstructed_val, reconstructed_noisy
 
 
 if __name__ == "__main__":
@@ -98,4 +114,14 @@ if __name__ == "__main__":
         train_index=signal_processed_train.index,
         val_index=signal_processed_val.index,
         noisy_index=signal_processed_noisy.index,
+    )
+
+    (
+        reconstructed_train,
+        reconstructed_val,
+        reconstructed_noisy,
+    ) = get_autoencoder_denoised_data(
+        run=run,
+        model_artifact_name=model_artifact_name,
+        data_split_artifact=data_split_artifact,
     )
