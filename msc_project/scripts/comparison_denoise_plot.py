@@ -12,20 +12,35 @@ from msc_project.scripts.utils import get_artifact_dataframe
 
 
 def get_signal_processed_data(run, data_split_artifact):
+    return get_data_split(
+        run=run,
+        data_split_artifact=data_split_artifact,
+        data_name="intermediate_preprocessed",
+    )
+
+
+def get_data_split(run, data_split_artifact, data_name):
+    """
+
+    :param run:
+    :param data_split_artifact:
+    :param data_name: only_downsampled/intermediate_preprocessed
+    :return:
+    """
     train = get_artifact_dataframe(
         run=run,
         artifact_or_name=data_split_artifact,
-        pkl_filename=os.path.join("intermediate_preprocessed", "train.pkl"),
+        pkl_filename=os.path.join(data_name, "train.pkl"),
     )
     val = get_artifact_dataframe(
         run=run,
         artifact_or_name=data_split_artifact,
-        pkl_filename=os.path.join("intermediate_preprocessed", "val.pkl"),
+        pkl_filename=os.path.join(data_name, "val.pkl"),
     )
     noisy = get_artifact_dataframe(
         run=run,
         artifact_or_name=data_split_artifact,
-        pkl_filename=os.path.join("intermediate_preprocessed", "noisy.pkl"),
+        pkl_filename=os.path.join(data_name, "noisy.pkl"),
     )
     return train, val, noisy
 
@@ -43,6 +58,16 @@ def get_raw_data(data_split_artifact, train_index, val_index, noisy_index):
     return train, val, noisy
 
 
+def get_only_downsampled_data():
+    return get_data_split(
+        run=run, data_split_artifact=data_split_artifact, data_name="only_downsampled"
+    )
+
+
+def get_autoencoder_denoised_data():
+    autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
+
+
 if __name__ == "__main__":
     sheet_name_to_evaluate_on = SheetNames.EMPATICA_LEFT_BVP.value
     data_split_version = 2
@@ -54,8 +79,6 @@ if __name__ == "__main__":
         save_code=True,
         notes="comparison plots",
     )
-
-    autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
 
     data_split_artifact_name = (
         f"{sheet_name_to_evaluate_on}_data_split:v{data_split_version}"
