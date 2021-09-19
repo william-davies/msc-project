@@ -127,18 +127,34 @@ if __name__ == "__main__":
     )
 
     datasets_to_plot = [
-        (raw_data, {"color": "k", "label": "original signal"}),
+        (raw_data, {"color": "k", "label": "original signal", "linestyle": "solid"}),
         (
             signal_processed,
-            {"color": "b", "label": "signal processed"},
+            {"color": "g", "label": "signal processed", "linestyle": "dashed"},
         ),
-        (reconstructed, {"color": "g", "label": "ae reconstructed"}),
+        (reconstructed, {"color": "m", "label": "ae reconstructed"}),
     ]
+    save_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/comparison_line_plots"
     windows_to_plot = train_indexes[0:1]
     plot_examples(
         run_name=run.name,
         example_type="train",
         datasets_to_plot=datasets_to_plot,
         windows_to_plot=windows_to_plot,
-        save=False,
+        save_dir=save_dir,
+    )
+
+    plot_examples(
+        run_name=run.name,
+        example_type="train",
+        datasets_to_plot=datasets_to_plot[:-1],
+        windows_to_plot=windows_to_plot,
+        save_dir=save_dir,
+    )
+    plot_examples(
+        run_name=run.name,
+        example_type="train",
+        datasets_to_plot=datasets_to_plot[::2],
+        windows_to_plot=windows_to_plot,
+        save_dir=save_dir,
     )

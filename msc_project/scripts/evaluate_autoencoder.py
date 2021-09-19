@@ -97,9 +97,9 @@ def plot_examples(
     example_type: str,
     datasets_to_plot: List[Tuple],
     windows_to_plot,
-    save: bool,
+    save_dir: str,
     exist_ok: bool = False,
-) -> str:
+) -> None:
     """
     Plot signal(s) undergone different processing on same figure. 1 window per figure.
 
@@ -107,17 +107,14 @@ def plot_examples(
     :param example_type: Train/Validation/Noisy
     :param datasets_to_plot:
     :param windows_to_plot: list of MultiIndex window indexes
-    :param save:
+    :param save_dir:
     :param exist_ok:
     :return:
     """
     plt.figure(figsize=(8, 6))
 
-    if save:
-        run_plots_dir: str = os.path.join(
-            BASE_DIR, "results", "evaluation", run_name, "reconstructed-plots"
-        )
-        example_type_plots_dir = os.path.join(run_plots_dir, example_type.lower())
+    if save_dir:
+        example_type_plots_dir = os.path.join(save_dir, example_type.lower())
         os.makedirs(example_type_plots_dir, exist_ok=exist_ok)
 
     for window_index in windows_to_plot:
@@ -139,20 +136,15 @@ def plot_examples(
             )
         plt.legend()
 
-        if save:
+        if save_dir:
             plot_filepath = os.path.join(
-                example_type_plots_dir,
+                save_dir,
                 f"{run_name.replace('-','_')}-{signal_label}-{window_start}.png",
             )
             plt.savefig(plot_filepath, format="png")
             plt.clf()
         else:
             plt.show()
-
-    if save:
-        return run_plots_dir
-    else:
-        return ""
 
 
 def save_reconstructed_signals(
@@ -591,7 +583,7 @@ if __name__ == "__main__":
     run_plots_dir = plot_examples(
         example_type="Train",
         run_name=run.name,
-        save=True,
+        save_dir=True,
         windows_to_plot=windows_to_plot,
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
@@ -608,7 +600,7 @@ if __name__ == "__main__":
     run_plots_dir = plot_examples(
         example_type="Val",
         run_name=run.name,
-        save=True,
+        save_dir=True,
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
             intermediate_preprocessed=val, reconstructed=reconstructed_val
@@ -625,7 +617,7 @@ if __name__ == "__main__":
     run_plots_dir = plot_examples(
         example_type="Noisy",
         run_name=run.name,
-        save=True,
+        save_dir=True,
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
             intermediate_preprocessed=noisy, reconstructed=reconstructed_noisy
