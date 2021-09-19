@@ -122,19 +122,23 @@ if __name__ == "__main__":
         data_split_artifact=data_split_artifact,
     )
 
-    train_index, val_index, noisy_index = get_data_split_indexes(
+    train_indexes, val_indexes, noisy_indexes = get_data_split_indexes(
         run=run, data_split_artifact=data_split_artifact
     )
 
     datasets_to_plot = [
         (raw_data, {"color": "k", "label": "original signal"}),
         (
-            intermediate_preprocessed,
-            {"color": "b", "label": "ae input"},
+            signal_processed,
+            {"color": "b", "label": "signal processed"},
         ),
-        (reconstructed, {"color": "g", "label": "reconstructed"}),
+        (reconstructed, {"color": "g", "label": "ae reconstructed"}),
     ]
-
+    windows_to_plot = train_indexes[0:1]
     plot_examples(
-        run_name=run.name, example_type="train", datasets_to_plot=datasets_to_plot
+        run_name=run.name,
+        example_type="train",
+        datasets_to_plot=datasets_to_plot,
+        windows_to_plot=windows_to_plot,
+        save=False,
     )
