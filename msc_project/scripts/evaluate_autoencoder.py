@@ -93,40 +93,24 @@ def get_model(run, artifact_or_name):
 
 
 def plot_examples(
-    raw_data: pd.DataFrame,
-    preprocessed_data: pd.DataFrame,
-    reconstructed_data: pd.DataFrame,
-    example_type: str,
     run_name: str,
-    save: bool,
+    example_type: str,
     datasets_to_plot: List[Tuple],
     windows_to_plot,
-    num_examples: int = 5,
-    example_idxs=None,
+    save: bool,
     exist_ok: bool = False,
 ) -> str:
     """
-    Plot original signal(s) and reconstructed signal(s) on same figure. 1 original/reconstructed signal pair per figure.
+    Plot signal(s) undergone different processing on same figure. 1 window per figure.
 
-    :param raw_data:
-    :param preprocessed_data:
-    :param reconstructed_data:
-    :param example_type: Train/Validation/Noisy
     :param run_name:
-    :param save:
+    :param example_type: Train/Validation/Noisy
     :param datasets_to_plot:
     :param windows_to_plot: list of MultiIndex window indexes
-    :param num_examples:
-    :param example_idxs:
+    :param save:
     :param exist_ok:
     :return:
     """
-    random_state = np.random.RandomState(42)
-    if example_idxs is None:
-        example_idxs = random_state.choice(
-            a=len(preprocessed_data), size=num_examples, replace=False
-        )
-
     plt.figure(figsize=(8, 6))
 
     if save:
@@ -401,10 +385,14 @@ if __name__ == "__main__":
     upload_artifact: bool = False
     sheet_name_to_evaluate_on = SheetNames.INFINITY.value
     data_split_version = 4
-    data_name: str = "only_downsampled"
+    data_name: str = "intermediate_preprocessed"
     config = {"data_name": data_name}
-    model_artifact_name = "trained_model:v40"
+    model_artifact_name = "trained_model:v43"
     notes = ""
+
+    # expected range of heart rate (Hz)
+    SQI_HR_range_min = 0.8
+    SQI_HR_range_max = 2
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -446,6 +434,14 @@ if __name__ == "__main__":
         os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
     ).T
 
+    data_dir = os.path.join(
+        BASE_DIR, "results", "evaluation", data_split_artifact.name, data_name
+    )
+    model_dir = os.path.join(data_dir, model_artifact_name)
+    dir_to_upload = os.path.join(model_dir, "to_upload")
+    os.makedirs(dir_to_upload, exist_ok=True)
+
+    # %%
     window_starts = raw_data.index.get_level_values(level="window_start")
     central_3_minutes = np.logical_and(window_starts >= 60, window_starts <= 4 * 60)
     central_3_minutes_raw_data = raw_data.iloc[central_3_minutes]
@@ -459,6 +455,30 @@ if __name__ == "__main__":
     raw_signal_val_SQI = raw_signal_SQI.loc[val.index]
     raw_signal_noisy_SQI = raw_signal_SQI.loc[noisy.index]
 
+    # plt.figure()
+    # plt.boxplot(
+    #     x=(raw_signal_train_SQI.squeeze(), raw_signal_val_SQI.squeeze(), raw_signal_noisy_SQI.squeeze()),
+    #     labels=("train", "val", "noisy"),
+    # )
+    # plt.gca().set_title('raw signal')
+    # plt.ylabel("SQI")
+    # plt.show()
+    #
+    # sqi_dir = os.path.join(data_dir, 'sqi')
+    # raw_sqi_dir = os.path.join(sqi_dir, 'raw_data')
+    # os.makedirs(raw_sqi_dir, exist_ok=True)
+    # sqi_dir = '/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/evaluation/Inf_data_split:v4/raw_data/sqi'
+    # raw_signal_train_SQI.to_pickle(os.path.join(sqi_dir, 'train.pkl'))
+    # raw_signal_val_SQI.to_pickle(os.path.join(sqi_dir, 'val.pkl'))
+    # raw_signal_noisy_SQI.to_pickle(os.path.join(sqi_dir, 'noisy.pkl'))
+    # # %%
+    # noisy_raw_data = central_3_minutes_raw_data.loc[noisy.index]
+    # example = np.random.choice(noisy_raw_data.index)
+    # plt.plot(noisy_raw_data.loc[example].index, noisy_raw_data.loc[example], label='raw')
+    # plt.plot(noisy.loc[example].index, noisy.loc[example], label='downsampled')
+    # plt.show()
+    # %%
+
     traditional_preprocessed_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_traditional_preprocessed_data.pkl")
     ).T
@@ -469,20 +489,12 @@ if __name__ == "__main__":
     reconstructed_noisy = get_reconstructed_df(noisy, autoencoder=autoencoder)
 
     # %%
-    data_split_dir = os.path.join(
-        BASE_DIR, "results", "evaluation", data_split_artifact.name
-    )
-    model_dir = os.path.join(data_split_dir, model_artifact_name)
-    dir_to_upload = os.path.join(model_dir, "to_upload")
-    os.makedirs(dir_to_upload)
+
     # save_reconstructed_signals(
     #     reconstructed_train, reconstructed_val, reconstructed_noisy
     # )
 
     # %%
-    # expected range of heart rate (Hz)
-    SQI_HR_range_min = 0.8
-    SQI_HR_range_max = 2
 
     (
         train_SQI,
@@ -577,13 +589,9 @@ if __name__ == "__main__":
         return datasets_to_plot
 
     run_plots_dir = plot_examples(
-        raw_data=raw_data,
-        preprocessed_data=train,
-        reconstructed_data=reconstructed_train,
         example_type="Train",
         run_name=run.name,
         save=True,
-        example_idxs=np.arange(0, len(train), 100),
         windows_to_plot=windows_to_plot,
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
@@ -598,13 +606,9 @@ if __name__ == "__main__":
         (val, {"color": "b", "label": "intermediate preprocessing"}),
     ]
     run_plots_dir = plot_examples(
-        raw_data=raw_data,
-        preprocessed_data=val,
-        reconstructed_data=reconstructed_val,
         example_type="Val",
         run_name=run.name,
         save=True,
-        example_idxs=np.arange(0, len(val), 50),
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
             intermediate_preprocessed=val, reconstructed=reconstructed_val
@@ -619,16 +623,33 @@ if __name__ == "__main__":
         (noisy, {"color": "b", "label": "intermediate preprocessing"}),
     ]
     run_plots_dir = plot_examples(
-        raw_data=raw_data,
-        preprocessed_data=noisy,
-        reconstructed_data=reconstructed_noisy,
         example_type="Noisy",
         run_name=run.name,
         save=True,
-        example_idxs=np.arange(0, len(noisy), 100),
         exist_ok=True,
         datasets_to_plot=get_datasets_to_plot(
             intermediate_preprocessed=noisy, reconstructed=reconstructed_noisy
         ),
         windows_to_plot=windows_to_plot,
     )
+
+    noisy_raw_data = central_3_minutes_raw_data.loc[noisy.index]
+    example = np.random.choice(noisy_raw_data.index)
+    plt.plot(
+        noisy_raw_data.loc[example].index, noisy_raw_data.loc[example], label="raw"
+    )
+    plt.plot(noisy.loc[example].index, noisy.loc[example], label="downsampled")
+    plt.title(example)
+    plt.legend()
+    plt.show()
+
+    print(f"raw sqi: {raw_signal_SQI.loc[example]}")
+    print(f"downsampled sqi: {noisy_SQI.loc[example]}")
+
+    #
+    # sqi_dir = '/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/transfer_learning/predict_on_inf/intermediate_preprocessed_reconstructed'
+    # reconstructed_train_SQI.to_pickle(os.path.join(sqi_dir, 'train.pkl'))
+    # reconstructed_val_SQI.to_pickle(os.path.join(sqi_dir, 'val.pkl'))
+    # reconstructed_noisy_SQI.to_pickle(os.path.join(sqi_dir, 'noisy.pkl'))
+    # with open(os.path.join(sqi_dir, 'run_info.txt'), 'w') as f:
+    #     f.write(f'run.name = {run.name}')
