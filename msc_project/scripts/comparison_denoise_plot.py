@@ -8,16 +8,19 @@ from msc_project.scripts.evaluate_autoencoder import (
     get_model,
     download_preprocessed_data,
     get_reconstructed_df,
+    plot_examples,
 )
 from msc_project.scripts.utils import get_artifact_dataframe
 
 
 def get_signal_processed_data(run, data_split_artifact):
-    return get_data_split(
+    train, val, noisy = get_data_split(
         run=run,
         data_split_artifact=data_split_artifact,
         data_name="intermediate_preprocessed",
     )
+    signal_processed = pd.concat(objs=(train, val, noisy))
+    return signal_processed
 
 
 def get_data_split(run, data_split_artifact, data_name):
@@ -46,17 +49,14 @@ def get_data_split(run, data_split_artifact, data_name):
     return train, val, noisy
 
 
-def get_raw_data(data_split_artifact, train_index, val_index, noisy_index):
+def get_raw_data(data_split_artifact):
     preprocessed_data_fp = download_preprocessed_data(data_split_artifact)
     # transpose so examples is row axis. like train/val/noisy
     raw_data = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed_raw_data.pkl")
     ).T
-    train = raw_data.loc[train_index]
-    val = raw_data.loc[val_index]
-    noisy = raw_data.loc[noisy_index]
 
-    return train, val, noisy
+    return raw_data
 
 
 def get_only_downsampled_data(run, data_split_artifact):
@@ -65,23 +65,20 @@ def get_only_downsampled_data(run, data_split_artifact):
     )
 
 
-def get_autoencoder_denoised_data(run, model_artifact_name, data_split_artifact):
+def get_autoencoder_reconstructed_data(run, model_artifact_name, data_split_artifact):
     downsampled_train, downsampled_val, downsampled_noisy = get_only_downsampled_data(
         run=run, data_split_artifact=data_split_artifact
     )
+    downsampled = pd.concat(
+        objs=(downsampled_train, downsampled_val, downsampled_noisy)
+    )
     autoencoder = get_model(run=run, artifact_or_name=model_artifact_name)
 
-    reconstructed_train = get_reconstructed_df(
-        to_reconstruct=downsampled_train, autoencoder=autoencoder
-    )
-    reconstructed_val = get_reconstructed_df(
-        to_reconstruct=downsampled_val, autoencoder=autoencoder
-    )
-    reconstructed_noisy = get_reconstructed_df(
-        to_reconstruct=downsampled_noisy, autoencoder=autoencoder
+    reconstructed = get_reconstructed_df(
+        to_reconstruct=downsampled, autoencoder=autoencoder
     )
 
-    return reconstructed_train, reconstructed_val, reconstructed_noisy
+    return reconstructed
 
 
 if __name__ == "__main__":
@@ -103,25 +100,29 @@ if __name__ == "__main__":
         f"william-davies/{DENOISING_AUTOENCODER_PROJECT_NAME}/{data_split_artifact_name}"
     )
 
-    (
-        signal_processed_train,
-        signal_processed_val,
-        signal_processed_noisy,
-    ) = get_signal_processed_data(run=run, data_split_artifact=data_split_artifact)
-
-    raw_train, raw_val, raw_noisy = get_raw_data(
-        data_split_artifact=data_split_artifact,
-        train_index=signal_processed_train.index,
-        val_index=signal_processed_val.index,
-        noisy_index=signal_processed_noisy.index,
+    signal_processed = get_signal_processed_data(
+        run=run, data_split_artifact=data_split_artifact
     )
 
-    (
-        reconstructed_train,
-        reconstructed_val,
-        reconstructed_noisy,
-    ) = get_autoencoder_denoised_data(
+    raw_data = get_raw_data(
+        data_split_artifact=data_split_artifact,
+    )
+
+    reconstructed = get_autoencoder_reconstructed_data(
         run=run,
         model_artifact_name=model_artifact_name,
         data_split_artifact=data_split_artifact,
+    )
+
+    datasets_to_plot = [
+        (raw_data, {"color": "k", "label": "original signal"}),
+        (
+            intermediate_preprocessed,
+            {"color": "b", "label": "ae input"},
+        ),
+        (reconstructed, {"color": "g", "label": "reconstructed"}),
+    ]
+
+    plot_examples(
+        run_name=run.name, example_type="train", datasets_to_plot=datasets_to_plot
     )
