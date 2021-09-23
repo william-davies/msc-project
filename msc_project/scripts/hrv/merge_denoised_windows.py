@@ -10,6 +10,7 @@ from msc_project.scripts.get_preprocessed_data import get_freq
 from msc_project.scripts.get_sheet_raw_data import get_timedelta_index
 from msc_project.scripts.utils import get_artifact_dataframe
 
+
 if __name__ == "__main__":
     model_artifact_name = "trained_on_EmLBVP:v0"
 
@@ -51,6 +52,6 @@ if __name__ == "__main__":
             merged_signal_timedelta_indexes, window_idx
         ] = reconstructed_window.values
 
-    test_df = merged_reconstructed_signals[("0720202421P1_608", "r1")]
-    isna = test_df.isna()
-    summed = isna.sum(axis=1)
+    meaned = merged_reconstructed_signals.groupby(
+        level=["participant", "treatment_label"], axis=1
+    ).mean()
