@@ -6,7 +6,11 @@ import os
 import wandb
 from matplotlib import pyplot as plt
 
-from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, SheetNames
+from msc_project.constants import (
+    DENOISING_AUTOENCODER_PROJECT_NAME,
+    SheetNames,
+    SECONDS_IN_MINUTE,
+)
 from msc_project.scripts.evaluate_autoencoder import (
     download_artifact_model,
     get_reconstructed_df,
@@ -55,15 +59,19 @@ if __name__ == "__main__":
     )
 
     # 3. plot signals and compare
-    arbitrary_example = merged_signal.columns[1]
+    arbitrary_example = merged_signal.columns[2]
     treatment_windows = reconstructed_windows[arbitrary_example]
     treatment_windows = (
         treatment_windows + 1
     )  # so that they're not all overlapping and illegible
     plt.figure()
-    for idx in treatment_windows.iloc[:, :7]:
+    for idx in treatment_windows.iloc[:, :]:
         window = treatment_windows[idx]
-        plot_signal(signal=window)
+        # this is very opaque code. basically plots all the reconstructed windows in different locations so that
+        # you can actually look at them
+        # %8 makes this periodic
+        offset = ((idx - SECONDS_IN_MINUTE) % 8) / 1.5
+        plot_signal(signal=window + offset)
     plot_signal(signal=merged_signal[arbitrary_example])
     plt.title(arbitrary_example)
     plt.show()
