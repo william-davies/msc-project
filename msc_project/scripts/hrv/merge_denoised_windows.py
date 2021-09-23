@@ -50,3 +50,7 @@ if __name__ == "__main__":
         merged_reconstructed_signals.loc[
             merged_signal_timedelta_indexes, window_idx
         ] = reconstructed_window.values
+
+    test_df = merged_reconstructed_signals[("0720202421P1_608", "r1")]
+    isna = test_df.isna()
+    summed = isna.sum(axis=1)
