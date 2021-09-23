@@ -24,30 +24,44 @@ def merge_windows(reconstructed_windows):
     :param reconstructed_windows:
     :return:
     """
-    full_signal_index = get_timedelta_index(
-        start_time=SECONDS_IN_MINUTE,
-        end_time=4 * SECONDS_IN_MINUTE,
-        frequency=get_freq(index=reconstructed_windows.index),
+    merged_reconstructed_signals = convert_relative_timedelta_to_absolute_timedelta(
+        reconstructed_windows
     )
-    merged_reconstructed_signals = pd.DataFrame(
-        data=float("nan"),
-        columns=reconstructed_windows.columns,
-        index=full_signal_index,
-    )
-
-    for window_idx in reconstructed_windows:
-        reconstructed_window = reconstructed_windows[window_idx]
-        window_start = reconstructed_window.name[-1]
-        window_start = pd.to_timedelta(window_start, unit="second")
-        merged_signal_timedelta_indexes = window_start + reconstructed_window.index
-        merged_reconstructed_signals.loc[
-            merged_signal_timedelta_indexes, window_idx
-        ] = reconstructed_window.values
 
     meaned = merged_reconstructed_signals.groupby(
         level=["participant", "treatment_label", "series_label"], axis=1
     ).mean()
     return meaned
+
+
+def convert_relative_timedelta_to_absolute_timedelta(
+    relative_timedelta_windows: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    0s - 8s -> 62s - 70s.
+    :param relative_timedelta_windows:
+    :return:
+    """
+    full_signal_index = get_timedelta_index(
+        start_time=SECONDS_IN_MINUTE,
+        end_time=4 * SECONDS_IN_MINUTE,
+        frequency=get_freq(index=relative_timedelta_windows.index),
+    )
+    absolute_timedelta_windows = pd.DataFrame(
+        data=float("nan"),
+        columns=relative_timedelta_windows.columns,
+        index=full_signal_index,
+    )
+    for window_idx in relative_timedelta_windows:
+        window = relative_timedelta_windows[window_idx]
+        window_start = window.name[-1]
+        window_start = pd.to_timedelta(window_start, unit="second")
+        absolute_timedelta_indexes = window_start + window.index
+        absolute_timedelta_windows.loc[
+            absolute_timedelta_indexes, window_idx
+        ] = window.values
+
+    return absolute_timedelta_windows
 
 
 if __name__ == "__main__":
