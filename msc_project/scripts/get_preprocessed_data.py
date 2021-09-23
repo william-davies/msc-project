@@ -32,7 +32,7 @@ TREATMENT_LABEL_PATTERN = re.compile(TREATMENT_LABEL_PATTERN)
 def get_temporal_subwindow_of_signal(df, window_start, window_end):
     """
     Return dataframe between time window_start and window_ed.
-    :param df:
+    :param df: rows is TimedeltaIndex
     :param window_start: seconds
     :param window_end: seconds
     :return:
@@ -831,16 +831,26 @@ def do_intermediate_preprocessing(
     return preprocessed_data
 
 
+def save_windowed_data(data, filename):
+    fp = os.path.join(
+        preprocessed_data_dir,
+        "windowed",
+        filename,
+    )
+    data.to_pickle(fp)
+
+
 # %%
 if __name__ == "__main__":
     run_tests: bool = False
-    upload_to_wandb: bool = True
+    upload_to_wandb: bool = False
     sheet_name = SheetNames.INFINITY.value
     noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
+    job_type = "preprocessed_data"
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
-        job_type="preprocessed_data",
+        job_type=job_type,
         save_code=True,
     )
 
@@ -904,6 +914,9 @@ if __name__ == "__main__":
         blank_noisy_mask, noisy_labels_excel_sheet_filepath
     )
 
+    dirpath = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/writeup/compare_noisy_masks"
+    noisy_mask.to_pickle(os.path.join(dirpath, f"{sheet_name}_noisy_mask.pkl"))
+
     windowed_raw_data = handle_data_windowing(
         non_windowed_data=sheet_raw_data,
         window_duration=metadata["window_duration"],
@@ -946,45 +959,25 @@ if __name__ == "__main__":
         BASE_DIR,
         "data",
         DENOISING_AUTOENCODER_PROJECT_NAME,
-        "preprocessed_data",
+        job_type,
         sheet_name,
         run.name,
     )
     os.makedirs(preprocessed_data_dir)
 
-    windowed_raw_data_fp = os.path.join(
-        preprocessed_data_dir,
-        f"windowed_raw_data.pkl",
+    save_windowed_data(data=windowed_raw_data, filename="raw_data.pkl")
+    save_windowed_data(
+        data=windowed_only_downsampled_data, filename="only_downsampled_data.pkl"
     )
-    windowed_raw_data.to_pickle(windowed_raw_data_fp)
-
-    windowed_only_downsampled_data_fp = os.path.join(
-        preprocessed_data_dir,
-        f"windowed_only_downsampled_data.pkl",
+    save_windowed_data(
+        data=windowed_traditional_preprocessed_data,
+        filename="traditional_preprocessed_data.pkl",
     )
-    windowed_only_downsampled_data.to_pickle(windowed_only_downsampled_data_fp)
-
-    windowed_traditional_preprocessed_data_fp = os.path.join(
-        preprocessed_data_dir,
-        f"windowed_traditional_preprocessed_data.pkl",
+    save_windowed_data(
+        data=windowed_intermediate_preprocessed_data,
+        filename="intermediate_preprocessed_data.pkl",
     )
-    windowed_traditional_preprocessed_data.to_pickle(
-        windowed_traditional_preprocessed_data_fp
-    )
-
-    windowed_intermediate_preprocessed_data_fp = os.path.join(
-        preprocessed_data_dir,
-        f"windowed_intermediate_preprocessed_data.pkl",
-    )
-    windowed_intermediate_preprocessed_data.to_pickle(
-        windowed_intermediate_preprocessed_data_fp
-    )
-
-    windowed_noisy_mask_fp = os.path.join(
-        preprocessed_data_dir,
-        f"windowed_noisy_mask.pkl",
-    )
-    windowed_noisy_mask.to_pickle(windowed_noisy_mask_fp)
+    save_windowed_data(data=windowed_noisy_mask, filename="noisy_mask.pkl")
 
     if upload_to_wandb:
         preprocessed_data_artifact = wandb.Artifact(
