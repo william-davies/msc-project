@@ -45,7 +45,7 @@ def merge_windows(reconstructed_windows):
         ] = reconstructed_window.values
 
     meaned = merged_reconstructed_signals.groupby(
-        level=["participant", "treatment_label"], axis=1
+        level=["participant", "treatment_label", "series_label"], axis=1
     ).mean()
     return meaned
 
