@@ -75,7 +75,7 @@ def bandpass_filter(
     Followed https://github.com/deepneuroscience/Rethinking-Eye-blink/blob/e4ad06008ac79735468ef7e2824cf906f4addcd7/rethinking_eyeblink/utils/blink_spectrogram.py#L41.
     :param data:
     :param metadata:
-    :param sampling_frequency:
+    :param sampling_frequency: of `data`
     :return:
     """
     nyquist_frequency = sampling_frequency / 2
@@ -645,7 +645,7 @@ def do_traditional_preprocessing(
     bandpass_filtered_data = bandpass_filter(
         data=downsampled,
         metadata=metadata,
-        sampling_frequency=original_fs,
+        sampling_frequency=metadata["downsampled_frequency"],
     )
 
     moving_averaged_data = moving_average(
@@ -847,7 +847,7 @@ def upload_not_windowed_data(data_artifact, data, filename):
 # %%
 if __name__ == "__main__":
     run_tests: bool = False
-    upload_to_wandb: bool = True
+    upload_to_wandb: bool = False
     sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
     job_type = "preprocessed_data"
