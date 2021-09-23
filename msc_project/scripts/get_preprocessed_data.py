@@ -68,16 +68,14 @@ def downsample(original_data, original_rate, downsampled_rate):
     return downsampled_df
 
 
-def bandpass_filter(
-    data: pd.DataFrame, metadata: Dict, sampling_frequency: float
-) -> pd.DataFrame:
+def bandpass_filter(data: pd.DataFrame, metadata: Dict) -> pd.DataFrame:
     """
     Followed https://github.com/deepneuroscience/Rethinking-Eye-blink/blob/e4ad06008ac79735468ef7e2824cf906f4addcd7/rethinking_eyeblink/utils/blink_spectrogram.py#L41.
     :param data:
     :param metadata:
-    :param sampling_frequency: of `data`
     :return:
     """
+    sampling_frequency = get_freq(data.index)
     nyquist_frequency = sampling_frequency / 2
     Wn = [
         metadata["bandpass_lower_frequency"] / nyquist_frequency,
@@ -645,7 +643,6 @@ def do_traditional_preprocessing(
     bandpass_filtered_data = bandpass_filter(
         data=downsampled,
         metadata=metadata,
-        sampling_frequency=metadata["downsampled_frequency"],
     )
 
     moving_averaged_data = moving_average(
@@ -749,7 +746,6 @@ def do_intermediate_preprocessing(
     bandpass_filtered_data = bandpass_filter(
         data=central_cropped_window,
         metadata=metadata,
-        sampling_frequency=original_fs,
     )
 
     if metadata["baseline_wandering_subtraction_window_duration"] is not None:
