@@ -833,18 +833,22 @@ def do_intermediate_preprocessing(
 
 def save_windowed_data(data, filename):
     fp = os.path.join(
-        preprocessed_data_dir,
-        "windowed",
+        windowed_dir,
         filename,
     )
     data.to_pickle(fp)
 
 
+def upload_not_windowed_data(data_artifact, data, filename):
+    with data_artifact.new_file(os.path.join("not_windowed", filename)) as f:
+        data.to_pickle(f.name)
+
+
 # %%
 if __name__ == "__main__":
     run_tests: bool = False
-    upload_to_wandb: bool = False
-    sheet_name = SheetNames.INFINITY.value
+    upload_to_wandb: bool = True
+    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
     noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
     job_type = "preprocessed_data"
 
@@ -965,6 +969,8 @@ if __name__ == "__main__":
     )
     os.makedirs(preprocessed_data_dir)
 
+    windowed_dir = os.path.join(preprocessed_data_dir, "windowed")
+    os.makedirs(windowed_dir)
     save_windowed_data(data=windowed_raw_data, filename="raw_data.pkl")
     save_windowed_data(
         data=windowed_only_downsampled_data, filename="only_downsampled_data.pkl"
@@ -989,5 +995,26 @@ if __name__ == "__main__":
         preprocessed_data_artifact.add_file(
             noisy_labels_excel_sheet_filepath, "noisy-labels.xlsx"
         )
+        upload_not_windowed_data(
+            data_artifact=preprocessed_data_artifact,
+            data=sheet_raw_data,
+            filename="raw_data.pkl",
+        )
+        upload_not_windowed_data(
+            data_artifact=preprocessed_data_artifact,
+            data=only_downsampled_data,
+            filename="only_downsampled_data.pkl",
+        )
+        upload_not_windowed_data(
+            data_artifact=preprocessed_data_artifact,
+            data=traditional_preprocessed_data,
+            filename="traditional_preprocessed_data.pkl",
+        )
+        upload_not_windowed_data(
+            data_artifact=preprocessed_data_artifact,
+            data=intermediate_preprocessed_data,
+            filename="intermediate_preprocessed_data.pkl",
+        )
+
         run.log_artifact(preprocessed_data_artifact)
     run.finish()
