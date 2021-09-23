@@ -26,7 +26,7 @@ if __name__ == "__main__":
     )
 
     autoencoder = download_artifact_model(run=run, artifact_or_name=model_artifact_name)
-    empatica_reconstructed_windows = get_reconstructed_df(
+    reconstructed_windows = get_reconstructed_df(
         to_reconstruct=empatica_only_downsampled_data.T,
         autoencoder=autoencoder,
     ).T
@@ -34,10 +34,19 @@ if __name__ == "__main__":
     full_signal_index = get_timedelta_index(
         start_time=SECONDS_IN_MINUTE,
         end_time=4 * SECONDS_IN_MINUTE,
-        frequency=get_freq(index=empatica_reconstructed_windows.index),
+        frequency=get_freq(index=reconstructed_windows.index),
     )
-    reconstructed_full_signals = pd.DataFrame(
+    merged_reconstructed_signals = pd.DataFrame(
         data=float("nan"),
-        columns=empatica_reconstructed_windows.columns,
+        columns=reconstructed_windows.columns,
         index=full_signal_index,
     )
+
+    for window_idx in reconstructed_windows:
+        reconstructed_window = reconstructed_windows[window_idx]
+        window_start = reconstructed_window.name[-1]
+        window_start = pd.to_timedelta(window_start, unit="second")
+        merged_signal_timedelta_indexes = window_start + reconstructed_window.index
+        merged_reconstructed_signals.loc[
+            merged_signal_timedelta_indexes, window_idx
+        ] = reconstructed_window.values
