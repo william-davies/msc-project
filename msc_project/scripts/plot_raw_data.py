@@ -15,6 +15,7 @@ from msc_project.constants import (
     RECORDED_SIGNAL_SIGNAL_NAME_GROUP_DX,
     BASE_DIR,
     SECONDS_IN_MINUTE,
+    SheetNames,
 )
 from matplotlib.ticker import MultipleLocator
 
@@ -24,7 +25,7 @@ from msc_project.scripts.get_preprocessed_data import (
     downsample,
     normalize_windows,
 )
-from utils import get_final_recorded_idx, Span
+from msc_project.scripts.utils import get_final_recorded_idx, Span
 
 TREATMENT_PATTERN = "^[a-z]+_(\S+)_[a-z]+$"
 TREATMENT_PATTERN = re.compile(TREATMENT_PATTERN)
@@ -46,7 +47,7 @@ class PhysiologicalTimeseriesPlotter:
         noisy_labels_filename: str,
     ):
         """
-        Plot graph of signal vs time.
+        Plot graph of signal vs time. Plots raw data (no preprocessing).
 
         :param participant_dirname: directory contains all sensor data on this participant.
         :param sheet_name:
@@ -160,7 +161,6 @@ class PhysiologicalTimeseriesPlotter:
         self, participant_number, treatment_position, noisy_labels_filename
     ):
         """
-        I've only labelled Inf BVP at the moment.
         :param participant_number:
         :param treatment_position:
         :return:
@@ -191,52 +191,58 @@ class PhysiologicalTimeseriesPlotter:
         return span_objects
 
 
-# %%
-plotter = PhysiologicalTimeseriesPlotter()
-# ["r1", "m2", "r3", "m4", "r5"]
+def plot_signal(signal: pd.Series, label: str = "", **kwargs) -> None:
+    plt.plot(signal.index.total_seconds(), signal, label=label, **kwargs)
 
-# for participant_dirname in ["0720202421P1_608"]:
-#     plotter.plot_single_timeseries(
-#         participant_dirname,
-#         sheet_name="EmLBVP",
-#         treatment_label="r1",
-#         series_label="bvp",
-#         save=False,
-#         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-#     )
 
-# %%
-plotter = PhysiologicalTimeseriesPlotter()
-# plt.figure()
-# plotter.plot_single_timeseries(
-#     participant_dirname="0720202421P1_608",
-#     sheet_name="Inf",
-#     treatment_label="r1",
-#     series_label="bvp",
-#     save=False,
-#     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-# )
-# plotter.plot_single_timeseries(
-#     participant_dirname="0720202421P1_608",
-#     sheet_name="EmLBVP",
-#     treatment_label="r1",
-#     series_label="bvp",
-#     save=False,
-#     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-# )
-# plt.legend()
-# plt.show()
+if __name__ == "__main__":
+    # %%
+    plotter = PhysiologicalTimeseriesPlotter()
+    # ["r1", "m2", "r3", "m4", "r5"]
 
-# %%
-plt.figure()
-plotter.plot_single_timeseries(
-    participant_dirname="0802184155P23_natural",
-    sheet_name="EmLBVP",
-    treatment_label="r5",
-    series_label="bvp",
-    save=False,
-    temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
-    noisy_labels_filename="labelling-EmLBVP-dataset-less-strict.xlsx",
-)
-plt.legend()
-plt.show()
+    # for participant_dirname in ["0720202421P1_608"]:
+    #     plotter.plot_single_timeseries(
+    #         participant_dirname,
+    #         sheet_name="EmLBVP",
+    #         treatment_label="r1",
+    #         series_label="bvp",
+    #         save=False,
+    #         temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+    #     )
+    # %%
+    plotter = PhysiologicalTimeseriesPlotter()
+    # plt.figure()
+    # plotter.plot_single_timeseries(
+    #     participant_dirname="0720202421P1_608",
+    #     sheet_name="Inf",
+    #     treatment_label="r1",
+    #     series_label="bvp",
+    #     save=False,
+    #     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+    # )
+    # plotter.plot_single_timeseries(
+    #     participant_dirname="0720202421P1_608",
+    #     sheet_name="EmLBVP",
+    #     treatment_label="r1",
+    #     series_label="bvp",
+    #     save=False,
+    #     temporal_subwindow_params=[1 * SECONDS_IN_MINUTE, 4 * SECONDS_IN_MINUTE],
+    # )
+    # plt.legend()
+    # plt.show()
+
+    # %%
+    plt.figure()
+    sheet_name = SheetNames.INFINITY.value
+    plotter.plot_single_timeseries(
+        participant_dirname="0725135216P4_608",
+        sheet_name=sheet_name,
+        treatment_label="m2_hard",
+        series_label="bvp",
+        save=False,
+        # temporal_subwindow_params=[2 * SECONDS_IN_MINUTE, 3 * SECONDS_IN_MINUTE],
+        temporal_subwindow_params=[60, 60 + 3 * 60],
+        noisy_labels_filename=f"labelling-{sheet_name}-dataset-less-strict.xlsx",
+    )
+    plt.legend()
+    plt.show()
