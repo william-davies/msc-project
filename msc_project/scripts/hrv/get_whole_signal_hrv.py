@@ -2,6 +2,7 @@
 Get HRV of full 3 minute signals.
 """
 import os
+from typing import List
 
 import wandb
 
@@ -31,6 +32,22 @@ def plot_heartpy_outputs(heartpy_outputs, dataset_name: str):
             save_filepath=os.path.join(save_dir, slugify(treatment)),
             figsize=(18, 9),
         )
+
+
+def get_hrv_wrapper(signal_data):
+    with warnings.catch_warnings(record=True) as w:
+        warnings.filterwarnings("always")
+        hrv = get_hrv(signal_data=signal_data)
+        return hrv, w
+
+
+def get_warning_msgs(warnings) -> List[str]:
+    """
+    Get just the messages so I can quickly debug.
+    :param warnings:
+    :return:
+    """
+    return [warning.message.args[0] for warning in warnings]
 
 
 if __name__ == "__main__":
@@ -80,13 +97,19 @@ if __name__ == "__main__":
     )
 
     # get HRV of all treatments
-    with warnings.catch_warnings(record=True) as w:
-        warnings.filterwarnings("always")
-        inf_raw_hrv = get_hrv(signal_data=inf_raw)
-        print(len(w))
-    # empatica_only_downsampled_hrv = get_hrv(signal_data=empatica_only_downsampled)
-    # empatica_traditional_preprocessed_hrv = get_hrv(signal_data=empatica_traditional_preprocessed)
-    # empatica_dae_denoised_hrv = get_hrv(signal_data=empatica_dae_denoised)
+    inf_raw_hrv, inf_raw_warnings = get_hrv_wrapper(signal_data=inf_raw)
+    empatica_only_downsampled_hrv, empatica_only_downsampled_warnings = get_hrv_wrapper(
+        signal_data=empatica_only_downsampled
+    )
+    (
+        empatica_traditional_preprocessed_hrv,
+        empatica_traditional_preprocessed_warnings,
+    ) = get_hrv_wrapper(signal_data=empatica_traditional_preprocessed)
+    empatica_dae_denoised_hrv, empatica_dae_denoised_warnings = get_hrv_wrapper(
+        signal_data=empatica_dae_denoised
+    )
+
+    warning_msgs = get_warning_msgs(warnings=empatica_dae_denoised_warnings)
 
     plots_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
 
