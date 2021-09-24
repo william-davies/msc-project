@@ -18,16 +18,16 @@ from msc_project.scripts.utils import get_artifact_dataframe, slugify
 import warnings
 
 
-def plot_heartpy_outputs(heartpy_outputs, dataset_name: str):
+def plot_heartpy_outputs(heartpy_output, dataset_name: str):
     save_dir = os.path.join(plots_dir, dataset_name)
     os.makedirs(save_dir, exist_ok=True)
 
-    heartpy_successful = heartpy_outputs.columns[~heartpy_outputs.isna().all()]
+    heartpy_successful = heartpy_output.columns[~heartpy_output.isna().all()]
     for treatment in heartpy_successful:
         heartpy_plotter_wrapper(
-            working_data=heartpy_outputs[treatment],
-            measures=heartpy_outputs[treatment],
-            title=treatment,
+            working_data=heartpy_output[treatment],
+            measures=heartpy_output[treatment],
+            title=f"{dataset_name}-{treatment}",
             show=False,
             save_filepath=os.path.join(save_dir, slugify(treatment)),
             figsize=(18, 9),
@@ -112,5 +112,17 @@ if __name__ == "__main__":
     warning_msgs = get_warning_msgs(warnings=empatica_dae_denoised_warnings)
 
     plots_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
+    plot_heartpy_outputs(heartpy_output=inf_raw_hrv, dataset_name="inf_raw")
+    plot_heartpy_outputs(
+        heartpy_output=empatica_only_downsampled_hrv,
+        dataset_name="empatica_only_downsampled",
+    )
+    plot_heartpy_outputs(
+        heartpy_output=empatica_traditional_preprocessed_hrv,
+        dataset_name="empatica_traditional_preprocessed",
+    )
+    plot_heartpy_outputs(
+        heartpy_output=empatica_dae_denoised_hrv, dataset_name="empatica_dae_denoised"
+    )
 
     # upload HRV of all treatments
