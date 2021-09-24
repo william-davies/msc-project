@@ -4,6 +4,7 @@ Get HRV of full 3 minute signals.
 import os
 from typing import List
 
+import pandas as pd
 import wandb
 
 from msc_project.constants import (
@@ -50,11 +51,24 @@ def get_warning_msgs(warnings) -> List[str]:
     return [warning.message.args[0] for warning in warnings]
 
 
-if __name__ == "__main__":
+def add_temp_file_to_artifact(artifact, fp: str, df: pd.DataFrame) -> None:
+    """
+    Helper function
+    :param artifact:
+    :param fp:
+    :param df:
+    :return:
+    """
+    with artifact.new_file(fp) as f:
+        df.to_pickle(f.name)
 
+
+if __name__ == "__main__":
     infinity_preprocessed_data_artifact_name = "Inf_preprocessed_data:v6"
     empatica_preprocessed_data_artifact_name = "EmLBVP_preprocessed_data:v6"
     dae_denoised_signal_artifact_name = "EmLBVP_merged_signal:v1"
+    make_plots: bool = False
+    upload_artifact: bool = True
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -111,18 +125,42 @@ if __name__ == "__main__":
 
     warning_msgs = get_warning_msgs(warnings=empatica_dae_denoised_warnings)
 
-    plots_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
-    plot_heartpy_outputs(heartpy_output=inf_raw_hrv, dataset_name="inf_raw")
-    plot_heartpy_outputs(
-        heartpy_output=empatica_only_downsampled_hrv,
-        dataset_name="empatica_only_downsampled",
-    )
-    plot_heartpy_outputs(
-        heartpy_output=empatica_traditional_preprocessed_hrv,
-        dataset_name="empatica_traditional_preprocessed",
-    )
-    plot_heartpy_outputs(
-        heartpy_output=empatica_dae_denoised_hrv, dataset_name="empatica_dae_denoised"
-    )
+    if make_plots:
+        plots_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
+        plot_heartpy_outputs(heartpy_output=inf_raw_hrv, dataset_name="inf_raw")
+        plot_heartpy_outputs(
+            heartpy_output=empatica_only_downsampled_hrv,
+            dataset_name="empatica_only_downsampled",
+        )
+        plot_heartpy_outputs(
+            heartpy_output=empatica_traditional_preprocessed_hrv,
+            dataset_name="empatica_traditional_preprocessed",
+        )
+        plot_heartpy_outputs(
+            heartpy_output=empatica_dae_denoised_hrv,
+            dataset_name="empatica_dae_denoised",
+        )
 
     # upload HRV of all treatments
+    if upload_artifact:
+        hrv_artifact = wandb.Artifact(name="get_merged_signal_hrv", type="get_hrv")
+        add_temp_file_to_artifact(
+            artifact=hrv_artifact, fp="inf_raw.pkl", df=inf_raw_hrv
+        )
+        add_temp_file_to_artifact(
+            artifact=hrv_artifact,
+            fp="empatica_only_downsampled.pkl",
+            df=empatica_only_downsampled_hrv,
+        )
+        add_temp_file_to_artifact(
+            artifact=hrv_artifact,
+            fp="empatica_traditional_preprocessed.pkl",
+            df=empatica_traditional_preprocessed_hrv,
+        )
+        add_temp_file_to_artifact(
+            artifact=hrv_artifact,
+            fp="empatica_dae_denoised.pkl",
+            df=empatica_dae_denoised_hrv,
+        )
+        run.log_artifact(hrv_artifact)
+    run.finish()
