@@ -5,11 +5,33 @@ import os
 
 import wandb
 
-from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, SECONDS_IN_MINUTE
+from msc_project.constants import (
+    DENOISING_AUTOENCODER_PROJECT_NAME,
+    SECONDS_IN_MINUTE,
+    BASE_DIR,
+)
 from msc_project.scripts.get_preprocessed_data import get_temporal_subwindow_of_signal
 from msc_project.scripts.hrv.get_hrv import get_hrv
-from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.hrv.inspect_heartpy_output import heartpy_plotter_wrapper
+from msc_project.scripts.utils import get_artifact_dataframe, slugify
 import warnings
+
+
+def plot_heartpy_outputs(heartpy_outputs, dataset_name: str):
+    save_dir = os.path.join(plots_dir, dataset_name)
+    os.makedirs(save_dir, exist_ok=True)
+
+    heartpy_successful = heartpy_outputs.columns[~heartpy_outputs.isna().all()]
+    for treatment in heartpy_successful:
+        heartpy_plotter_wrapper(
+            working_data=heartpy_outputs[treatment],
+            measures=heartpy_outputs[treatment],
+            title=treatment,
+            show=False,
+            save_filepath=os.path.join(save_dir, slugify(treatment)),
+            figsize=(18, 9),
+        )
+
 
 if __name__ == "__main__":
 
@@ -58,11 +80,14 @@ if __name__ == "__main__":
     )
 
     # get HRV of all treatments
-    with warnings.catch_warnings(record=True):
+    with warnings.catch_warnings(record=True) as w:
         warnings.filterwarnings("always")
         inf_raw_hrv = get_hrv(signal_data=inf_raw)
+        print(len(w))
     # empatica_only_downsampled_hrv = get_hrv(signal_data=empatica_only_downsampled)
     # empatica_traditional_preprocessed_hrv = get_hrv(signal_data=empatica_traditional_preprocessed)
     # empatica_dae_denoised_hrv = get_hrv(signal_data=empatica_dae_denoised)
+
+    plots_dir = os.path.join(BASE_DIR, "results", "hrv", run.name)
 
     # upload HRV of all treatments
