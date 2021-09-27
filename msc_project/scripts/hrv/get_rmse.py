@@ -9,6 +9,7 @@ import wandb
 
 #%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
+from msc_project.scripts.hrv.hrv_testing_ground import get_clean_signal_indexes
 from msc_project.scripts.utils import get_artifact_dataframe
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
@@ -78,12 +79,16 @@ def get_all_rmses(gt_hrv: pd.DataFrame, hrv_data: Iterable[Tuple]) -> pd.DataFra
 
 if __name__ == "__main__":
     hrv_artifact_name: str = "get_merged_signal_hrv:v1"
+    preprocessed_data_artifact_name: str = "Inf_preprocessed_data:v7"
     upload_artifacts: bool = False
+    noise_tolerance: float = 0
+    config = {"noise_tolerance": noise_tolerance}
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
         job_type="hrv_evaluation",
         save_code=True,
+        config=config,
     )
 
     inf_raw_heartpy_output = get_artifact_dataframe(
@@ -116,6 +121,15 @@ if __name__ == "__main__":
         pkl_filename="empatica_dae_denoised.pkl",
     )
 
+    noisy_mask = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact_name,
+        pkl_filename=os.path.join("not_windowed", "noisy_mask.pkl"),
+    )
+    clean_indexes = get_clean_signal_indexes(
+        noisy_mask=noisy_mask, noise_tolerance=noise_tolerance
+    )
+
     inf_raw_hrv = filter_metrics_of_interest(inf_raw_heartpy_output)
     empatica_raw_hrv = filter_metrics_of_interest(empatica_raw_heartpy_output)
     empatica_only_downsampled_hrv = filter_metrics_of_interest(
@@ -143,20 +157,21 @@ if __name__ == "__main__":
     ]
 
     all_rmses = get_all_rmses(gt_hrv=inf_raw_hrv, hrv_data=hrv_data)
-    all_rmses.to_pickle(to_upload_dir, "all_rmses.pkl")
+    all_rmses.to_pickle(os.path.join(to_upload_dir, "all_rmses.pkl"))
+    all_rmses.to_csv(os.path.join(run_dir, "all_rmses.csv"))
 
     for (hrv_data, data_name) in [(inf_raw_hrv, "inf_raw"), *hrv_data]:
         hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv_of_interest.pkl"))
 
     if upload_artifacts:
-        artifact = wandb.Artifact(name="hrv_rmse", type="hrv")
+        artifact = wandb.Artifact(name="hrv_rmse", type="hrv", metadata=config)
         artifact.add_dir(to_upload_dir)
         run.log_artifact(artifact)
     run.finish()
 
-    empatica_raw_rmse = load_rmse(data_name="empatica_raw")
-    empatica_only_downsampled_rmse = load_rmse(data_name="empatica_only_downsampled")
-    empatica_traditional_preprocessed_rmse = load_rmse(
-        data_name="empatica_traditional_preprocessed"
-    )
-    empatica_dae_denoised_rmse = load_rmse(data_name="empatica_dae_denoised")
+    # empatica_raw_rmse = load_rmse(data_name="empatica_raw")
+    # empatica_only_downsampled_rmse = load_rmse(data_name="empatica_only_downsampled")
+    # empatica_traditional_preprocessed_rmse = load_rmse(
+    #     data_name="empatica_traditional_preprocessed"
+    # )
+    # empatica_dae_denoised_rmse = load_rmse(data_name="empatica_dae_denoised")

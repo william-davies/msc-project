@@ -1,17 +1,18 @@
 import os
-from typing import List, Iterable
+from typing import Iterable
 
 import pandas as pd
 import wandb
 import numpy as np
 
 #%%
-from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
+from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
 # inf_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
 # empatica_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "empatica_raw_data_hrv.pkl"))
-from msc_project.scripts.hrv.get_rmse import get_rmse
+from msc_project.scripts.hrv.get_rmse import get_all_rmses
+from msc_project.scripts.utils import get_artifact_dataframe
 
 metrics_of_interest = [
     "bpm",
@@ -52,14 +53,14 @@ def get_nans_per_metric(metric_set: pd.DataFrame) -> pd.Series:
     return isna.sum(axis=1)
 
 
-def get_clean_window_indexes(windowed_noisy_mask, noise_tolerance=0):
+def get_clean_signal_indexes(noisy_mask: pd.DataFrame, noise_tolerance: float = 0):
     """
-
-    :param windowed_noisy_mask:
+    Return indexes of signals that are below noise tolerance.
+    :param noisy_mask: binary
     :param noise_tolerance: between 0 and 1
     :return:
     """
-    noisy_proportions = windowed_noisy_mask.sum(axis=0) / windowed_noisy_mask.shape[0]
+    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
     is_clean = noisy_proportions <= noise_tolerance
     clean_indexes = is_clean.index[is_clean]
     return clean_indexes
@@ -90,46 +91,38 @@ def get_all_nan_counts(metric_sets: Iterable[pd.DataFrame]) -> pd.DataFrame:
     return all_nan_counts
 
 
-def get_all_rmses(metric_sets: Iterable[pd.DataFrame]) -> pd.DataFrame:
-    rmses = []
-    for metric_set in metric_sets:
-        rmse = get_rmse(gt_hrv_metrics=inf_raw, other_hrv_metrics=metric_set)
-        rmses.append(rmse)
-
-    all_rmses = pd.concat(
-        objs=rmses,
-        axis=1,
-        keys=[
-            "empatica_raw",
-            "empatica_traditional_preprocessed",
-            "empatica_intermediate_preprocessed",
-            "empatica_proposed_denoised",
-        ],
-    )
-    return all_rmses
+def get_normalized_delta(df1, df2):
+    delta = df1 - df2
+    normalized = delta.divide((df1 + df2) / 2)
+    return normalized
 
 
 if __name__ == "__main__":
-    run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv_rmse/spring-sunset-337"
+    rmse_artifact_name: str = "hrv_rmse:v2"
 
-    inf_raw = read_hrv_of_interest("inf_raw_data_hrv_of_interest.pkl")
-    emp_raw = read_hrv_of_interest("empatica_raw_data_hrv_of_interest.pkl")
-    emp_traditional = read_hrv_of_interest(
-        "empatica_traditional_preprocessed_data_hrv_of_interest.pkl"
+    run = wandb.init(
+        project=DENOISING_AUTOENCODER_PROJECT_NAME,
+        job_type="hrv_evaluation",
+        save_code=True,
     )
-    emp_intermediate = read_hrv_of_interest(
-        "empatica_intermediate_preprocessed_data_hrv_of_interest.pkl"
-    )
-    emp_proposed = read_hrv_of_interest(
-        "empatica_proposed_denoised_data_hrv_of_interest.pkl"
+
+    empatica_raw_rmse = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=rmse_artifact_name,
+        pkl_filename="empatica_raw_rmse.pkl",
     )
 
     # %%
     inf_windowed_noisy_mask = pd.read_pickle(
         "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/inf_preprocessed_datav2/windowed_noisy_mask.pkl"
     )
-    clean_window_indexes = get_clean_window_indexes(
-        windowed_noisy_mask=inf_windowed_noisy_mask
+    clean_window_indexes = get_clean_signal_indexes(noisy_mask=inf_windowed_noisy_mask)
+
+    emp_windowed_noisy_mask = pd.read_pickle(
+        "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/msc_project/scripts/wandb_artifacts/preprocessed_data/emlbvp_preprocessed_datav3/windowed_noisy_mask.pkl"
+    )
+    emp_clean_window_indexes = get_clean_signal_indexes(
+        noisy_mask=emp_windowed_noisy_mask
     )
 
     # %%
@@ -141,6 +134,20 @@ if __name__ == "__main__":
 
     # %%
     filtered_dir = os.path.join(run_dir, "only_clean_inf_windows")
+
+    filtered_inf_raw.to_pickle(os.path.join(filtered_dir, "inf_raw_metrics.pkl"))
+    filtered_emp_raw.to_pickle(os.path.join(filtered_dir, "emp_raw_metrics.pkl"))
+    filtered_emp_traditional.to_pickle(
+        os.path.join(filtered_dir, "emp_traditional_metrics.pkl")
+    )
+    filtered_emp_intermediate.to_pickle(
+        os.path.join(filtered_dir, "emp_intermediate_metrics.pkl")
+    )
+    filtered_emp_proposed.to_pickle(
+        os.path.join(filtered_dir, "emp_proposed_metrics.pkl")
+    )
+
+    # %%
     # os.makedirs(filtered_dir)
     filtered_all_nan_counts = get_all_nan_counts(
         metric_sets=(
@@ -154,14 +161,14 @@ if __name__ == "__main__":
     filtered_all_nan_counts.to_pickle(os.path.join(filtered_dir, "all_nan_counts.pkl"))
 
     filtered_all_rmses = get_all_rmses(
-        metric_sets=(
+        hrv_data=(
             filtered_emp_raw,
             filtered_emp_traditional,
             filtered_emp_intermediate,
             filtered_emp_proposed,
         )
     )
-    filtered_all_rmses.to_pickle(os.path.join(filtered_dir, "all_rmses.pkl"))
+    # filtered_all_rmses.to_pickle(os.path.join(filtered_dir, "all_rmses.pkl"))
 
     # %%
 
@@ -171,6 +178,6 @@ if __name__ == "__main__":
     not_filtered_all_nan_counts.to_pickle(os.path.join(run_dir, "all_nan_counts.pkl"))
 
     not_filtered_all_rmses = get_all_rmses(
-        metric_sets=(emp_raw, emp_traditional, emp_intermediate, emp_proposed)
+        hrv_data=(emp_raw, emp_traditional, emp_intermediate, emp_proposed)
     )
     not_filtered_all_rmses.to_pickle(os.path.join(run_dir, "all_rmses.pkl"))
