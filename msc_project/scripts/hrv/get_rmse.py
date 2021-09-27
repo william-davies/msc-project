@@ -16,14 +16,12 @@ from msc_project.scripts.utils import get_artifact_dataframe
 # heartpy outputs a bunch of metrics. I am only interested in a subset though. mostly following Jade's previous work.
 metrics_of_interest = [
     "bpm",
-    "ibi",
     "sdnn",
     "rmssd",
-    "pnn20",
     "pnn50",
+    "lf",
     "hf",
-    "sdsd",
-    "hr_mad",
+    "lf/hf",
 ]
 
 
@@ -47,8 +45,13 @@ def get_rmse(
     return rmse
 
 
+def get_dtypes_of_series(series: pd.Series):
+    for index, row in series.iteritems():
+        print(f"{index}: {type(row)}")
+
+
 if __name__ == "__main__":
-    get_hrv_version: int = 2
+    hrv_artifact_name: str = "get_merged_signal_hrv:v0"
     upload_artifacts: bool = False
 
     run = wandb.init(
@@ -57,37 +60,37 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    inf_raw_data_heartpy_output = get_artifact_dataframe(
+    inf_raw_heartpy_output = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
-        pkl_filename="inf_raw_data_hrv.pkl",
+        artifact_or_name=hrv_artifact_name,
+        pkl_filename="inf_raw.pkl",
     )
 
     empatica_raw_data_heartpy_output = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
+        artifact_or_name=hrv_artifact_name,
         pkl_filename="empatica_raw_data_hrv.pkl",
     )
 
     empatica_traditional_preprocessed_data_heartpy_output = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
+        artifact_or_name=hrv_artifact_name,
         pkl_filename="empatica_traditional_preprocessed_data_hrv.pkl",
     )
 
     empatica_intermediate_preprocessed_data_heartpy_output = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
+        artifact_or_name=hrv_artifact_name,
         pkl_filename="empatica_intermediate_preprocessed_data_hrv.pkl",
     )
 
     empatica_proposed_denoised_data_heartpy_output = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"get_hrv:v{get_hrv_version}",
+        artifact_or_name=hrv_artifact_name,
         pkl_filename="empatica_proposed_denoised_data_hrv.pkl",
     )
 
-    inf_raw_data_hrv = filter_metrics_of_interest(inf_raw_data_heartpy_output)
+    inf_raw_data_hrv = filter_metrics_of_interest(inf_raw_heartpy_output)
     empatica_raw_data_hrv = filter_metrics_of_interest(empatica_raw_data_heartpy_output)
     empatica_traditional_preprocessed_data_hrv = filter_metrics_of_interest(
         empatica_traditional_preprocessed_data_heartpy_output
