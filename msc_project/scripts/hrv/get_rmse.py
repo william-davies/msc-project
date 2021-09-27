@@ -1,15 +1,19 @@
+"""
+Get RMSE of HRV metrics between Infiniti GT and whatever processing I've done on Empatica.
+"""
 import os
 import pandas as pd
 import wandb
 
 #%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.utils import get_artifact_dataframe
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
 # inf_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
 # empatica_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "empatica_raw_data_hrv.pkl"))
 
+# heartpy outputs a bunch of metrics. I am only interested in a subset though. mostly following Jade's previous work.
 metrics_of_interest = [
     "bpm",
     "ibi",
