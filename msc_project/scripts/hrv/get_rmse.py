@@ -9,7 +9,6 @@ import wandb
 
 #%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
-from msc_project.scripts.hrv.hrv_testing_ground import get_clean_signal_indexes
 from msc_project.scripts.utils import get_artifact_dataframe
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
@@ -77,10 +76,41 @@ def get_all_rmses(gt_hrv: pd.DataFrame, hrv_data: Iterable[Tuple]) -> pd.DataFra
     return all_rmses
 
 
+def get_hrv(pkl_filename: str, clean_indexes: pd.Index) -> pd.DataFrame:
+    """
+    Filter hrv metrics of interest. Also get the indexes (clean indexes) that we're using for the RMSE calculation.
+    :param pkl_filename: as uploaded to Wandb
+    :param clean_indexes:
+    :return:
+    """
+    heartpy_output = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=hrv_artifact_name,
+        pkl_filename=pkl_filename,
+    )
+    hrv = filter_metrics_of_interest(heartpy_output)
+    return hrv[clean_indexes]
+
+
+def get_clean_signal_indexes(
+    noisy_mask: pd.DataFrame, noise_tolerance: float = 0
+) -> pd.Index:
+    """
+    Return indexes of signals that are below noise tolerance.
+    :param noisy_mask: binary
+    :param noise_tolerance: between 0 and 1
+    :return:
+    """
+    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
+    is_clean = noisy_proportions <= noise_tolerance
+    clean_indexes = is_clean.index[is_clean]
+    return clean_indexes
+
+
 if __name__ == "__main__":
     hrv_artifact_name: str = "get_merged_signal_hrv:v1"
     preprocessed_data_artifact_name: str = "Inf_preprocessed_data:v7"
-    upload_artifacts: bool = False
+    upload_artifacts: bool = True
     noise_tolerance: float = 0
     config = {"noise_tolerance": noise_tolerance}
 
@@ -89,36 +119,6 @@ if __name__ == "__main__":
         job_type="hrv_evaluation",
         save_code=True,
         config=config,
-    )
-
-    inf_raw_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_artifact_name,
-        pkl_filename="inf_raw.pkl",
-    )
-
-    empatica_raw_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_artifact_name,
-        pkl_filename="empatica_raw.pkl",
-    )
-
-    empatica_only_downsampled_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_artifact_name,
-        pkl_filename="empatica_only_downsampled.pkl",
-    )
-
-    empatica_traditional_preprocessed_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_artifact_name,
-        pkl_filename="empatica_traditional_preprocessed.pkl",
-    )
-
-    empatica_dae_denoised_heartpy_output = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_artifact_name,
-        pkl_filename="empatica_dae_denoised.pkl",
     )
 
     noisy_mask = get_artifact_dataframe(
@@ -130,16 +130,19 @@ if __name__ == "__main__":
         noisy_mask=noisy_mask, noise_tolerance=noise_tolerance
     )
 
-    inf_raw_hrv = filter_metrics_of_interest(inf_raw_heartpy_output)
-    empatica_raw_hrv = filter_metrics_of_interest(empatica_raw_heartpy_output)
-    empatica_only_downsampled_hrv = filter_metrics_of_interest(
-        empatica_only_downsampled_heartpy_output
+    inf_raw_hrv = get_hrv(pkl_filename="inf_raw.pkl", clean_indexes=clean_indexes)
+    empatica_raw_hrv = get_hrv(
+        pkl_filename="empatica_raw.pkl", clean_indexes=clean_indexes
     )
-    empatica_traditional_preprocessed_hrv = filter_metrics_of_interest(
-        empatica_traditional_preprocessed_heartpy_output
+    empatica_only_downsampled_hrv = get_hrv(
+        pkl_filename="empatica_only_downsampled.pkl", clean_indexes=clean_indexes
     )
-    empatica_dae_denoised_hrv = filter_metrics_of_interest(
-        empatica_dae_denoised_heartpy_output
+    empatica_traditional_preprocessed_hrv = get_hrv(
+        pkl_filename="empatica_traditional_preprocessed.pkl",
+        clean_indexes=clean_indexes,
+    )
+    empatica_dae_denoised_hrv = get_hrv(
+        pkl_filename="empatica_dae_denoised.pkl", clean_indexes=clean_indexes
     )
 
     run_dir = os.path.join(BASE_DIR, "results", "hrv_rmse", run.name)
@@ -158,7 +161,7 @@ if __name__ == "__main__":
 
     all_rmses = get_all_rmses(gt_hrv=inf_raw_hrv, hrv_data=hrv_data)
     all_rmses.to_pickle(os.path.join(to_upload_dir, "all_rmses.pkl"))
-    all_rmses.to_csv(os.path.join(run_dir, "all_rmses.csv"))
+    all_rmses.to_csv(os.path.join(to_upload_dir, "all_rmses.csv"))
 
     for (hrv_data, data_name) in [(inf_raw_hrv, "inf_raw"), *hrv_data]:
         hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv_of_interest.pkl"))
@@ -168,10 +171,3 @@ if __name__ == "__main__":
         artifact.add_dir(to_upload_dir)
         run.log_artifact(artifact)
     run.finish()
-
-    # empatica_raw_rmse = load_rmse(data_name="empatica_raw")
-    # empatica_only_downsampled_rmse = load_rmse(data_name="empatica_only_downsampled")
-    # empatica_traditional_preprocessed_rmse = load_rmse(
-    #     data_name="empatica_traditional_preprocessed"
-    # )
-    # empatica_dae_denoised_rmse = load_rmse(data_name="empatica_dae_denoised")
