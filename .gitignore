@@ -145,3 +145,5 @@ data/
 plots/
 msc_project/models/checkpoints
 msc_project/models/run-data
+/results/
+*/wandb/
