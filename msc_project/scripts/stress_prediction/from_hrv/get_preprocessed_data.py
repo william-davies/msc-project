@@ -91,6 +91,11 @@ if __name__ == "__main__":
         artifact_or_name=dae_denoised_artifact,
         pkl_filename="merged_signal.pkl",
     )
+    noisy_mask = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact,
+        pkl_filename=os.path.join("not_windowed", "noisy_mask.pkl"),
+    )
 
     # sliding window
     raw_windowed = handle_data_windowing(
@@ -113,37 +118,35 @@ if __name__ == "__main__":
         window_duration=config["window_duration"],
         step_duration=config["step_duration"],
     )
-
-    # compute HRV features
-    print("raw_hrv")
-    raw_hrv = get_hrv(signal_data=raw_windowed)
-    print("just_downsampled_hrv")
-    just_downsampled_hrv = get_hrv(signal_data=just_downsampled_windowed)
-    print("traditional_preprocessed_hrv")
-    traditional_preprocessed_hrv = get_hrv(
-        signal_data=traditional_preprocessed_windowed
+    noisy_mask_windowed = handle_data_windowing(
+        non_windowed_data=noisy_mask,
+        window_duration=config["window_duration"],
+        step_duration=config["step_duration"],
     )
-    print("dae_denoised_hrv")
-    dae_denoised_hrv = get_hrv(signal_data=dae_denoised_windowed)
 
     # save HRV features
     if upload_artifact:
-        artifact = wandb.Artifact(name="hrv", type="get_hrv", metadata=config)
+        artifact = wandb.Artifact(
+            name="windowed", type="preprocessed_data", metadata=config
+        )
         add_temp_file_to_artifact(
-            artifact=artifact, fp="raw_signal_hrv.pkl", df=raw_hrv
+            artifact=artifact, fp="raw_signal.pkl", df=raw_windowed
         )
         add_temp_file_to_artifact(
             artifact=artifact,
-            fp="just_downsampled_signal_hrv.pkl",
-            df=just_downsampled_hrv,
+            fp="just_downsampled_signal.pkl",
+            df=just_downsampled_windowed,
         )
         add_temp_file_to_artifact(
             artifact=artifact,
-            fp="traditional_preprocessed_signal_hrv.pkl",
-            df=traditional_preprocessed_hrv,
+            fp="traditional_preprocessed_signal.pkl",
+            df=traditional_preprocessed_windowed,
         )
         add_temp_file_to_artifact(
-            artifact=artifact, fp="dae_denoised_signal_hrv.pkl", df=dae_denoised_hrv
+            artifact=artifact, fp="dae_denoised_signal.pkl", df=dae_denoised_windowed
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="noisy_mask.pkl", df=noisy_mask_windowed
         )
         run.log_artifact(artifact)
     run.finish()
