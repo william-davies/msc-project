@@ -3,14 +3,22 @@ Sliding window data. Save noisy mask.
 """
 import os
 
+import pandas as pd
+from numpy.lib.stride_tricks import sliding_window_view
+
 import wandb
 
 from msc_project.constants import (
     STRESS_PREDICTION_PROJECT_NAME,
     DENOISING_AUTOENCODER_PROJECT_NAME,
     PREPROCESSED_DATA_ARTIFACT,
+    SECONDS_IN_MINUTE,
 )
-from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.data_processing.get_preprocessed_data import (
+    get_freq,
+    handle_data_windowing,
+)
+from msc_project.scripts.utils import get_artifact_dataframe, safe_float_to_int
 
 
 def get_preprocessed_data_artifact(dae_denoised_artifact):
@@ -36,10 +44,16 @@ if __name__ == "__main__":
         f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v0"
     )
 
+    config = {
+        "window_duration": 2 * SECONDS_IN_MINUTE,
+        "step_duration": 1 * SECONDS_IN_MINUTE,
+    }
+
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
         job_type="get_hrv_features",
         save_code=True,
+        config=config,
     )
 
     # load DAE denoised signal
@@ -52,23 +66,43 @@ if __name__ == "__main__":
 
     # load Infiniti raw, just downsampled, traditional preprocessed signal
     preprocessed_data_artifact = get_preprocessed_data_artifact(dae_denoised_artifact)
-    inf_raw_data = get_artifact_dataframe(
+    raw_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "raw_data.pkl"),
     )
-    inf_just_downsampled_data = get_artifact_dataframe(
+    just_downsampled_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "only_downsampled_data.pkl"),
     )
-    inf_traditional_preprocessed_data = get_artifact_dataframe(
+    traditional_preprocessed_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "traditional_preprocessed_data.pkl"),
     )
 
     # sliding window
+    raw_windowed = handle_data_windowing(
+        non_windowed_data=raw_signal,
+        window_duration=config["window_duration"],
+        step_duration=config["step_duration"],
+    )
+    just_downsampled_windowed = handle_data_windowing(
+        non_windowed_data=just_downsampled_signal,
+        window_duration=config["window_duration"],
+        step_duration=config["step_duration"],
+    )
+    traditional_preprocessed_windowed = handle_data_windowing(
+        non_windowed_data=traditional_preprocessed_signal,
+        window_duration=config["window_duration"],
+        step_duration=config["step_duration"],
+    )
+    dae_denoised_windowed = handle_data_windowing(
+        non_windowed_data=dae_denoised_signal,
+        window_duration=config["window_duration"],
+        step_duration=config["step_duration"],
+    )
 
     # compute HRV features
 
