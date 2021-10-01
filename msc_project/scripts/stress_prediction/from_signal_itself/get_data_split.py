@@ -17,7 +17,7 @@ from msc_project.constants import (
     BASE_DIR,
 )
 from msc_project.scripts.dataset_preparer import DatasetPreparer
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.utils import get_artifact_dataframe
 
 
 def get_autoencoder_preprocessed_data_artifact(
@@ -45,7 +45,10 @@ def handle_data_split(
     Split data and save.
 
     :param signals:
-    :param data_name: only_downsampled/labels/intermediate_preprocessed etc.
+    :param noise_tolerance:
+    :param noisy_mask:
+    :param save_dir:
+    :param validation_participants:
     :return:
     """
     dataset_preparer = DatasetPreparer(

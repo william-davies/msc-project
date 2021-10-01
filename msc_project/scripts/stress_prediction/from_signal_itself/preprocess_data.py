@@ -6,7 +6,9 @@ Preprocess data for stress prediction task.
 """
 import os
 
+import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 import wandb
 
@@ -15,10 +17,14 @@ from msc_project.constants import (
     SheetNames,
     PREPROCESSED_DATA_ARTIFACT,
     BASE_DIR,
+    STRESS_PREDICTION_PROJECT_NAME,
 )
-from msc_project.scripts.evaluate_autoencoder import get_model, get_reconstructed_df
+from msc_project.scripts.evaluate_autoencoder import (
+    download_artifact_model,
+    get_reconstructed_df,
+)
 from msc_project.scripts.get_preprocessed_data import downsample, get_freq
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
+from msc_project.scripts.utils import get_artifact_dataframe
 
 
 def get_labels(windowed_data: pd.DataFrame) -> pd.DataFrame:
@@ -35,9 +41,16 @@ def get_labels(windowed_data: pd.DataFrame) -> pd.DataFrame:
     return label_df
 
 
+def plot_window(window_index):
+    plt.plot(raw_data[window_index], label="original")
+    plt.plot(only_downsampled_data[window_index], label="downsampled")
+    plt.legend()
+    plt.show()
+
+
 if __name__ == "__main__":
     run = wandb.init(
-        project="stress-prediction",
+        project=STRESS_PREDICTION_PROJECT_NAME,
         job_type="preprocess_data",
         save_code=True,
     )
@@ -45,7 +58,7 @@ if __name__ == "__main__":
     preprocessed_data_artifact_version: int = 2
     downsampled_rate: float = 16
     model_version: int = 40
-    upload_artifact: bool = True
+    upload_artifact: bool = False
 
     run_dir = os.path.join(BASE_DIR, "data", "stress_prediction", sheet_name, run.name)
     os.makedirs(run_dir)
@@ -78,7 +91,7 @@ if __name__ == "__main__":
         downsampled_rate=downsampled_rate,
     )
 
-    autoencoder = get_model(
+    autoencoder = download_artifact_model(
         run=run, model_version=model_version, project=DENOISING_AUTOENCODER_PROJECT_NAME
     )
     proposed_denoised_data = get_reconstructed_df(
@@ -105,3 +118,10 @@ if __name__ == "__main__":
         artifact.add_dir(run_dir)
         run.log_artifact(artifact)
     run.finish()
+
+    num_examples_to_plot: int = 20
+    window_indexes = np.random.choice(
+        a=raw_data.columns, size=num_examples_to_plot, replace=False
+    )
+    for window_index in window_indexes:
+        plot_window(window_index)

@@ -13,7 +13,6 @@ from msc_project.constants import (
 # from msc_project.models.stress_prediction.mlp import instantiate_predictor
 from msc_project.models.stress_prediction.lstm import instantiate_predictor
 from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimension
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
 from msc_project.scripts.train_autoencoder import (
     init_run,
     get_model,
@@ -23,14 +22,14 @@ from msc_project.scripts.train_autoencoder import (
 )
 import tensorflow as tf
 
-from msc_project.scripts.utils import add_num_features_dimension
+from msc_project.scripts.utils import add_num_features_dimension, get_artifact_dataframe
 
 if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
     data_split_version = 1
     notes = ""
     run_id = ""
-    data_name: str = "only_downsampled"
+    data_name: str = "proposed_denoised"
 
     run_config = {
         "optimizer": "adam",
@@ -38,7 +37,7 @@ if __name__ == "__main__":
         "metric": ["accuracy"],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 10,
+        "epoch": 1000,
         "patience": 500,
         "min_delta": 1e-3,
         "data_name": data_name,
