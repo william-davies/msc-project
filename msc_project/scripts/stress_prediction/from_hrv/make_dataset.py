@@ -1,6 +1,13 @@
+"""
+Get data ready for model. We need (`num_examples`, `num_features`) DataFrame for x.
+We need (`num_examples`, 1) DataFrame for y.
+"""
 import wandb
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.hrv.get_rmse import metrics_of_interest
+from msc_project.scripts.stress_prediction.from_signal_itself.preprocess_data import (
+    get_labels,
+)
 from msc_project.scripts.utils import get_artifact_dataframe
 
 if __name__ == "__main__":
@@ -58,3 +65,4 @@ if __name__ == "__main__":
         assert raw_signal_features.columns.equals(df.columns)
 
     # get binary labels
+    labels = get_labels(windowed_data=raw_signal_features).T
