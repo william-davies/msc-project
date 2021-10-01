@@ -18,6 +18,8 @@ from msc_project.scripts.data_processing.get_preprocessed_data import (
     get_freq,
     handle_data_windowing,
 )
+from msc_project.scripts.hrv.get_hrv import get_hrv
+from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
 from msc_project.scripts.utils import get_artifact_dataframe, safe_float_to_int
 
 
@@ -43,6 +45,7 @@ if __name__ == "__main__":
     dae_denoised_data_artifact_name: str = (
         f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v0"
     )
+    upload_artifact: bool = False
 
     config = {
         "window_duration": 2 * SECONDS_IN_MINUTE,
@@ -56,16 +59,11 @@ if __name__ == "__main__":
         config=config,
     )
 
-    # load DAE denoised signal
+    # get artifacts
     dae_denoised_artifact = run.use_artifact(dae_denoised_data_artifact_name)
-    dae_denoised_signal = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=dae_denoised_artifact,
-        pkl_filename="merged_signal.pkl",
-    )
-
-    # load Infiniti raw, just downsampled, traditional preprocessed signal
     preprocessed_data_artifact = get_preprocessed_data_artifact(dae_denoised_artifact)
+
+    # load Infiniti raw, just downsampled, traditional preprocessed signal, dae denoised
     raw_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
@@ -80,6 +78,11 @@ if __name__ == "__main__":
         run=run,
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "traditional_preprocessed_data.pkl"),
+    )
+    dae_denoised_signal = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=dae_denoised_artifact,
+        pkl_filename="merged_signal.pkl",
     )
 
     # sliding window
@@ -105,5 +108,31 @@ if __name__ == "__main__":
     )
 
     # compute HRV features
+    raw_hrv = get_hrv(signal_data=raw_windowed)
+    just_downsampled_hrv = get_hrv(signal_data=just_downsampled_windowed)
+    traditional_preprocessed_hrv = get_hrv(
+        signal_data=traditional_preprocessed_windowed
+    )
+    dae_denoised_hrv = get_hrv(signal_data=dae_denoised_windowed)
 
     # save HRV features
+    if upload_artifact:
+        artifact = wandb.Artifact(name="hrv", type="get_hrv", metadata=config)
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="raw_signal_hrv.pkl", df=raw_hrv
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact,
+            fp="just_downsampled_signal_hrv.pkl",
+            df=just_downsampled_hrv,
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact,
+            fp="traditional_preprocessed_signal_hrv.pkl",
+            df=traditional_preprocessed_hrv,
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="dae_denoised_signal_hrv.pkl", df=dae_denoised_hrv
+        )
+        run.log_artifact(artifact)
+    run.finish()
