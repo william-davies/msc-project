@@ -1,6 +1,8 @@
 """
-Denoised windows are say 8s long and overlap by say 1s. We ned to merge these into a single coherent say 3min signal.
+Denoised windows are say 8s long and overlap by say 1s. We need to merge these into a single coherent say 3min signal.
 """
+import os
+
 import pandas as pd
 import wandb
 
@@ -38,7 +40,7 @@ def convert_relative_timedelta_to_absolute_timedelta(
     relative_timedelta_windows: pd.DataFrame,
 ) -> pd.DataFrame:
     """
-    0s - 8s -> 62s - 70s.
+    0s - 8s -> 62s - 70s. Relative to start of window -> relative to start of treatment.
     :param relative_timedelta_windows:
     :return:
     """
@@ -65,10 +67,12 @@ def convert_relative_timedelta_to_absolute_timedelta(
 
 
 if __name__ == "__main__":
-    model_artifact_name = "trained_on_EmLBVP:v0"
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    model_artifact_name = "trained_on_Inf:v5"
+    sheet_name = SheetNames.INFINITY.value
+    preprocessed_data_artifact_version: int = 7
     data_name: str = "only_downsampled"
     config = {"data_name": data_name}
+    upload_artifact: bool = True
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -79,8 +83,8 @@ if __name__ == "__main__":
 
     only_downsampled_data = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"{sheet_name}_preprocessed_data:v4",
-        pkl_filename=f"windowed_{data_name}_data.pkl",
+        artifact_or_name=f"{sheet_name}_preprocessed_data:v{preprocessed_data_artifact_version}",
+        pkl_filename=os.path.join("windowed", f"{data_name}_data.pkl"),
     )
 
     autoencoder = download_artifact_model(run=run, artifact_or_name=model_artifact_name)
@@ -91,7 +95,6 @@ if __name__ == "__main__":
 
     meaned = merge_windows(reconstructed_windows=reconstructed_windows)
 
-    upload_artifact: bool = True
     if upload_artifact:
         merged_signal_artifact = wandb.Artifact(
             name=f"{sheet_name}_merged_signal", type="merged_signal", metadata=config
@@ -99,5 +102,4 @@ if __name__ == "__main__":
         with merged_signal_artifact.new_file("merged_signal.pkl", "w") as f:
             meaned.to_pickle(f.name)
         run.log_artifact(merged_signal_artifact)
-
     run.finish()
