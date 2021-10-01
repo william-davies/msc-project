@@ -29,6 +29,10 @@ def standardize_hrv_features(hrv_features: pd.DataFrame):
         ] /= baseline[baseline.keys() != "pnn50"]
         standardized_participant.loc[:, "pnn50"] -= baseline["pnn50"]
         standardized.loc[participant_idx] = standardized_participant
+    non_baseline = standardized.loc[
+        standardized.index.get_level_values(level="treatment_label") != "r1"
+    ]
+    return non_baseline
 
 
 if __name__ == "__main__":
