@@ -1,5 +1,5 @@
 """
-Sliding window data. Save noisy mask.
+Perform sliding window on signals. Save noisy mask.
 """
 import os
 
@@ -17,6 +17,7 @@ from msc_project.constants import (
 from msc_project.scripts.data_processing.get_preprocessed_data import (
     get_freq,
     handle_data_windowing,
+    get_temporal_subwindow_of_signal,
 )
 from msc_project.scripts.hrv.get_hrv import get_hrv
 from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
@@ -45,7 +46,7 @@ if __name__ == "__main__":
     dae_denoised_data_artifact_name: str = (
         f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v0"
     )
-    upload_artifact: bool = False
+    upload_artifact: bool = True
 
     config = {
         "window_duration": 2 * SECONDS_IN_MINUTE,
@@ -69,6 +70,12 @@ if __name__ == "__main__":
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "raw_data.pkl"),
     )
+    raw_signal = get_temporal_subwindow_of_signal(
+        df=raw_signal,
+        window_start=SECONDS_IN_MINUTE,
+        window_end=4 * SECONDS_IN_MINUTE,
+    )
+
     just_downsampled_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
@@ -108,11 +115,15 @@ if __name__ == "__main__":
     )
 
     # compute HRV features
+    print("raw_hrv")
     raw_hrv = get_hrv(signal_data=raw_windowed)
+    print("just_downsampled_hrv")
     just_downsampled_hrv = get_hrv(signal_data=just_downsampled_windowed)
+    print("traditional_preprocessed_hrv")
     traditional_preprocessed_hrv = get_hrv(
         signal_data=traditional_preprocessed_windowed
     )
+    print("dae_denoised_hrv")
     dae_denoised_hrv = get_hrv(signal_data=dae_denoised_windowed)
 
     # save HRV features
