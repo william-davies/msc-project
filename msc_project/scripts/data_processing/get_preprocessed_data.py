@@ -1,3 +1,6 @@
+"""
+Preprocess data: downsample, traditional processing. Also window data. Upload to Wandb.
+"""
 import os
 import re
 import sys
@@ -184,19 +187,20 @@ def get_windowed_multiindex(non_windowed_data, window_start_times) -> pd.MultiIn
 def get_windowed_df(
     non_windowed_data: pd.DataFrame,
     window_duration,
-    step_size,
+    step_duration,
     windowed_multiindex,
 ) -> pd.DataFrame:
     """
 
     :param non_windowed_data: names=['participant', 'treatment_label', 'series_label']
     :param window_duration: seconds
-    :param step_size: frames
+    :param step_duration: seconds
     :param windowed_multiindex:
     :return: names=['participant', 'treatment_label', 'signal_name', 'window']
     """
     frequency = get_freq(non_windowed_data.index)
     window_size = safe_float_to_int(window_duration * frequency)
+    step_size = safe_float_to_int(step_duration * frequency)
 
     windowed_data = sliding_window_view(
         non_windowed_data, axis=0, window_shape=window_size
@@ -261,13 +265,11 @@ def handle_data_windowing(
     windowed_data = get_windowed_df(
         non_windowed_data=non_windowed_data,
         window_duration=window_duration,
-        step_size=step_size,
+        step_duration=step_duration,
         windowed_multiindex=windowed_multiindex,
     )
     return windowed_data
 
-
-# %%
 
 # %%
 # tests
@@ -843,8 +845,8 @@ def upload_not_windowed_data(data_artifact, data, filename):
 # %%
 if __name__ == "__main__":
     run_tests: bool = False
-    upload_to_wandb: bool = False
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    upload_to_wandb: bool = True
+    sheet_name = SheetNames.INFINITY.value
     noisy_labels_filename = f"labelling-{sheet_name}-dataset-less-strict.xlsx"
     job_type = "preprocessed_data"
 
@@ -1010,6 +1012,11 @@ if __name__ == "__main__":
             data_artifact=preprocessed_data_artifact,
             data=intermediate_preprocessed_data,
             filename="intermediate_preprocessed_data.pkl",
+        )
+        upload_not_windowed_data(
+            data_artifact=preprocessed_data_artifact,
+            data=noisy_mask,
+            filename="noisy_mask.pkl",
         )
 
         run.log_artifact(preprocessed_data_artifact)
