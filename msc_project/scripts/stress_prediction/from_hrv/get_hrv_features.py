@@ -63,7 +63,11 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
         math_difficulty = get_math_difficulty(
             treatment_labels=treatment_labels, index=index
         )
-        return participant_df.rename(mapper={f"r{index+1}": f"r_{math_difficulty}"})
+        participant_df.rename(
+            index={f"r{index+1}": f"r_{math_difficulty}"},
+            level="treatment_label",
+            inplace=True,
+        )
 
     def get_math_difficulty(treatment_labels, index: int) -> str:
         """
@@ -93,12 +97,12 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
         treatment_labels = participant_df.index.get_level_values(
             level="treatment_label"
         ).unique()
-        treatment_labels_changed.loc[participant_idx] = change_single_treatment_label(
+        change_single_treatment_label(
             participant_df=treatment_labels_changed.loc[participant_idx],
             treatment_labels=treatment_labels,
             index=2,
         )
-        treatment_labels_changed.loc[participant_idx] = change_single_treatment_label(
+        change_single_treatment_label(
             participant_df=treatment_labels_changed.loc[participant_idx],
             treatment_labels=treatment_labels,
             index=4,
