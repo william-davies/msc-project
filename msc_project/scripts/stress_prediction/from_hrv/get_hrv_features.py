@@ -41,8 +41,8 @@ def standardize_hrv_features(hrv_features: pd.DataFrame) -> pd.DataFrame:
 def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
     """
     ```
-    * (m2_easy, r3, m4_hard, r5) -> (m2_easy, r_easy, m4_hard, r_hard)
-    * (m2_hard, r3, m4_easy, r5) -> (m2_easy, r_hard, m4_easy, r_easy)
+    * (m2_easy, r3, m4_hard, r5) -> (m_easy, r_easy, m_hard, r_hard)
+    * (m2_hard, r3, m4_easy, r5) -> (m_hard, r_hard, m_easy, r_easy)
     ```
     :param all_participants_df:
     :return:
@@ -50,11 +50,11 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
 
     def change_single_treatment_label(
         participant_df: pd.DataFrame, treatment_labels, index: int
-    ) -> pd.DataFrame:
+    ) -> None:
         """
-        Change a single rest treatment label to include the difficulty of the preceding math treatment.
+        Change a single math/rest pair.
         ```
-        (m2_easy, r3, m4_hard, r5) -> (m2_easy, r_easy, m4_hard, r5)
+        (m2_easy, r3, m4_hard, r5) -> (m_easy, r_easy, m4_hard, r5)
         ```
         :param participant_df:
         :param treatment_labels:
@@ -65,7 +65,10 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
             treatment_labels=treatment_labels, index=index
         )
         participant_df.rename(
-            index={f"r{index+1}": f"r_{math_difficulty}"},
+            index={
+                f"m{index}_{math_difficulty}": f"m_{math_difficulty}",
+                f"r{index+1}": f"r_{math_difficulty}",
+            },
             level="treatment_label",
             inplace=True,
         )
