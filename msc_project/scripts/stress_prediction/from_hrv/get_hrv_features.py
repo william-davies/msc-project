@@ -1,6 +1,7 @@
 """
 Get data ready for model. We need (`num_examples`, `num_features`) DataFrame for x.
 """
+import os
 import re
 
 import pandas as pd
@@ -115,6 +116,26 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
     return treatment_labels_changed_df
 
 
+def add_temp_file_in_subdirectory_to_artifact(artifact, directory_path, fp, df):
+    """
+    Makes code more DRY when I'm saving a bunch of DataFrame to a wandb root subdirectory.
+    :param artifact:
+    :param directory_path:
+    :param fp:
+    :param df:
+    :return:
+    """
+    add_temp_file_to_artifact(
+        artifact=artifact, fp=os.path.join(directory_path, fp), df=df
+    )
+
+
+def save_original_label_dataframe(artifact, fp, df):
+    add_temp_file_to_artifact(
+        artifact=artifact, fp=os.path.join("original_label", fp), df=df
+    )
+
+
 if __name__ == "__main__":
     heartpy_output_artifact_name: str = "hrv:v0"
     upload_artifact: bool = True
@@ -191,8 +212,10 @@ if __name__ == "__main__":
 
     if upload_artifact:
         artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
-        add_temp_file_to_artifact(
-            artifact=artifact, fp="raw_signal.pkl", df=raw_signal_features
+
+        # save original treatment label dfs
+        add_temp_file_in_subdirectory_to_artifact(
+            artifact=artifact, directory_path="raw_signal.pkl", df=raw_signal_features
         )
         add_temp_file_to_artifact(
             artifact=artifact,
