@@ -16,21 +16,26 @@ def read_changed_label_df(artifact_or_name, pkl_filename, api):
     )
 
 
-def plot_bar_charts(hrv: pd.DataFrame, dataset_name: str):
+def get_feature_means(hrv: pd.DataFrame) -> pd.DataFrame:
     meaned = pd.DataFrame(
         index=hrv.index.get_level_values(level="treatment_label").unique(),
         columns=hrv.columns,
     )
     for treatment_label, df in hrv.groupby(axis=0, level="treatment_label"):
         meaned.loc[treatment_label] = df.mean(axis=0)
+    return meaned
+
+
+def plot_bar_charts(hrv: pd.DataFrame, dataset_name: str):
+    feature_means = get_feature_means(hrv=hrv)
 
     dirpath = os.path.join(BASE_DIR, "results", "inspect_hrv_features", dataset_name)
     os.makedirs(dirpath, exist_ok=True)
     plt.figure()
-    for feature in meaned.columns:
+    for feature in feature_means.columns:
         plt.title(dataset_name)
         plt.ylabel(feature)
-        means = meaned[feature]
+        means = feature_means[feature]
         means.plot.bar()
         plt.tight_layout()
         plt.savefig(os.path.join(dirpath, slugify(feature)))
