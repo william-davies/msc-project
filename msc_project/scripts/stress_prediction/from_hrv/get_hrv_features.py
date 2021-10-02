@@ -37,7 +37,26 @@ def standardize_hrv_features(hrv_features: pd.DataFrame):
     return non_baseline
 
 
-def change_treatment_labels(df):
+def change_treatment_labels(all_signals):
+    def change_single_treatment_label(
+        participant_df: pd.DataFrame, treatment_labels, index: int
+    ) -> pd.DataFrame:
+        """
+        Change a single rest treatment label to include the difficulty of the preceding math treatment.
+        ```
+        (m2_easy, r3, m4_easy, r5)
+        r3 -> r_easy
+        ```
+        :param participant_df:
+        :param treatment_labels:
+        :param index:
+        :return:
+        """
+        math_difficulty = get_math_difficulty(
+            treatment_labels=treatment_labels, index=index
+        )
+        return participant_df.rename(mapper={f"r{index+1}": f"r_{math_difficulty}"})
+
     def get_math_difficulty(treatment_labels, index: int) -> str:
         """
         Get the difficulty of the math treatment at `index`.
@@ -59,17 +78,13 @@ def change_treatment_labels(df):
         )
         return difficulty
 
-    for idx, treatment_df in df.groupby(axis=0, level="participant"):
-        mycopy = treatment_df.copy()
-        treatment_labels = treatment_df.index.get_level_values(
+    treatment_labels_changed = all_signals.copy()
+    for idx, participant_df in all_signals.groupby(axis=0, level="participant"):
+        treatment_labels = participant_df.index.get_level_values(
             level="treatment_label"
         ).unique()
-        m2_label = [
-            treatment for treatment in treatment_labels if treatment.startswith("m2_")
-        ]
-        assert len(m2_label) == 1
-        m2_label = m2_label[0]
-        # m2_difficulty =
+        m2_difficulty = get_math_difficulty(treatment_labels=treatment_labels, index=2)
+        participant_df.rename(mapper={"r3": f"r_{m2_difficulty}"})
 
 
 if __name__ == "__main__":
