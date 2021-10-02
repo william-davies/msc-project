@@ -1,6 +1,7 @@
 import os
 
 import pandas as pd
+import scipy.stats
 from matplotlib import pyplot as plt
 
 import wandb
@@ -42,6 +43,18 @@ def plot_bar_charts(hrv: pd.DataFrame, dataset_name: str):
         plt.clf()
 
 
+def ttest(hrv):
+    pvalues = {}
+    for feature in hrv1.columns:
+        _, pvalue = scipy.stats.ttest_rel(
+            hrv1[feature],
+            hrv1[feature],
+            alternative="two-sided",
+        )
+        pvalues[feature] = pvalue
+    return pvalue
+
+
 if __name__ == "__main__":
     api = wandb.Api()
     features_artifact_name: str = f"{STRESS_PREDICTION_PROJECT_NAME}/hrv_features:v3"
@@ -65,9 +78,11 @@ if __name__ == "__main__":
         api=api,
     )
 
-    plot_bar_charts(hrv=raw_signal_hrv, dataset_name="raw")
-    plot_bar_charts(hrv=just_downsampled_signal_hrv, dataset_name="just downsampled")
-    plot_bar_charts(
-        hrv=traditional_preprocessed_signal_hrv, dataset_name="traditional preprocessed"
-    )
-    plot_bar_charts(hrv=dae_denoised_signal_hrv, dataset_name="dae denoised")
+    # plot_bar_charts(hrv=raw_signal_hrv, dataset_name="raw")
+    # plot_bar_charts(hrv=just_downsampled_signal_hrv, dataset_name="just downsampled")
+    # plot_bar_charts(
+    #     hrv=traditional_preprocessed_signal_hrv, dataset_name="traditional preprocessed"
+    # )
+    # plot_bar_charts(hrv=dae_denoised_signal_hrv, dataset_name="dae denoised")
+
+    ttest(hrv1=raw_signal_hrv.hrv2)
