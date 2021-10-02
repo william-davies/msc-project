@@ -37,15 +37,23 @@ def standardize_hrv_features(hrv_features: pd.DataFrame):
     return non_baseline
 
 
-def change_treatment_labels(all_signals):
+def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    ```
+    * (m2_easy, r3, m4_hard, r5) -> (m2_easy, r_easy, m4_hard, r_hard)
+    * (m2_hard, r3, m4_easy, r5) -> (m2_easy, r_hard, m4_easy, r_easy)
+    ```
+    :param all_participants_df:
+    :return:
+    """
+
     def change_single_treatment_label(
         participant_df: pd.DataFrame, treatment_labels, index: int
     ) -> pd.DataFrame:
         """
         Change a single rest treatment label to include the difficulty of the preceding math treatment.
         ```
-        (m2_easy, r3, m4_easy, r5)
-        r3 -> r_easy
+        (m2_easy, r3, m4_hard, r5) -> (m2_easy, r_easy, m4_hard, r5)
         ```
         :param participant_df:
         :param treatment_labels:
@@ -78,13 +86,24 @@ def change_treatment_labels(all_signals):
         )
         return difficulty
 
-    treatment_labels_changed = all_signals.copy()
-    for idx, participant_df in all_signals.groupby(axis=0, level="participant"):
+    treatment_labels_changed = all_participants_df.copy()
+    for participant_idx, participant_df in all_participants_df.groupby(
+        axis=0, level="participant"
+    ):
         treatment_labels = participant_df.index.get_level_values(
             level="treatment_label"
         ).unique()
-        m2_difficulty = get_math_difficulty(treatment_labels=treatment_labels, index=2)
-        participant_df.rename(mapper={"r3": f"r_{m2_difficulty}"})
+        treatment_labels_changed.loc[participant_idx] = change_single_treatment_label(
+            participant_df=treatment_labels_changed.loc[participant_idx],
+            treatment_labels=treatment_labels,
+            index=2,
+        )
+        treatment_labels_changed.loc[participant_idx] = change_single_treatment_label(
+            participant_df=treatment_labels_changed.loc[participant_idx],
+            treatment_labels=treatment_labels,
+            index=4,
+        )
+    return treatment_labels_changed
 
 
 if __name__ == "__main__":
@@ -148,6 +167,18 @@ if __name__ == "__main__":
         traditional_preprocessed_signal_features.T
     )
     dae_denoised_signal_features = dae_denoised_signal_features.T
+
+    # change treatment labels
+    raw_signal_changed_labels = change_treatment_labels(raw_signal_features)
+    just_downsampled_signal_changed_labels = change_treatment_labels(
+        just_downsampled_signal_features
+    )
+    traditional_preprocessed_signal_changed_labels = change_treatment_labels(
+        traditional_preprocessed_signal_features
+    )
+    dae_denoised_signal_changed_labels = change_treatment_labels(
+        dae_denoised_signal_features
+    )
 
     if upload_artifact:
         artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
