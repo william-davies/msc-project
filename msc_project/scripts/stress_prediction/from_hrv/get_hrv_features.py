@@ -16,7 +16,7 @@ from msc_project.scripts.stress_prediction.from_signal_itself.preprocess_data im
 from msc_project.scripts.utils import get_artifact_dataframe
 
 
-def standardize_hrv_features(hrv_features: pd.DataFrame):
+def standardize_hrv_features(hrv_features: pd.DataFrame) -> pd.DataFrame:
     """
     Following Jade.
     :return:
@@ -160,7 +160,7 @@ if __name__ == "__main__":
         pkl_filename="dae_denoised_signal_hrv.pkl",
     )
 
-    # filter out HRV features for classifier
+    # filter
     raw_signal_features = raw_signal_heartpy_output.loc[metrics_of_interest]
     just_downsampled_signal_features = just_downsampled_signal_heartpy_output.loc[
         metrics_of_interest
@@ -189,6 +189,18 @@ if __name__ == "__main__":
         traditional_preprocessed_signal_features.T
     )
     dae_denoised_signal_features = dae_denoised_signal_features.T
+
+    # standardize
+    raw_signal_features = standardize_hrv_features(raw_signal_features)
+    just_downsampled_signal_features = standardize_hrv_features(
+        just_downsampled_signal_features
+    )
+    traditional_preprocessed_signal_features = standardize_hrv_features(
+        traditional_preprocessed_signal_features
+    )
+    dae_denoised_signal_features = standardize_hrv_features(
+        dae_denoised_signal_features
+    )
 
     # change treatment labels
     raw_signal_changed_labels = change_treatment_labels(raw_signal_features)
