@@ -116,23 +116,15 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
     return treatment_labels_changed_df
 
 
-def add_temp_file_in_subdirectory_to_artifact(artifact, directory_path, fp, df):
-    """
-    Makes code more DRY when I'm saving a bunch of DataFrame to a wandb root subdirectory.
-    :param artifact:
-    :param directory_path:
-    :param fp:
-    :param df:
-    :return:
-    """
-    add_temp_file_to_artifact(
-        artifact=artifact, fp=os.path.join(directory_path, fp), df=df
-    )
-
-
 def save_original_label_dataframe(artifact, fp, df):
     add_temp_file_to_artifact(
         artifact=artifact, fp=os.path.join("original_label", fp), df=df
+    )
+
+
+def save_changed_label_dataframe(artifact, fp, df):
+    add_temp_file_to_artifact(
+        artifact=artifact, fp=os.path.join("changed_label", fp), df=df
     )
 
 
@@ -214,23 +206,44 @@ if __name__ == "__main__":
         artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
 
         # save original treatment label dfs
-        add_temp_file_in_subdirectory_to_artifact(
-            artifact=artifact, directory_path="raw_signal.pkl", df=raw_signal_features
+        save_original_label_dataframe(
+            artifact=artifact, fp="raw_signal.pkl", df=raw_signal_features
         )
-        add_temp_file_to_artifact(
+        save_original_label_dataframe(
             artifact=artifact,
             fp="just_downsampled_signal.pkl",
             df=just_downsampled_signal_features,
         )
-        add_temp_file_to_artifact(
+        save_original_label_dataframe(
             artifact=artifact,
             fp="traditional_preprocessed_signal.pkl",
             df=traditional_preprocessed_signal_features,
         )
-        add_temp_file_to_artifact(
+        save_original_label_dataframe(
             artifact=artifact,
             fp="dae_denoised_signal.pkl",
             df=dae_denoised_signal_features,
         )
+
+        # save changed treatment label dfs
+        save_changed_label_dataframe(
+            artifact=artifact, fp="raw_signal.pkl", df=raw_signal_changed_labels
+        )
+        save_changed_label_dataframe(
+            artifact=artifact,
+            fp="just_downsampled_signal.pkl",
+            df=just_downsampled_signal_changed_labels,
+        )
+        save_changed_label_dataframe(
+            artifact=artifact,
+            fp="traditional_preprocessed_signal.pkl",
+            df=traditional_preprocessed_signal_changed_labels,
+        )
+        save_changed_label_dataframe(
+            artifact=artifact,
+            fp="dae_denoised_signal.pkl",
+            df=dae_denoised_signal_changed_labels,
+        )
+
         run.log_artifact(artifact)
     run.finish()
