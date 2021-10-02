@@ -90,24 +90,29 @@ def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
         )
         return difficulty
 
-    treatment_labels_changed = all_participants_df.copy()
+    treatment_labels_changed_dfs = []
     for participant_idx, participant_df in all_participants_df.groupby(
         axis=0, level="participant"
     ):
+        participant_df_copy = participant_df.copy()
         treatment_labels = participant_df.index.get_level_values(
             level="treatment_label"
         ).unique()
         change_single_treatment_label(
-            participant_df=treatment_labels_changed.loc[participant_idx],
+            participant_df=participant_df_copy,
             treatment_labels=treatment_labels,
             index=2,
         )
         change_single_treatment_label(
-            participant_df=treatment_labels_changed.loc[participant_idx],
+            participant_df=participant_df_copy,
             treatment_labels=treatment_labels,
             index=4,
         )
-    return treatment_labels_changed
+        treatment_labels_changed_dfs.append(participant_df_copy)
+    treatment_labels_changed_df = pd.concat(
+        treatment_labels_changed_dfs, axis=0, names=all_participants_df.index.names
+    )
+    return treatment_labels_changed_df
 
 
 if __name__ == "__main__":
