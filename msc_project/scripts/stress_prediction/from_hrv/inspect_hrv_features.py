@@ -44,14 +44,26 @@ def plot_bar_charts(hrv: pd.DataFrame, dataset_name: str):
 
 
 def ttest(hrv):
-    pvalues = {}
-    for feature in hrv1.columns:
-        _, pvalue = scipy.stats.ttest_rel(
-            hrv1[feature],
-            hrv1[feature],
-            alternative="two-sided",
-        )
-        pvalues[feature] = pvalue
+    treatment_labels = hrv.index.get_level_values(level="treatment_label").unique()
+    features = hrv.columns
+    index = pd.MultiIndex.from_product(
+        iterables=[features, treatment_labels], names=["feature", "treatment_label"]
+    )
+    pvalues = pd.DataFrame(index=index, columns=treatment_labels)
+
+    for feature in features:
+        for treatment_idx1, treatment_df1 in hrv[feature].groupby(
+            level="treatment_label"
+        ):
+            for treatment_idx2, treatment_df2 in hrv[feature].groupby(
+                level="treatment_label"
+            ):
+                _, pvalue = scipy.stats.ttest_rel(
+                    treatment_df1,
+                    treatment_df2,
+                    alternative="two-sided",
+                )
+                pvalues.loc[(feature, treatment_idx1), treatment_idx2] = pvalue
     return pvalue
 
 
@@ -85,4 +97,4 @@ if __name__ == "__main__":
     # )
     # plot_bar_charts(hrv=dae_denoised_signal_hrv, dataset_name="dae denoised")
 
-    ttest(hrv1=raw_signal_hrv.hrv2)
+    ttest(hrv=raw_signal_hrv)
