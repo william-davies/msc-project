@@ -40,11 +40,21 @@ if __name__ == "__main__":
 
     # split into train test
     test_participants = get_test_participants(test_size=0.3)
-    train, test = train_test_split(data=hrv_input, test_participants=test_participants)
+    train_X, test_X = train_test_split(
+        data=hrv_input, test_participants=test_participants
+    )
+    train_labels, test_labels = train_test_split(
+        data=labels.squeeze(), test_participants=test_participants
+    )
 
     # standardize features
     # use train mean and std because that's what Jade did
-    train_mean = train.mean(axis=0)
-    train_std = train.std(axis=0, ddof=0)  # population standard deviation. like sklearn
-    standardized_train = standardize_data(data=train, mean=train_mean, std=train_std)
-    standardized_test = standardize_data(data=test, mean=train_mean, std=train_std)
+    train_mean = train_X.mean(axis=0)
+    train_std = train_X.std(
+        axis=0, ddof=0
+    )  # population standard deviation. like sklearn
+    train_X = standardize_data(data=train_X, mean=train_mean, std=train_std)
+    test_X = standardize_data(data=test_X, mean=train_mean, std=train_std)
+
+    gnb = GaussianNB()
+    gnb.fit(train_X, train_labels)
