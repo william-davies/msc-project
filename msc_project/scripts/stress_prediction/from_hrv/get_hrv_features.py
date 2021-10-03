@@ -32,20 +32,22 @@ def standardize_hrv_features(hrv_features: pd.DataFrame) -> pd.DataFrame:
         ] /= baseline[baseline.keys() != "pnn50"]
         standardized_participant.loc[:, "pnn50"] -= baseline["pnn50"]
         standardized.loc[participant_idx] = standardized_participant
-    non_baseline = remove_baseline_windows(standardized)
+    non_baseline = standardized[
+        get_non_baseline_windows(includes_baseline=standardized.index)
+    ]
     return non_baseline
 
 
-def remove_baseline_windows(windowed_signal: pd.DataFrame) -> pd.DataFrame:
+def get_non_baseline_windows(includes_baseline: pd.Index) -> pd.Index:
     """
     r1 is used as a baseline to standardize other windows.
-    :param windowed_signal:
+    :param includes_baseline:
     :return:
     """
-    without_baseline = windowed_signal.loc[
-        windowed_signal.index.get_level_values(level="treatment_label") != "r1"
+    non_baseline = includes_baseline[
+        includes_baseline.get_level_values(level="treatment_label") != "r1"
     ]
-    return without_baseline
+    return non_baseline
 
 
 def change_treatment_labels(all_participants_df: pd.DataFrame) -> pd.DataFrame:
