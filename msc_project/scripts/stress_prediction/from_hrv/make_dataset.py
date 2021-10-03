@@ -5,6 +5,12 @@ import os
 
 import wandb
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
+from msc_project.scripts.hrv.get_rmse import get_clean_signal_indexes
+from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
+from msc_project.scripts.stress_prediction.from_hrv.get_hrv_features import (
+    change_treatment_labels,
+    get_non_baseline_windows,
+)
 from msc_project.scripts.utils import get_artifact_dataframe
 
 
@@ -27,7 +33,8 @@ if __name__ == "__main__":
     hrv_features_artifact_name: str = "hrv_features:v3"
     labels_artifact_name: str = "labels:v0"
     dataset_name: str = "raw_signal"
-    config = {"dataset_name": dataset_name}
+    config = {"dataset_name": dataset_name, "noise_tolerance": 0}
+    upload_to_wandb: bool = True
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -50,8 +57,40 @@ if __name__ == "__main__":
         pkl_filename="labels.pkl",
     )
 
-    # load noisy mask
+    # get clean indexes
+    windowed_artifact = get_windowed_artifact(
+        hrv_features_artifact=run.use_artifact(
+            artifact_or_name=hrv_features_artifact_name
+        )
+    )
+    noisy_mask = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=windowed_artifact,
+        pkl_filename="noisy_mask.pkl",
+    )
+    noisy_mask = change_treatment_labels(noisy_mask.T).T
+    clean_indexes = get_clean_signal_indexes(
+        noisy_mask=noisy_mask, noise_tolerance=config["noise_tolerance"]
+    )
+    clean_indexes = get_non_baseline_windows(clean_indexes)
 
     # filter examples by clean/noisy
+    filtered_hrv_features = hrv_features.loc[clean_indexes]
+    filtered_labels = labels.loc[clean_indexes]
+
+    # check input and labels are in same order
+    assert filtered_hrv_features.index.equals(filtered_labels.index)
 
     # upload to wandb
+    if upload_to_wandb:
+        artifact = wandb.Artifact(
+            name="complete_dataset", type="get_dataset", metadata=config
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="hrv_features", df=filtered_hrv_features
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="stress_labels", df=filtered_labels
+        )
+        run.log_artifact(artifact)
+    run.finish()
