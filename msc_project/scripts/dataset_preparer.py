@@ -1,4 +1,4 @@
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, List
 
 import numpy as np
 import pandas as pd
@@ -81,3 +81,32 @@ class DatasetPreparer:
         train = signals.drop(columns=validation_participants, level="participant")
         val = signals[validation_participants]
         return train, val
+
+
+def get_test_participants(test_size: float) -> List[str]:
+    """
+
+    :param test_size:
+    :return:
+    """
+    random_state = np.random.RandomState(42)
+    NUM_PARTICIPANTS = len(PARTICIPANT_DIRNAMES_WITH_EXCEL)
+    num_test_participants = round(NUM_PARTICIPANTS * test_size)
+    test_participants = random_state.choice(
+        a=PARTICIPANT_DIRNAMES_WITH_EXCEL, size=num_test_participants, replace=False
+    )
+    return test_participants
+
+
+def train_test_split(
+    data: pd.DataFrame, test_participants: List[str]
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+
+    :param data:
+    :param test_participants:
+    :return:
+    """
+    train = data.drop(index=test_participants, level="participant")
+    test = data.loc[test_participants]
+    return train, test
