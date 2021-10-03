@@ -3,6 +3,7 @@ Train a Gaussian Naive Bayes classifier to predict binary stress label from inpu
 """
 import wandb
 from sklearn.naive_bayes import GaussianNB
+from sklearn import preprocessing
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.dataset_preparer import get_test_participants, train_test_split
@@ -34,3 +35,7 @@ if __name__ == "__main__":
     train, test = train_test_split(data=hrv_input, test_participants=test_participants)
 
     # normalize features
+    # use train mean and std because that's what Jade did
+    scaler = preprocessing.StandardScaler().fit(train)
+    train_mean = train.mean(axis=0)
+    train_std = train.std(axis=0, ddof=0)  # population standard deviation. like sklearn
