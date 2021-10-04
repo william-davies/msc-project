@@ -42,6 +42,23 @@ def get_loso_groups(data: pd.DataFrame) -> List:
     return groups
 
 
+def do_loso_cv(clf, X, y, scoring, groups) -> pd.DataFrame:
+    scores = cross_validate(
+        clf,
+        X,
+        y,
+        scoring=scoring,
+        groups=groups,
+        cv=LeaveOneGroupOut(),
+        return_train_score=True,
+    )
+    unique_participant_values = X.index.get_level_values(level="participant").unique()
+    scores = convert_scores_to_df(
+        scores=scores, unique_participant_values=unique_participant_values
+    )
+    return scores
+
+
 if __name__ == "__main__":
     dataset_artifact_name = "complete_dataset:v1"
     upload_artifact: bool = True
@@ -68,7 +85,6 @@ if __name__ == "__main__":
     assert X.index.equals(y.index)
 
     # LOSO-CV
-    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
     MCC_scorer = make_scorer(score_func=matthews_corrcoef)
     scoring = {
         "accuracy": "accuracy",
@@ -76,26 +92,26 @@ if __name__ == "__main__":
         "MCC": MCC_scorer,
     }
     groups = get_loso_groups(data=X)
-    scores = cross_validate(
-        gnb,
-        X,
-        y,
-        scoring=scoring,
-        groups=groups,
-        cv=LeaveOneGroupOut(),
-        return_train_score=True,
-    )
 
-    unique_participant_values = X.index.get_level_values(level="participant").unique()
-    scores_df = convert_scores_to_df(
-        scores=scores, unique_participant_values=unique_participant_values
-    )
+    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
+    scores = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring, groups=groups)
 
-    summary = scores_df.mean(axis=0)
-    print(summary)
+    summary = scores.mean(axis=0)
+    print(f"trained model summary:\n{summary}")
+
+    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
+    dummy_scores = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring, groups=groups)
+
+    dummy_summary = dummy_scores.mean(axis=0)
+    print(f"dummy model summary:\n{dummy_summary}")
 
     if upload_artifact:
         artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
-        add_temp_file_to_artifact(artifact=artifact, fp="scores.pkl", df=scores_df)
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="trained_model_scores.pkl", df=scores
+        )
+        add_temp_file_to_artifact(
+            artifact=artifact, fp="dummy_model_scores.pkl", df=dummy_scores
+        )
         run.log_artifact(artifact)
     run.finish()
