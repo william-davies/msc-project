@@ -1,5 +1,6 @@
 """
 Train a Gaussian Naive Bayes classifier to predict binary stress label from input HRV features.
+Do LOSO-CV.
 """
 from typing import List, Dict
 
