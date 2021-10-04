@@ -2,7 +2,7 @@
 Train a Gaussian Naive Bayes classifier to predict binary stress label from input HRV features.
 Do LOSO-CV.
 """
-from typing import List, Dict
+from typing import List, Dict, Tuple
 
 import numpy as np
 import pandas as pd
@@ -72,6 +72,33 @@ def concat_scoring_dfs(
     return concatenated_df
 
 
+def get_fitted_and_dummy_scoring(
+    preprocessing_method: str,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Evaluate a single preprocessing method.
+    :param preprocessing_method:
+    :return:
+    """
+    # load dataset
+    X = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=dataset_artifact_name,
+        pkl_filename=f"{preprocessing_method}_signal_hrv_features.pkl",
+    )
+
+    # check example order
+    assert X.index.equals(y.index)
+
+    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
+    fitted_model_scoring = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring)
+
+    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
+    dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
+
+    return fitted_model_scoring, dummy_model_scoring
+
+
 if __name__ == "__main__":
     dataset_artifact_name = "complete_dataset:v2"
     preprocessing_methods: List[str] = [
@@ -80,7 +107,7 @@ if __name__ == "__main__":
         "traditional_preprocessed",
         "dae_denoised",
     ]
-    upload_artifact: bool = True
+    upload_artifact: bool = False
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -104,27 +131,15 @@ if __name__ == "__main__":
     fitted_model_scorings: List[pd.DataFrame] = []
     dummy_model_scorings: List[pd.DataFrame] = []
     for preprocessing_method in preprocessing_methods:
-        # load dataset
-        X = get_artifact_dataframe(
-            run=run,
-            artifact_or_name=dataset_artifact_name,
-            pkl_filename=f"{preprocessing_method}_signal_hrv_features.pkl",
+        fitted_model_scoring, dummy_model_scoring = get_fitted_and_dummy_scoring(
+            preprocessing_method=preprocessing_method
         )
 
-        # check example order
-        assert X.index.equals(y.index)
-
-        gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
-        fitted_model_scoring = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring)
         fitted_model_scorings.append(fitted_model_scoring)
-
         fitted_model_summary = fitted_model_scoring.mean(axis=0)
         print(f"fitted model summary:\n{fitted_model_summary}")
 
-        dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
-        dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
         dummy_model_scorings.append(dummy_model_scoring)
-
         dummy_model_summary = dummy_model_scoring.mean(axis=0)
         print(f"dummy model summary:\n{dummy_model_summary}")
 
@@ -139,10 +154,12 @@ if __name__ == "__main__":
     if upload_artifact:
         artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
         add_temp_file_to_artifact(
-            artifact=artifact, fp="trained_model_scores.pkl", df=fitted_model_scoring
+            artifact=artifact,
+            fp="fitted_model_scorings.pkl",
+            df=fitted_model_scorings_df,
         )
         add_temp_file_to_artifact(
-            artifact=artifact, fp="dummy_model_scores.pkl", df=dummy_model_scoring
+            artifact=artifact, fp="dummy_model_scorings.pkl", df=dummy_model_scorings_df
         )
         run.log_artifact(artifact)
     run.finish()
