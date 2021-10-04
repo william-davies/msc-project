@@ -14,6 +14,7 @@ from sklearn.metrics import accuracy_score, matthews_corrcoef, make_scorer
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.dataset_preparer import get_test_participants, train_test_split
+from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
 from msc_project.scripts.utils import get_artifact_dataframe
 from sklearn.pipeline import make_pipeline
 
@@ -42,6 +43,7 @@ def get_loso_groups(data: pd.DataFrame) -> List:
 
 if __name__ == "__main__":
     dataset_artifact_name = "complete_dataset:v1"
+    upload_artifact: bool = True
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -89,3 +91,10 @@ if __name__ == "__main__":
     )
 
     summary = scores_df.mean(axis=0)
+    print(summary)
+
+    if upload_artifact:
+        artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
+        add_temp_file_to_artifact(artifact=artifact, fp="scores.pkl", df=scores_df)
+        run.log_artifact(artifact)
+    run.finish()
