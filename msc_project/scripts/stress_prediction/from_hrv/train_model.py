@@ -28,7 +28,7 @@ def standardize_data(
 
 def convert_scores_to_df(scores: Dict, unique_participant_values) -> pd.DataFrame:
     scores_df = pd.DataFrame(data=scores, index=unique_participant_values)
-    scores_df.index = scores_df.index.rename(name="LOSO-CV test subject")
+    scores_df.index = scores_df.index.rename(name="loso_cv_test_subject")
     return scores_df
 
 
@@ -42,7 +42,8 @@ def get_loso_groups(data: pd.DataFrame) -> List:
     return groups
 
 
-def do_loso_cv(clf, X, y, scoring, groups) -> pd.DataFrame:
+def do_loso_cv(clf, X, y, scoring) -> pd.DataFrame:
+    groups = get_loso_groups(data=X)
     scores = cross_validate(
         clf,
         X,
@@ -59,8 +60,26 @@ def do_loso_cv(clf, X, y, scoring, groups) -> pd.DataFrame:
     return scores
 
 
+def concat_scoring_dfs(
+    model_scorings: List[pd.DataFrame], preprocessing_methods: List[str]
+) -> pd.DataFrame:
+    concatenated_df = pd.concat(
+        model_scorings,
+        axis=0,
+        keys=preprocessing_methods,
+        names=["preprocessing_method", model_scorings[0].index.name],
+    )
+    return concatenated_df
+
+
 if __name__ == "__main__":
-    dataset_artifact_name = "complete_dataset:v1"
+    dataset_artifact_name = "complete_dataset:v2"
+    preprocessing_methods: List[str] = [
+        "raw",
+        "just_downsampled",
+        "traditional_preprocessed",
+        "dae_denoised",
+    ]
     upload_artifact: bool = True
 
     run = wandb.init(
@@ -69,21 +88,6 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    # load dataset
-    X = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=dataset_artifact_name,
-        pkl_filename="hrv_features.pkl",
-    )
-    y = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=dataset_artifact_name,
-        pkl_filename="stress_labels.pkl",
-    ).squeeze()
-
-    # check example order
-    assert X.index.equals(y.index)
-
     # LOSO-CV
     MCC_scorer = make_scorer(score_func=matthews_corrcoef)
     scoring = {
@@ -91,27 +95,54 @@ if __name__ == "__main__":
         "f1_macro": "f1_macro",
         "MCC": MCC_scorer,
     }
-    groups = get_loso_groups(data=X)
+    y = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=dataset_artifact_name,
+        pkl_filename="stress_labels.pkl",
+    ).squeeze()
 
-    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
-    scores = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring, groups=groups)
+    fitted_model_scorings: List[pd.DataFrame] = []
+    dummy_model_scorings: List[pd.DataFrame] = []
+    for preprocessing_method in preprocessing_methods:
+        # load dataset
+        X = get_artifact_dataframe(
+            run=run,
+            artifact_or_name=dataset_artifact_name,
+            pkl_filename=f"{preprocessing_method}_signal_hrv_features.pkl",
+        )
 
-    summary = scores.mean(axis=0)
-    print(f"trained model summary:\n{summary}")
+        # check example order
+        assert X.index.equals(y.index)
 
-    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
-    dummy_scores = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring, groups=groups)
+        gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
+        fitted_model_scoring = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring)
+        fitted_model_scorings.append(fitted_model_scoring)
 
-    dummy_summary = dummy_scores.mean(axis=0)
-    print(f"dummy model summary:\n{dummy_summary}")
+        fitted_model_summary = fitted_model_scoring.mean(axis=0)
+        print(f"fitted model summary:\n{fitted_model_summary}")
+
+        dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
+        dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
+        dummy_model_scorings.append(dummy_model_scoring)
+
+        dummy_model_summary = dummy_model_scoring.mean(axis=0)
+        print(f"dummy model summary:\n{dummy_model_summary}")
+
+    fitted_model_scorings_df = concat_scoring_dfs(
+        model_scorings=fitted_model_scorings,
+        preprocessing_methods=preprocessing_methods,
+    )
+    dummy_model_scorings_df = concat_scoring_dfs(
+        model_scorings=dummy_model_scorings, preprocessing_methods=preprocessing_methods
+    )
 
     if upload_artifact:
         artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
         add_temp_file_to_artifact(
-            artifact=artifact, fp="trained_model_scores.pkl", df=scores
+            artifact=artifact, fp="trained_model_scores.pkl", df=fitted_model_scoring
         )
         add_temp_file_to_artifact(
-            artifact=artifact, fp="dummy_model_scores.pkl", df=dummy_scores
+            artifact=artifact, fp="dummy_model_scores.pkl", df=dummy_model_scoring
         )
         run.log_artifact(artifact)
     run.finish()
