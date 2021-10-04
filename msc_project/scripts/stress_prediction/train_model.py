@@ -7,10 +7,10 @@ import numpy as np
 import pandas as pd
 import wandb
 from sklearn.dummy import DummyClassifier
-from sklearn.model_selection import cross_validate
+from sklearn.model_selection import cross_validate, LeaveOneGroupOut
 from sklearn.naive_bayes import GaussianNB
 from sklearn import preprocessing
-from sklearn.metrics import accuracy_score, matthews_corrcoef
+from sklearn.metrics import accuracy_score, matthews_corrcoef, make_scorer
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.dataset_preparer import get_test_participants, train_test_split
@@ -88,12 +88,19 @@ if __name__ == "__main__":
 
     # LOSO-CV
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
+    MCC_scorer = make_scorer(score_func=matthews_corrcoef)
     scoring = {
         "accuracy": "accuracy",
         "f1_macro": "f1_macro",
-        "MCC": matthews_corrcoef,
+        "MCC": MCC_scorer,
     }
     groups = get_loso_groups(data=X)
     scores = cross_validate(
-        gnb, X, y, scoring=scoring, groups=groups, cv=None, return_train_score=True
+        gnb,
+        X,
+        y,
+        scoring=scoring,
+        groups=groups,
+        cv=LeaveOneGroupOut(),
+        return_train_score=True,
     )
