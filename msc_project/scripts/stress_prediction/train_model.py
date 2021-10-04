@@ -1,6 +1,9 @@
 """
 Train a Gaussian Naive Bayes classifier to predict binary stress label from input HRV features.
 """
+from typing import List
+
+import numpy as np
 import pandas as pd
 import wandb
 from sklearn.dummy import DummyClassifier
@@ -19,6 +22,16 @@ def standardize_data(
     data: pd.DataFrame, mean: pd.Series, std: pd.Series
 ) -> pd.DataFrame:
     return (data - mean) / std
+
+
+def get_loso_groups(data: pd.DataFrame) -> List:
+    participant_values = data.index.get_level_values(level="participant")
+    unique_participant_values = participant_values.unique()
+    participant_to_index = {
+        participant: idx for idx, participant in enumerate(unique_participant_values)
+    }
+    groups = [participant_to_index[participant] for participant in participant_values]
+    return groups
 
 
 if __name__ == "__main__":
@@ -73,4 +86,6 @@ if __name__ == "__main__":
     # LOSO-CV
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
     scoring = ["accuracy", "f1_macro", matthews_corrcoef]
-    scores = cross_validate(gnb, X, y, scoring=scoring, cv=5, return_train_score=True)
+    scores = cross_validate(
+        gnb, X, y, scoring=scoring, groups=None, cv=None, return_train_score=True
+    )
