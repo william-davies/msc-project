@@ -64,34 +64,6 @@ if __name__ == "__main__":
     # check example order
     assert X.index.equals(y.index)
 
-    # split into train test
-    test_participants = get_test_participants(test_size=0.3)
-    X_train, X_test = train_test_split(data=X, test_participants=test_participants)
-    y_train, y_test = train_test_split(
-        data=y.squeeze(), test_participants=test_participants
-    )
-
-    # standardize features
-    # use train mean and std because that's what Jade did
-    train_mean = X_train.mean(axis=0)
-    train_std = X_train.std(
-        axis=0, ddof=0
-    )  # population standard deviation. like sklearn
-    X_train = standardize_data(data=X_train, mean=train_mean, std=train_std)
-    X_test = standardize_data(data=X_test, mean=train_mean, std=train_std)
-
-    # evaluate model
-    gnb = GaussianNB()
-    gnb.fit(X_train, y_train)
-    mymodel_acc = gnb.score(X_test, y_test)
-
-    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
-    dummy_clf.fit(X_train, y_train)
-    dummy_acc = dummy_clf.score(X_test, y_test)
-
-    print(f"my model score: {mymodel_acc}")
-    print(f"dummy score: {dummy_acc}")
-
     # LOSO-CV
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
     MCC_scorer = make_scorer(score_func=matthews_corrcoef)
@@ -115,3 +87,5 @@ if __name__ == "__main__":
     scores_df = convert_scores_to_df(
         scores=scores, unique_participant_values=unique_participant_values
     )
+
+    summary = scores_df.mean(axis=0)
