@@ -2,6 +2,7 @@
 Load HRV features (input) and labels (target). Filter by clean signals.
 """
 import os
+from typing import List
 
 import wandb
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
@@ -32,8 +33,14 @@ def get_windowed_artifact(hrv_features_artifact):
 if __name__ == "__main__":
     hrv_features_artifact_name: str = "hrv_features:v3"
     labels_artifact_name: str = "labels:v0"
-    dataset_name: str = "raw_signal"
-    config = {"dataset_name": dataset_name, "noise_tolerance": 0}
+    dataset_names: List[str] = [
+        "raw",
+        "just_downsampled",
+        "traditional_preprocessed",
+        "dae_denoised",
+    ]
+    config = {"noise_tolerance": 0.2}
+    notes = "drop the windows that were too noisy for heartpy to work on raw and downsampled signals"
     upload_to_wandb: bool = True
 
     run = wandb.init(
@@ -41,20 +48,7 @@ if __name__ == "__main__":
         job_type="get_dataset",
         save_code=True,
         config=config,
-    )
-
-    # load HRV features
-    hrv_features = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_features_artifact_name,
-        pkl_filename=os.path.join("changed_label", f"{dataset_name}.pkl"),
-    )
-
-    # load labels
-    labels = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=labels_artifact_name,
-        pkl_filename="labels.pkl",
+        notes=notes,
     )
 
     # get clean indexes
@@ -74,23 +68,43 @@ if __name__ == "__main__":
     )
     clean_indexes = get_non_baseline_windows(clean_indexes)
 
-    # filter examples by clean/noisy
-    filtered_hrv_features = hrv_features.loc[clean_indexes]
+    # load labels
+    labels = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=labels_artifact_name,
+        pkl_filename="labels.pkl",
+    )
     filtered_labels = labels.loc[clean_indexes]
 
-    # check input and labels are in same order
-    assert filtered_hrv_features.index.equals(filtered_labels.index)
+    artifact = wandb.Artifact(
+        name="complete_dataset",
+        type="get_dataset",
+        metadata=config,
+        description=notes,
+    )
+
+    # load HRV features
+    for dataset_name in dataset_names:
+        hrv_features = get_artifact_dataframe(
+            run=run,
+            artifact_or_name=hrv_features_artifact_name,
+            pkl_filename=os.path.join("changed_label", f"{dataset_name}_signal.pkl"),
+        )
+
+        # filter examples by clean/noisy
+        filtered_hrv_features = hrv_features.loc[clean_indexes]
+        # check input and labels are in same order
+        assert filtered_hrv_features.index.equals(filtered_labels.index)
+        add_temp_file_to_artifact(
+            artifact=artifact,
+            fp=f"{dataset_name}_signal_hrv_features.pkl",
+            df=filtered_hrv_features,
+        )
 
     # upload to wandb
     if upload_to_wandb:
-        artifact = wandb.Artifact(
-            name="complete_dataset", type="get_dataset", metadata=config
-        )
         add_temp_file_to_artifact(
-            artifact=artifact, fp="hrv_features", df=filtered_hrv_features
-        )
-        add_temp_file_to_artifact(
-            artifact=artifact, fp="stress_labels", df=filtered_labels
+            artifact=artifact, fp="stress_labels.pkl", df=filtered_labels
         )
         run.log_artifact(artifact)
     run.finish()
