@@ -53,7 +53,10 @@ if __name__ == "__main__":
         run=run,
         artifact_or_name=dataset_artifact_name,
         pkl_filename="stress_labels.pkl",
-    )
+    ).squeeze()
+
+    # check example order
+    assert X.index.equals(y.index)
 
     # split into train test
     test_participants = get_test_participants(test_size=0.3)
@@ -85,7 +88,12 @@ if __name__ == "__main__":
 
     # LOSO-CV
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
-    scoring = ["accuracy", "f1_macro", matthews_corrcoef]
+    scoring = {
+        "accuracy": "accuracy",
+        "f1_macro": "f1_macro",
+        "MCC": matthews_corrcoef,
+    }
+    groups = get_loso_groups(data=X)
     scores = cross_validate(
-        gnb, X, y, scoring=scoring, groups=None, cv=None, return_train_score=True
+        gnb, X, y, scoring=scoring, groups=groups, cv=None, return_train_score=True
     )
