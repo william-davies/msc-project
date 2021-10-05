@@ -33,7 +33,7 @@ def standardize_hrv_features(hrv_features: pd.DataFrame) -> pd.DataFrame:
         ] /= baseline[baseline.keys() != "pnn50"]
         standardized_participant.loc[:, "pnn50"] -= baseline["pnn50"]
         standardized.loc[participant_idx] = standardized_participant
-    non_baseline = standardized[
+    non_baseline = standardized.loc[
         get_non_baseline_windows(includes_baseline=standardized.index)
     ]
     return non_baseline
@@ -247,6 +247,9 @@ if __name__ == "__main__":
     )
 
     # deal with lf/hf nan
+    just_downsampled_signal_changed_labels = replace_lfhf_nan(
+        just_downsampled_signal_changed_labels
+    )
 
     if upload_artifact:
         artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
