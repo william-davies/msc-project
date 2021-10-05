@@ -21,10 +21,23 @@ def get_std(scorings: pd.DataFrame) -> pd.DataFrame:
 
 
 def plot_metric(metric):
+    """
+    Compare the stress classification performance across different data denoising methods.
+    :param metric:
+    :return:
+    """
     plt.title(metric)
     plt.ylabel("score")
     plt.xlabel("preprocessing method")
-    plt.bar(x=model_means.index, height=model_means[metric])
+    plt.bar(
+        x=model_means.index,
+        height=model_means[metric],
+        yerr=model_stds[metric],
+        capsize=5,
+    )
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.show()
 
 
 if __name__ == "__main__":
