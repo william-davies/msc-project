@@ -1,9 +1,10 @@
 """
-Get data ready for model. We need (`num_examples`, `num_features`) DataFrame for x.
+Get data ready for model. We need (`num_examples`, `num_features`) DataFrame for X.
 """
 import os
 import re
 
+import numpy as np
 import pandas as pd
 
 import wandb
@@ -143,6 +144,22 @@ def save_changed_label_dataframe(artifact, fp, df):
     )
 
 
+def replace_lfhf_nan(hrv_features: pd.DataFrame) -> pd.DataFrame:
+    """
+    Sometimes we have a divide by zero for lf/hf ratio. This leads to a nan. I think it's probably okay
+    to just set the ratio to zero if lf is zero.
+    :param hrv_features:
+    :return:
+    """
+    copy = hrv_features.copy()
+    lfhf_nan = copy["lf/hf"].isna()
+    lf_is_zero = copy["lf"] == 0
+    hf_is_zero = copy["hf"] == 0
+    all = lfhf_nan & lf_is_zero & hf_is_zero
+    copy.loc[all, "lf/hf"] = 0
+    return copy
+
+
 if __name__ == "__main__":
     heartpy_output_artifact_name: str = "hrv:v0"
     upload_artifact: bool = True
@@ -228,6 +245,8 @@ if __name__ == "__main__":
     dae_denoised_signal_changed_labels = change_treatment_labels(
         dae_denoised_signal_features
     )
+
+    # deal with lf/hf nan
 
     if upload_artifact:
         artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
