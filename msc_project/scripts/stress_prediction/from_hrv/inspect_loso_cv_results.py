@@ -2,12 +2,15 @@
 Use the LOSO-CV results to compare the performance of different denoising methods wrt to producing
 HRV metrics that are useful for stress detection.
 """
-from typing import List
+from typing import List, Dict
 
 import pandas as pd
 import wandb
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
+from msc_project.scripts.stress_prediction.from_hrv.make_dataset import (
+    get_single_input_artifact,
+)
 from msc_project.scripts.utils import get_artifact_dataframe
 import matplotlib.pyplot as plt
 
@@ -37,8 +40,14 @@ def plot_metric(ax, metric):
     ax.set_xticklabels(model_means.index, rotation=30)
 
 
+def get_dataset_metadata(loso_cv_results_artifact: wandb.Artifact) -> Dict:
+    loso_cv_run = loso_cv_results_artifact.logged_by()
+    make_dataset_artifact = get_single_input_artifact(loso_cv_run)
+    return make_dataset_artifact.metadata
+
+
 if __name__ == "__main__":
-    loso_cv_results_artifact = "loso_cv_results:v3"
+    loso_cv_results_artifact_name = "loso_cv_results:v6"
     metrics_of_interest: List[str] = [
         "test_accuracy",
         "train_accuracy",
@@ -54,9 +63,13 @@ if __name__ == "__main__":
         save_code=True,
     )
 
+    dataset_metadata = get_dataset_metadata(
+        run.use_artifact(loso_cv_results_artifact_name)
+    )
+
     model_scorings = get_artifact_dataframe(
         run=run,
-        artifact_or_name=loso_cv_results_artifact,
+        artifact_or_name=loso_cv_results_artifact_name,
         pkl_filename="model_scorings.pkl",
     ).loc[:, metrics_of_interest]
 
@@ -68,11 +81,11 @@ if __name__ == "__main__":
 
     fig, axs = plt.subplots(3, 2, sharex="all", sharey="row", figsize=[12, 12])
     for i, metric in enumerate(metrics_of_interest):
-        print(f"{i//2}, {i%2}")
         plot_metric(ax=axs[i // 2, i % 2], metric=metric)
 
     for ax in axs.flat:
         ax.label_outer()
-
+    suptitle = "\n".join([f"{key}: {value}" for key, value in dataset_metadata.items()])
+    fig.suptitle(suptitle)
     plt.tight_layout()
     plt.show()
