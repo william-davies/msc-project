@@ -20,7 +20,7 @@ def get_std(scorings: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    loso_cv_results_artifact = "loso_cv_results:v2"
+    loso_cv_results_artifact = "loso_cv_results:v3"
     metrics_of_interest: List[str] = [
         "test_accuracy",
         "train_accuracy",
@@ -36,20 +36,11 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    fitted_model_scorings = get_artifact_dataframe(
+    model_scorings = get_artifact_dataframe(
         run=run,
         artifact_or_name=loso_cv_results_artifact,
-        pkl_filename="fitted_model_scorings.pkl",
+        pkl_filename="model_scorings.pkl",
     ).loc[:, metrics_of_interest]
 
-    dummy_model_scorings = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=loso_cv_results_artifact,
-        pkl_filename="dummy_model_scorings.pkl",
-    ).loc[:, metrics_of_interest]
-
-    fitted_model_means = get_mean(scorings=fitted_model_scorings)
-    fitted_model_stds = get_std(scorings=fitted_model_scorings)
-
-    dummy_model_means = get_mean(scorings=dummy_model_scorings)
-    dummy_model_stds = get_std(scorings=dummy_model_scorings)
+    fitted_model_means = get_mean(scorings=model_scorings)
+    fitted_model_stds = get_std(scorings=model_scorings)
