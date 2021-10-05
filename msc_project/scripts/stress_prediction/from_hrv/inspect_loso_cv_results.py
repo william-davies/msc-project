@@ -2,13 +2,33 @@
 Use the LOSO-CV results to compare the performance of different denoising methods wrt to producing
 HRV metrics that are useful for stress detection.
 """
+from typing import List
+
+import pandas as pd
 import wandb
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.utils import get_artifact_dataframe
 
+
+def get_mean(scorings: pd.DataFrame) -> pd.DataFrame:
+    return scorings.groupby(axis=0, level="preprocessing_method").mean()
+
+
+def get_std(scorings: pd.DataFrame) -> pd.DataFrame:
+    return scorings.groupby(axis=0, level="preprocessing_method").std(ddof=0)
+
+
 if __name__ == "__main__":
     loso_cv_results_artifact = "loso_cv_results:v2"
+    metrics_of_interest: List[str] = [
+        "test_accuracy",
+        "train_accuracy",
+        "test_f1_macro",
+        "train_f1_macro",
+        "test_MCC",
+        "train_MCC",
+    ]
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -20,10 +40,16 @@ if __name__ == "__main__":
         run=run,
         artifact_or_name=loso_cv_results_artifact,
         pkl_filename="fitted_model_scorings.pkl",
-    )
+    ).loc[:, metrics_of_interest]
 
     dummy_model_scorings = get_artifact_dataframe(
         run=run,
         artifact_or_name=loso_cv_results_artifact,
         pkl_filename="dummy_model_scorings.pkl",
-    )
+    ).loc[:, metrics_of_interest]
+
+    fitted_model_means = get_mean(scorings=fitted_model_scorings)
+    fitted_model_stds = get_std(scorings=fitted_model_scorings)
+
+    dummy_model_means = get_mean(scorings=dummy_model_scorings)
+    dummy_model_stds = get_std(scorings=dummy_model_scorings)
