@@ -4,6 +4,7 @@ Load HRV features (input) and labels (target). Filter by clean signals.
 import os
 from typing import List
 
+import pandas as pd
 import wandb
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.hrv.get_rmse import get_clean_signal_indexes
@@ -30,8 +31,17 @@ def get_windowed_artifact(hrv_features_artifact):
     return windowed_artifact
 
 
+def filter_data(data, excluded_participants: List[str]) -> pd.DataFrame:
+    """
+    I do different data filtering as I do experiments. Put them all in here so it's cleaner.
+    :param data:
+    :return:
+    """
+    return data.drop(index=excluded_participants)
+
+
 if __name__ == "__main__":
-    hrv_features_artifact_name: str = "hrv_features:v3"
+    hrv_features_artifact_name: str = "hrv_features:v4"
     labels_artifact_name: str = "labels:v0"
     dataset_names: List[str] = [
         "raw",
@@ -39,8 +49,11 @@ if __name__ == "__main__":
         "traditional_preprocessed",
         "dae_denoised",
     ]
-    config = {"noise_tolerance": 0.2}
-    notes = "drop the windows that were too noisy for heartpy to work on raw and downsampled signals"
+    config = {
+        "noise_tolerance": 1,
+        "excluded_participants": ["0725135216P4_608", "0726094551P5_609"],
+    }
+    notes = ""
     upload_to_wandb: bool = True
 
     run = wandb.init(
@@ -63,6 +76,7 @@ if __name__ == "__main__":
         pkl_filename="noisy_mask.pkl",
     )
     noisy_mask = change_treatment_labels(noisy_mask.T).T
+    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
     clean_indexes = get_clean_signal_indexes(
         noisy_mask=noisy_mask, noise_tolerance=config["noise_tolerance"]
     )
@@ -74,7 +88,9 @@ if __name__ == "__main__":
         artifact_or_name=labels_artifact_name,
         pkl_filename="labels.pkl",
     )
-    filtered_labels = labels.loc[clean_indexes]
+    filtered_labels = filter_data(
+        data=labels, excluded_participants=config["excluded_participants"]
+    )
 
     artifact = wandb.Artifact(
         name="complete_dataset",
@@ -91,8 +107,9 @@ if __name__ == "__main__":
             pkl_filename=os.path.join("changed_label", f"{dataset_name}_signal.pkl"),
         )
 
-        # filter examples by clean/noisy
-        filtered_hrv_features = hrv_features.loc[clean_indexes]
+        filtered_hrv_features = filter_data(
+            data=hrv_features, excluded_participants=config["excluded_participants"]
+        )
         # check input and labels are in same order
         assert filtered_hrv_features.index.equals(filtered_labels.index)
         add_temp_file_to_artifact(
