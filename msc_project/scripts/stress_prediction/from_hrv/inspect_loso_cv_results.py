@@ -37,6 +37,8 @@ def plot_metric(ax, metric):
         yerr=model_stds[metric],
         capsize=5,
     )
+    for i, height in enumerate(model_means[metric]):
+        ax.text(i + 0.25, height, f"{height:.3f}", ha="center")
     ax.set_xticklabels(model_means.index, rotation=30)
 
 
