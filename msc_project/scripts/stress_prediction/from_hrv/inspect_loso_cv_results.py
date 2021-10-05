@@ -20,24 +20,21 @@ def get_std(scorings: pd.DataFrame) -> pd.DataFrame:
     return scorings.groupby(axis=0, level="preprocessing_method").std(ddof=0)
 
 
-def plot_metric(metric):
+def plot_metric(ax, metric):
     """
     Compare the stress classification performance across different data denoising methods.
     :param metric:
     :return:
     """
-    plt.title(metric)
-    plt.ylabel("score")
-    plt.xlabel("preprocessing method")
-    plt.bar(
+    ax.set_title(metric)
+    ax.set(xlabel="preprocessing method", ylabel="score")
+    ax.bar(
         x=model_means.index,
         height=model_means[metric],
         yerr=model_stds[metric],
         capsize=5,
     )
-    plt.xticks(rotation=45)
-    plt.tight_layout()
-    plt.show()
+    ax.set_xticklabels(model_means.index, rotation=30)
 
 
 if __name__ == "__main__":
@@ -69,5 +66,13 @@ if __name__ == "__main__":
     model_means = get_mean(scorings=model_scorings).reindex(preprocessing_methods)
     model_stds = get_std(scorings=model_scorings).reindex(preprocessing_methods)
 
-    for metric in metrics_of_interest:
-        break
+    fig, axs = plt.subplots(3, 2, sharex="all", sharey="row", figsize=[12, 12])
+    for i, metric in enumerate(metrics_of_interest):
+        print(f"{i//2}, {i%2}")
+        plot_metric(ax=axs[i // 2, i % 2], metric=metric)
+
+    for ax in axs.flat:
+        ax.label_outer()
+
+    plt.tight_layout()
+    plt.show()
