@@ -1,6 +1,6 @@
 """
 Train a Gaussian Naive Bayes classifier to predict binary stress label from input HRV features.
-Do LOSO-CV.
+Do LOSO-CV. Repeat for all data preprocessing methods.
 """
 from typing import List, Dict, Tuple
 
@@ -72,9 +72,9 @@ def concat_scoring_dfs(
     return concatenated_df
 
 
-def get_fitted_and_dummy_scoring(
+def get_fitted_model_scoring(
     preprocessing_method: str,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> pd.DataFrame:
     """
     Evaluate a single preprocessing method.
     :param preprocessing_method:
@@ -87,27 +87,45 @@ def get_fitted_and_dummy_scoring(
         pkl_filename=f"{preprocessing_method}_signal_hrv_features.pkl",
     )
 
+    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
+    fitted_model_scoring = get_model_scoring(X=X, model=gnb)
+    return fitted_model_scoring
+
+
+def get_dummy_model_scoring() -> pd.DataFrame:
+    # load dataset
+    # the data doesn't matter so we just load raw signal
+    X = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=dataset_artifact_name,
+        pkl_filename=f"raw_signal_hrv_features.pkl",
+    )
+
+    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
+    dummy_model_scoring = get_model_scoring(X=X, model=dummy_clf)
+    return dummy_model_scoring
+
+
+def get_model_scoring(X: pd.DataFrame, model) -> pd.DataFrame:
     # check example order
     assert X.index.equals(y.index)
 
-    gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
-    fitted_model_scoring = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring)
+    model_scoring = do_loso_cv(clf=model, X=X, y=y, scoring=scoring)
 
-    dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
-    dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
+    return model_scoring
 
-    return fitted_model_scoring, dummy_model_scoring
 
+preprocessing_methods: List[str] = [
+    "raw",
+    "just_downsampled",
+    "traditional_preprocessed",
+    "dae_denoised",
+]
 
 if __name__ == "__main__":
-    dataset_artifact_name = "complete_dataset:v2"
-    preprocessing_methods: List[str] = [
-        "raw",
-        "just_downsampled",
-        "traditional_preprocessed",
-        "dae_denoised",
-    ]
-    upload_artifact: bool = False
+    dataset_artifact_name = "complete_dataset:v3"
+
+    upload_artifact: bool = True
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -128,38 +146,31 @@ if __name__ == "__main__":
         pkl_filename="stress_labels.pkl",
     ).squeeze()
 
-    fitted_model_scorings: List[pd.DataFrame] = []
-    dummy_model_scorings: List[pd.DataFrame] = []
+    model_scorings: List[pd.DataFrame] = []
     for preprocessing_method in preprocessing_methods:
-        fitted_model_scoring, dummy_model_scoring = get_fitted_and_dummy_scoring(
+        fitted_model_scoring = get_fitted_model_scoring(
             preprocessing_method=preprocessing_method
         )
 
-        fitted_model_scorings.append(fitted_model_scoring)
+        model_scorings.append(fitted_model_scoring)
         fitted_model_summary = fitted_model_scoring.mean(axis=0)
-        print(f"fitted model summary:\n{fitted_model_summary}")
+        print(f"{preprocessing_method} fitted model summary:\n{fitted_model_summary}")
+    dummy_model_scoring = get_dummy_model_scoring()
+    model_scorings.append(dummy_model_scoring)
+    dummy_model_summary = dummy_model_scoring.mean(axis=0)
+    print(f"dummy model summary:\n{dummy_model_summary}")
 
-        dummy_model_scorings.append(dummy_model_scoring)
-        dummy_model_summary = dummy_model_scoring.mean(axis=0)
-        print(f"dummy model summary:\n{dummy_model_summary}")
-
-    fitted_model_scorings_df = concat_scoring_dfs(
-        model_scorings=fitted_model_scorings,
-        preprocessing_methods=preprocessing_methods,
-    )
-    dummy_model_scorings_df = concat_scoring_dfs(
-        model_scorings=dummy_model_scorings, preprocessing_methods=preprocessing_methods
+    model_scorings_df = concat_scoring_dfs(
+        model_scorings=model_scorings,
+        preprocessing_methods=[*preprocessing_methods, "dummy_model"],
     )
 
     if upload_artifact:
         artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
         add_temp_file_to_artifact(
             artifact=artifact,
-            fp="fitted_model_scorings.pkl",
-            df=fitted_model_scorings_df,
-        )
-        add_temp_file_to_artifact(
-            artifact=artifact, fp="dummy_model_scorings.pkl", df=dummy_model_scorings_df
+            fp="model_scorings.pkl",
+            df=model_scorings_df,
         )
         run.log_artifact(artifact)
     run.finish()
