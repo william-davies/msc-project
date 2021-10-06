@@ -20,9 +20,10 @@ from msc_project.scripts.stress_prediction.from_signal_itself.get_data_split imp
 
 if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
-    preprocessed_data_artifact_version: int = 7
+    preprocessed_data_artifact_version: int = 8
     config = {"noise_tolerance": 0}
     job_type = "data_split"
+    upload_artifact: bool = False
 
     run = wandb.init(
         project=DENOISING_AUTOENCODER_PROJECT_NAME,
@@ -86,11 +87,6 @@ if __name__ == "__main__":
         noisy_mask=noisy_mask,
     )
 
-    data_split_artifact = wandb.Artifact(
-        name=f"{sheet_name}_data_split", type=DATA_SPLIT_ARTIFACT, metadata=config
-    )
-
-    upload_artifact: bool = True
     if upload_artifact:
         artifact = wandb.Artifact(
             name=f"{sheet_name}_{job_type}", type=job_type, metadata=config
