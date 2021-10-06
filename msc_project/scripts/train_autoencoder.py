@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import shutil
@@ -115,7 +116,7 @@ if __name__ == "__main__":
     run_id = ""
     architecture_type = get_architecture_type(create_autoencoder)
     notes = f"{architecture_type} trained on {sheet_name} {data_name}"
-    upload_artifact: bool = False
+    upload_artifact: bool = True
 
     run_config = {
         "optimizer": "adam",
@@ -123,8 +124,8 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 10,
-        "patience": 1000,
+        "epoch": 3,
+        "patience": 500,
         "min_delta": 1e-3,
         "model_architecture_type": architecture_type,
         "sheet_name": sheet_name,
@@ -202,5 +203,8 @@ if __name__ == "__main__":
         )
         save_model(save_path=trained_model_dir, model=autoencoder)
         trained_model_artifact.add_dir(trained_model_dir)
+        trained_model_artifact.add_file(
+            local_path=os.path.abspath(inspect.getfile(create_autoencoder))
+        )
         run.log_artifact(trained_model_artifact)
     run.finish()
