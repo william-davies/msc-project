@@ -1,29 +1,26 @@
+"""
+Split data into train, val, noisy. Don't do any other processing of data itself.
+"""
 import os
-from typing import Tuple, Iterable
 
-import numpy as np
-import pandas as pd
 import wandb
 
 from msc_project.constants import (
-    PARTICIPANT_DIRNAMES_WITH_EXCEL,
     DENOISING_AUTOENCODER_PROJECT_NAME,
     PREPROCESSED_DATA_ARTIFACT,
-    ARTIFACTS_ROOT,
     BASE_DIR,
     DATA_SPLIT_ARTIFACT,
     SheetNames,
 )
-from msc_project.scripts.evaluate_autoencoder import (
-    download_artifact_if_not_already_downloaded,
+from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.stress_prediction.from_signal_itself.get_data_split import (
+    handle_data_split,
 )
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
-from msc_project.scripts.stress_prediction.get_data_split import handle_data_split
 
 
 if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
-    preprocessed_data_artifact_version = 3
+    preprocessed_data_artifact_version: int = 7
     config = {"noise_tolerance": 0}
     job_type = "data_split"
 
@@ -52,22 +49,22 @@ if __name__ == "__main__":
     only_downsampled_data = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
-        pkl_filename="windowed_only_downsampled_data.pkl",
+        pkl_filename=os.path.join("windowed", "only_downsampled_data.pkl"),
     )
     traditional_preprocessed_data = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
-        pkl_filename="windowed_traditional_preprocessed_data.pkl",
+        pkl_filename=os.path.join("windowed", "traditional_preprocessed_data.pkl"),
     )
     intermediate_preprocessed_data = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
-        pkl_filename="windowed_intermediate_preprocessed_data.pkl",
+        pkl_filename=os.path.join("windowed", "intermediate_preprocessed_data.pkl"),
     )
     noisy_mask = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
-        pkl_filename="windowed_noisy_mask.pkl",
+        pkl_filename=os.path.join("windowed", "noisy_mask.pkl"),
     )
 
     handle_data_split(
