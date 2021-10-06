@@ -13,7 +13,7 @@ from msc_project.constants import (
     SheetNames,
 )
 
-from msc_project.models.mlp_autoencoder import create_autoencoder
+from msc_project.models.lstm_autoencoder import create_autoencoder
 
 from wandb.keras import WandbCallback
 
@@ -22,8 +22,7 @@ import pandas as pd
 
 # %%
 from msc_project.scripts.evaluate_autoencoder import data_has_num_features_dimension
-from msc_project.scripts.hrv.get_hrv import get_artifact_dataframe
-from msc_project.scripts.utils import add_num_features_dimension
+from msc_project.scripts.utils import add_num_features_dimension, get_artifact_dataframe
 
 
 def init_run(
@@ -111,11 +110,12 @@ def save_model(save_path: str, model):
 # %%
 if __name__ == "__main__":
     sheet_name = SheetNames.INFINITY.value
-    data_split_version = 3
-    is_production: bool = False
-    notes = ""
+    data_split_version = 5
     data_name: str = "only_downsampled"
     run_id = ""
+    architecture_type = get_architecture_type(create_autoencoder)
+    notes = f"{architecture_type} trained on {sheet_name} {data_name}"
+    upload_artifact: bool = False
 
     run_config = {
         "optimizer": "adam",
@@ -123,11 +123,10 @@ if __name__ == "__main__":
         "metric": [None],
         "batch_size": 32,
         "monitor": "val_loss",
-        "epoch": 5,
+        "epoch": 10,
         "patience": 1000,
         "min_delta": 1e-3,
-        "model_architecture_type": get_architecture_type(create_autoencoder),
-        "is_prod": is_production,
+        "model_architecture_type": architecture_type,
         "sheet_name": sheet_name,
         "data_name": data_name,
     }
@@ -191,13 +190,17 @@ if __name__ == "__main__":
         shuffle=True,
     )
 
-    trained_model_artifact = wandb.Artifact(
-        name=f"trained_on_{sheet_name}", type=TRAINED_MODEL_ARTIFACT, metadata=metadata
-    )
-    trained_model_dir = os.path.join(
-        BASE_DIR, "data", DENOISING_AUTOENCODER_PROJECT_NAME, TRAINED_MODEL_ARTIFACT
-    )
-    save_model(save_path=trained_model_dir, model=autoencoder)
-    trained_model_artifact.add_dir(trained_model_dir)
-    run.log_artifact(trained_model_artifact)
+    if upload_artifact:
+        trained_model_artifact = wandb.Artifact(
+            name=f"trained_on_{sheet_name}",
+            type=TRAINED_MODEL_ARTIFACT,
+            metadata=metadata,
+            description=notes,
+        )
+        trained_model_dir = os.path.join(
+            BASE_DIR, "data", DENOISING_AUTOENCODER_PROJECT_NAME, TRAINED_MODEL_ARTIFACT
+        )
+        save_model(save_path=trained_model_dir, model=autoencoder)
+        trained_model_artifact.add_dir(trained_model_dir)
+        run.log_artifact(trained_model_artifact)
     run.finish()
