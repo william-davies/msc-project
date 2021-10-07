@@ -25,6 +25,9 @@ from msc_project.scripts.data_processing.get_preprocessed_data import (
 )
 
 # %%
+from msc_project.scripts.stress_prediction.from_hrv.make_dataset import (
+    get_single_input_artifact,
+)
 from msc_project.scripts.utils import (
     add_num_features_dimension,
     get_artifact_dataframe,
@@ -52,9 +55,7 @@ def download_preprocessed_data(data_split_artifact) -> str:
     :return:
     """
     data_split_run = data_split_artifact.logged_by()
-    input_artifacts = data_split_run.used_artifacts()
-    assert len(input_artifacts) == 1
-    preprocessed_data_artifact = input_artifacts[0]
+    preprocessed_data_artifact = get_single_input_artifact(data_split_run)
     download_fp = download_artifact_if_not_already_downloaded(
         preprocessed_data_artifact
     )
@@ -394,7 +395,7 @@ if __name__ == "__main__":
     data_split_version = 5
     data_name: str = "only_downsampled"
     config = {"data_name": data_name}
-    model_artifact_name = "trained_on_Inf:v6"
+    model_artifact_name = "trained_on_Inf:v9"
     notes = ""
     upload_artifact: bool = False
 
