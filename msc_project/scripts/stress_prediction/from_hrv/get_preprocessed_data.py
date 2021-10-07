@@ -1,5 +1,8 @@
 """
 Perform sliding window on signals. Save noisy mask.
+Parameter
+- artifact name of merged denoised signal
+- sliding window window duration and sliding window step duration
 """
 import os
 
@@ -20,6 +23,7 @@ from msc_project.scripts.data_processing.get_preprocessed_data import (
     get_temporal_subwindow_of_signal,
 )
 from msc_project.scripts.hrv.get_hrv import get_hrv
+from msc_project.scripts.hrv.get_rmse import get_noisy_proportions
 from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
 from msc_project.scripts.utils import get_artifact_dataframe, safe_float_to_int
 
@@ -42,12 +46,23 @@ def get_preprocessed_data_artifact(dae_denoised_artifact):
     return preprocessed_data_artifact
 
 
+def get_sheet_name_prefix(artifact_name: str) -> str:
+    """
+    ```
+    Inf_merged_signal:v1 -> Inf
+    ```
+    :param artifact_name:
+    :return:
+    """
+    return artifact_name.split("_")[0]
+
+
 if __name__ == "__main__":
     dae_denoised_data_artifact_name: str = (
-        f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v0"
+        f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v1"
     )
-    upload_artifact: bool = True
 
+    upload_artifact: bool = True
     config = {
         "window_duration": 2 * SECONDS_IN_MINUTE,
         "step_duration": 1 * SECONDS_IN_MINUTE,
@@ -96,6 +111,7 @@ if __name__ == "__main__":
         artifact_or_name=preprocessed_data_artifact,
         pkl_filename=os.path.join("not_windowed", "noisy_mask.pkl"),
     )
+    noisy_proportions = get_noisy_proportions(noisy_mask)
 
     # sliding window
     raw_windowed = handle_data_windowing(
@@ -124,10 +140,11 @@ if __name__ == "__main__":
         step_duration=config["step_duration"],
     )
 
-    # save HRV features
+    # upload windowed signal
     if upload_artifact:
+        sheet_name: str = get_sheet_name_prefix(dae_denoised_artifact.name)
         artifact = wandb.Artifact(
-            name="windowed", type="preprocessed_data", metadata=config
+            name=f"windowed_{sheet_name}", type="preprocessed_data", metadata=config
         )
         add_temp_file_to_artifact(
             artifact=artifact, fp="raw_signal.pkl", df=raw_windowed
