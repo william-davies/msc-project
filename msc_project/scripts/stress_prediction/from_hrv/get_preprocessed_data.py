@@ -22,9 +22,8 @@ from msc_project.scripts.data_processing.get_preprocessed_data import (
     handle_data_windowing,
     get_temporal_subwindow_of_signal,
 )
-from msc_project.scripts.hrv.get_hrv import get_hrv
 from msc_project.scripts.hrv.get_rmse import get_noisy_proportions
-from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
+from msc_project.scripts.hrv.utils import add_temp_file_to_artifact
 from msc_project.scripts.utils import get_artifact_dataframe, safe_float_to_int
 
 
@@ -48,6 +47,7 @@ def get_preprocessed_data_artifact(dae_denoised_artifact):
 
 def get_sheet_name_prefix(artifact_name: str) -> str:
     """
+    e.g.
     ```
     Inf_merged_signal:v1 -> Inf
     ```
@@ -58,10 +58,10 @@ def get_sheet_name_prefix(artifact_name: str) -> str:
 
 
 if __name__ == "__main__":
+    dae_denoised_data_artifact_basename: str = "EmLBVP_merged_signal:v3"
     dae_denoised_data_artifact_name: str = (
-        f"{DENOISING_AUTOENCODER_PROJECT_NAME}/Inf_merged_signal:v1"
+        f"{DENOISING_AUTOENCODER_PROJECT_NAME}/{dae_denoised_data_artifact_basename}"
     )
-
     upload_artifact: bool = True
     config = {
         "window_duration": 2 * SECONDS_IN_MINUTE,
@@ -79,7 +79,7 @@ if __name__ == "__main__":
     dae_denoised_artifact = run.use_artifact(dae_denoised_data_artifact_name)
     preprocessed_data_artifact = get_preprocessed_data_artifact(dae_denoised_artifact)
 
-    # load Infiniti raw, just downsampled, traditional preprocessed signal, dae denoised
+    # load raw, just downsampled, traditional preprocessed, dae denoised signals
     raw_signal = get_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact,
