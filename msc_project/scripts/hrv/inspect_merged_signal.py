@@ -1,5 +1,6 @@
 """
 Inspect how the merged signal arises (by mean-ing) from the reconstructed windows.
+Also compare merged denoised signal to model input.
 """
 import os
 
@@ -11,19 +12,22 @@ from msc_project.constants import (
     SheetNames,
     SECONDS_IN_MINUTE,
 )
+from msc_project.scripts.data_processing.denoise_and_merge_entire_signal import (
+    convert_relative_timedelta_to_absolute_timedelta,
+)
+from msc_project.scripts.data_processing.get_preprocessed_data import normalize_windows
 from msc_project.scripts.evaluate_autoencoder import (
     download_artifact_model,
     get_reconstructed_df,
 )
-from msc_project.scripts.hrv.merge_denoised_windows import (
-    convert_relative_timedelta_to_absolute_timedelta,
-)
+
 from msc_project.scripts.plot_raw_data import plot_signal
 from msc_project.scripts.utils import get_artifact_dataframe
 
 if __name__ == "__main__":
-    model_artifact_name = "trained_on_EmLBVP:v0"
-    sheet_name = SheetNames.EMPATICA_LEFT_BVP.value
+    preprocessed_data_artifact_name: str = "EmLBVP_preprocessed_data:v7"
+    model_artifact_name = "trained_on_EmLBVP:v3"
+    merged_signal_artifact_name: str = "EmLBVP_merged_signal:v2"
     data_name: str = "only_downsampled"
     config = {"data_name": data_name}
 
@@ -37,7 +41,7 @@ if __name__ == "__main__":
     # 1. get reconstructed windows
     only_downsampled_data = get_artifact_dataframe(
         run=run,
-        artifact_or_name=f"{sheet_name}_preprocessed_data:v5",
+        artifact_or_name=preprocessed_data_artifact_name,
         pkl_filename=os.path.join("windowed", f"{data_name}_data.pkl"),
     )
 
@@ -50,16 +54,22 @@ if __name__ == "__main__":
         reconstructed_windows
     )
 
-    # 2. load empatica merged signal
-    empatica_merged_signal_artifact_name: str = "EmLBVP_merged_signal:v1"
+    # 2. load merged signal
     merged_signal = get_artifact_dataframe(
         run=run,
-        artifact_or_name=empatica_merged_signal_artifact_name,
+        artifact_or_name=merged_signal_artifact_name,
         pkl_filename="merged_signal.pkl",
     )
 
+    # get model input
+    not_windowed_downsampled_data = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=preprocessed_data_artifact_name,
+        pkl_filename=os.path.join("not_windowed", f"{data_name}_data.pkl"),
+    )
+
     # 3. plot signals and compare
-    arbitrary_example = merged_signal.columns[2]
+    arbitrary_example = merged_signal.columns[0]
     treatment_windows = reconstructed_windows[arbitrary_example]
     treatment_windows = (
         treatment_windows + 1
@@ -74,4 +84,16 @@ if __name__ == "__main__":
         plot_signal(signal=window + offset)
     plot_signal(signal=merged_signal[arbitrary_example])
     plt.title(arbitrary_example)
+    plt.show()
+
+    plt.figure()
+    plot_signal(
+        signal=normalize_windows(not_windowed_downsampled_data[arbitrary_example]),
+        label="just downsampled",
+    )
+    plot_signal(
+        signal=normalize_windows(merged_signal[arbitrary_example]), label="dae denoised"
+    )
+    plt.title(arbitrary_example)
+    plt.legend()
     plt.show()
