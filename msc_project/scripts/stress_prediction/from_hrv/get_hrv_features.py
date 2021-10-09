@@ -1,5 +1,10 @@
 """
 Get data ready for model. We need (`num_examples`, `num_features`) DataFrame for X.
+- filter HRV metric of interest from heartpy output
+- standardize features relative to first r1 window
+- change treatment labels
+- deal with lf/hf nan
+
 """
 import os
 import re
@@ -10,7 +15,10 @@ import pandas as pd
 import wandb
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.hrv.get_rmse import metrics_of_interest
-from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
+from msc_project.scripts.hrv.utils import add_temp_file_to_artifact
+from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import (
+    get_sheet_name_prefix,
+)
 from msc_project.scripts.stress_prediction.from_signal_itself.preprocess_data import (
     get_labels,
 )
@@ -28,10 +36,14 @@ def standardize_hrv_features(hrv_features: pd.DataFrame) -> pd.DataFrame:
     ):
         standardized_participant = participant_df.copy()
         baseline = participant_df.loc[(participant_idx, "r1", "bvp", 60)]
-        standardized_participant.loc[
-            :, standardized_participant.columns != "pnn50"
-        ] /= baseline[baseline.keys() != "pnn50"]
-        standardized_participant.loc[:, "pnn50"] -= baseline["pnn50"]
+        if baseline.isnull().all():
+            # if heartpy failed to compute metrics for r1 window1, we can't standardize
+            standardized_participant = None
+        else:
+            standardized_participant.loc[
+                :, standardized_participant.columns != "pnn50"
+            ] /= baseline[baseline.keys() != "pnn50"]
+            standardized_participant.loc[:, "pnn50"] -= baseline["pnn50"]
         standardized.loc[participant_idx] = standardized_participant
     non_baseline = standardized.loc[
         get_non_baseline_windows(includes_baseline=standardized.index)
@@ -161,7 +173,8 @@ def replace_lfhf_nan(hrv_features: pd.DataFrame) -> pd.DataFrame:
 
 
 if __name__ == "__main__":
-    heartpy_output_artifact_name: str = "hrv:v0"
+    heartpy_output_artifact_name: str = "EmLBVP_heartpy_output:v0"
+    sheet_name = get_sheet_name_prefix(heartpy_output_artifact_name)
     upload_artifact: bool = True
 
     run = wandb.init(
@@ -252,7 +265,7 @@ if __name__ == "__main__":
     )
 
     if upload_artifact:
-        artifact = wandb.Artifact(name="hrv_features", type="get_hrv")
+        artifact = wandb.Artifact(name=f"{sheet_name}_hrv_features", type="get_hrv")
 
         # save original treatment label dfs
         save_original_label_dataframe(
