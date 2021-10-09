@@ -56,13 +56,39 @@ def filter_hrv_features(hrv_features: pd.DataFrame, config: Dict) -> pd.DataFram
     ]
 
 
+def get_combined_hrv_features(complete_dataset_artifact) -> pd.DataFrame:
+    raw_hrv_features = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=hrv_features_artifact_name,
+        pkl_filename=os.path.join("changed_label", f"raw_signal.pkl"),
+    )
+    dae_denoised_hrv_features = get_artifact_dataframe(
+        run=run,
+        artifact_or_name=hrv_features_artifact_name,
+        pkl_filename=os.path.join("changed_label", f"dae_denoised_signal.pkl"),
+    )
+    raw_features_to_combine = raw_hrv_features[["pnn50", "lf/hf"]]
+    dae_denoised_features_to_combine = dae_denoised_hrv_features[
+        ["bpm", "sdnn", "rmssd"]
+    ]
+    combined_hrv_features = pd.concat(
+        objs=[raw_features_to_combine, dae_denoised_features_to_combine], axis=1
+    )
+    return combined_hrv_features
+
+
+def assert_both_index_and_columns_are_equal(df1, df2):
+    assert df1.index.equals(df2.index)
+    assert df1.columns.equals(df2.columns)
+
+
 if __name__ == "__main__":
     hrv_features_artifact_name: str = "EmLBVP_hrv_features:v0"
     labels_artifact_name: str = "EmLBVP_labels:v0"
     config = {
         "noise_tolerance": 1,
         "excluded_participants": ["0726114041P6_609"],
-        "included_features": ["bpm", "sdnn", "rmssd", "pnn50", "lf", "hf", "lf/hf"],
+        "included_features": ["bpm", "sdnn", "rmssd", "pnn50", "lf/hf"],
     }
     notes = ""
     upload_to_wandb: bool = True
@@ -134,12 +160,23 @@ if __name__ == "__main__":
             df=filtered_hrv_features,
         )
 
+    # get combined hrv features
+    combined_hrv_features = get_combined_hrv_features()
+    combined_hrv_features = combined_hrv_features[filtered_hrv_features.columns]
+    assert_both_index_and_columns_are_equal(combined_hrv_features, filtered_labels)
+
     # upload to wandb
     if upload_to_wandb:
+        add_temp_file_to_artifact(
+            artifact=complete_dataset_artifact,
+            fp=f"combined_hrv_features.pkl",
+            df=combined_hrv_features,
+        )
         add_temp_file_to_artifact(
             artifact=complete_dataset_artifact,
             fp="stress_labels.pkl",
             df=filtered_labels,
         )
+        complete_dataset_artifact.add_file(local_path=os.path.abspath(__file__))
         run.log_artifact(complete_dataset_artifact)
     run.finish()
