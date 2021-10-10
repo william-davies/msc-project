@@ -149,6 +149,21 @@ def load_hrv_features(hrv_features_artifact_name: str):
     return sheet_dataset_dataframes
 
 
+def load_labels() -> pd.DataFrame:
+    labels = get_committed_artifact_dataframe(
+        run=run,
+        artifact_or_name=labels_artifact_name,
+        pkl_filename="labels.pkl",
+    )
+    filtered_labels = filter_labels(labels=labels, config=config)
+    add_temp_file_to_artifact(
+        artifact=complete_dataset_artifact,
+        fp="stress_labels.pkl",
+        df=filtered_labels,
+    )
+    return filtered_labels
+
+
 if __name__ == "__main__":
     Inf_features_artifact_name: str = "Inf_hrv_features:v0"
     EmLBVP_features_artifact_name: str = "EmLBVP_hrv_features:v0"
@@ -186,19 +201,7 @@ if __name__ == "__main__":
 
     dataset_dataframes = {}
 
-    # load labels
-    labels = get_committed_artifact_dataframe(
-        run=run,
-        artifact_or_name=labels_artifact_name,
-        pkl_filename="labels.pkl",
-    )
-    filtered_labels = filter_labels(labels=labels, config=config)
-    add_temp_file_to_artifact(
-        artifact=complete_dataset_artifact,
-        fp="stress_labels.pkl",
-        df=filtered_labels,
-    )
-    dataset_dataframes["stress_labels"] = filtered_labels
+    dataset_dataframes["stress_labels"] = load_labels()
 
     for features_artifact_name in [
         Inf_features_artifact_name,
