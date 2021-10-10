@@ -4,6 +4,7 @@ Do LOSO-CV. Repeat for all data preprocessing methods.
 
 :param: dataset_artifact_name
 """
+import os
 from typing import List, Dict, Tuple
 
 import numpy as np
@@ -15,7 +16,7 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn import preprocessing
 from sklearn.metrics import accuracy_score, matthews_corrcoef, make_scorer
 
-from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
+from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME, SheetNames
 from msc_project.scripts.dataset_preparer import get_test_participants, train_test_split
 from msc_project.scripts.hrv.utils import add_temp_file_to_artifact
 from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import (
@@ -84,10 +85,11 @@ def concat_scoring_dfs(
 
 
 def get_fitted_model_scoring(
+    sheet_name: str,
     feature_set: str,
 ) -> pd.DataFrame:
     """
-    Evaluate a single preprocessing method.
+    Evaluate a single feature set.
     :param feature_set:
     :return:
     """
@@ -95,7 +97,7 @@ def get_fitted_model_scoring(
     X = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=dataset_artifact_name,
-        pkl_filename=f"{feature_set}_hrv_features.pkl",
+        pkl_filename=os.path.join(sheet_name, f"{feature_set}_hrv_features.pkl"),
     )
 
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
@@ -105,15 +107,22 @@ def get_fitted_model_scoring(
 
 def get_dummy_model_scoring() -> pd.DataFrame:
     # load dataset
-    # the data doesn't matter so we just load raw signal
+    # the data doesn't matter so we just load Inf raw signal
     X = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=dataset_artifact_name,
-        pkl_filename=f"raw_signal_hrv_features.pkl",
+        pkl_filename=os.path.join(
+            SheetNames.INFINITY.value, "raw_signal_hrv_features.pkl"
+        ),
     )
 
     dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
     dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
+    dummy_model_scoring = pd.concat(
+        [dummy_model_scoring],
+        keys=["dummy_model"],
+        names=["preprocessing_method", *dummy_model_scoring.index.names],
+    )
     return dummy_model_scoring
 
 
@@ -125,8 +134,29 @@ feature_sets: List[str] = [
     "combined",
 ]
 
+
+def get_model_scorings(sheet_name: str) -> pd.DataFrame:
+    model_scorings: List[pd.DataFrame] = []
+    for feature_set in feature_sets:
+        fitted_model_scoring = get_fitted_model_scoring(
+            sheet_name=sheet_name, feature_set=feature_set
+        )
+
+        model_scorings.append(fitted_model_scoring)
+        fitted_model_summary = fitted_model_scoring.mean(axis=0)
+        print(
+            f"{sheet_name} {feature_set} fitted model summary:\n{fitted_model_summary}"
+        )
+
+    model_scorings_df = concat_scoring_dfs(
+        model_scorings=model_scorings,
+        preprocessing_methods=feature_sets,
+    )
+    return model_scorings_df
+
+
 if __name__ == "__main__":
-    dataset_artifact_name = "EmLBVP_complete_dataset:latest"
+    dataset_artifact_name = "complete_dataset:latest"
     sheet_name = get_sheet_name_prefix(dataset_artifact_name)
     upload_artifact: bool = True
 
@@ -149,31 +179,28 @@ if __name__ == "__main__":
         pkl_filename="stress_labels.pkl",
     ).squeeze()
 
-    model_scorings: List[pd.DataFrame] = []
-    for feature_set in feature_sets:
-        fitted_model_scoring = get_fitted_model_scoring(feature_set=feature_set)
+    sheet_model_scorings: List[pd.DataFrame] = []
+    sheet_names = [SheetNames.INFINITY.value, SheetNames.EMPATICA_LEFT_BVP.value]
+    for sheet_name in sheet_names:
+        sheet_model_scorings.append(get_model_scorings(sheet_name=sheet_name))
 
-        model_scorings.append(fitted_model_scoring)
-        fitted_model_summary = fitted_model_scoring.mean(axis=0)
-        print(f"{feature_set} fitted model summary:\n{fitted_model_summary}")
     dummy_model_scoring = get_dummy_model_scoring()
-    model_scorings.append(dummy_model_scoring)
     dummy_model_summary = dummy_model_scoring.mean(axis=0)
     print(f"dummy model summary:\n{dummy_model_summary}")
 
-    model_scorings_df = concat_scoring_dfs(
-        model_scorings=model_scorings,
-        preprocessing_methods=[*feature_sets, "dummy_model"],
+    model_scorings = pd.concat(
+        [*sheet_model_scorings, dummy_model_scoring],
+        axis=0,
+        keys=[*sheet_names, "dummy_model"],
+        names=["sheet_name", *sheet_model_scorings[0].index.names],
     )
 
     if upload_artifact:
-        artifact = wandb.Artifact(
-            name=f"{sheet_name}_loso_cv_results", type="model_evaluation"
-        )
+        artifact = wandb.Artifact(name=f"loso_cv_results", type="model_evaluation")
         add_temp_file_to_artifact(
             artifact=artifact,
             fp="model_scorings.pkl",
-            df=model_scorings_df,
+            df=model_scorings,
         )
         run.log_artifact(artifact)
     run.finish()
