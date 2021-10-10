@@ -1,5 +1,6 @@
 """
-Load HRV features (input) and labels (target). Filter by clean signals. Filter features to use.
+Load HRV features (input) and labels (target). Do filtering: signal noisiness, participants, features.
+Combine features to make best combination of preprocessing methods.
 Parameters
 - hrv features to use
 - participants to exclude
@@ -23,7 +24,7 @@ from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import
     get_sheet_name_prefix,
 )
 from msc_project.scripts.stress_prediction.from_hrv.train_model import (
-    preprocessing_methods,
+    feature_sets,
 )
 from msc_project.scripts.utils import (
     get_committed_artifact_dataframe,
@@ -109,11 +110,15 @@ def validate_dataset(dataset_dataframes: Dict) -> None:
 
 
 if __name__ == "__main__":
+    inf_features_artifact_name: str = "Inf_hrv_features:v0"
     hrv_features_artifact_name: str = "EmLBVP_hrv_features:v0"
     labels_artifact_name: str = "EmLBVP_labels:v0"
+    Inf_excluded_participants = ["0725135216P4_608", "0726094551P5_609"]
+    EmLBVP_excluded_participants = ["0726114041P6_609"]
     config = {
         "noise_tolerance": 1,
-        "excluded_participants": ["0726114041P6_609"],
+        "excluded_participants": Inf_excluded_participants
+        + EmLBVP_excluded_participants,
         "included_features": ["bpm", "sdnn", "rmssd", "pnn50", "lf/hf"],
     }
     notes = ""
@@ -131,24 +136,6 @@ if __name__ == "__main__":
         config=config,
         notes=notes,
     )
-
-    # get clean indexes
-    windowed_artifact = get_windowed_artifact(
-        hrv_features_artifact=run.use_artifact(
-            artifact_or_name=hrv_features_artifact_name
-        )
-    )
-    noisy_mask = get_committed_artifact_dataframe(
-        run=run,
-        artifact_or_name=windowed_artifact,
-        pkl_filename="noisy_mask.pkl",
-    )
-    noisy_mask = change_treatment_labels(noisy_mask.T).T
-    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
-    clean_indexes = get_clean_signal_indexes(
-        noisy_mask=noisy_mask, noise_tolerance=config["noise_tolerance"]
-    )
-    clean_indexes = get_non_baseline_windows(clean_indexes)
 
     complete_dataset_artifact = wandb.Artifact(
         name=f"{sheet_name}_complete_dataset",
@@ -174,7 +161,7 @@ if __name__ == "__main__":
     dataset_dataframes["stress_labels"] = filtered_labels
 
     # load HRV features
-    for preprocessing_method in preprocessing_methods:
+    for preprocessing_method in feature_sets:
         hrv_features = get_committed_artifact_dataframe(
             run=run,
             artifact_or_name=hrv_features_artifact_name,
@@ -203,12 +190,6 @@ if __name__ == "__main__":
         df=combined_hrv_features,
     )
     dataset_dataframes["combined_hrv_features"] = combined_hrv_features
-
-    # add_temp_file_to_artifact(
-    #     artifact=complete_dataset_artifact,
-    #     fp=f"combined_hrv_features.pkl",
-    #     df=pd.DataFrame(),
-    # )
 
     validate_dataset(dataset_dataframes)
 
