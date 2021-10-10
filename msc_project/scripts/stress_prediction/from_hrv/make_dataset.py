@@ -70,14 +70,9 @@ def get_pending_artifact_dataframe(artifact, pkl_basename) -> pd.DataFrame:
     return pd.read_pickle(local_path)
 
 
-def get_combined_hrv_features(complete_dataset_artifact) -> pd.DataFrame:
-    raw_hrv_features = get_pending_artifact_dataframe(
-        artifact=complete_dataset_artifact, pkl_basename="raw_signal_hrv_features.pkl"
-    )
-    dae_denoised_hrv_features = get_pending_artifact_dataframe(
-        artifact=complete_dataset_artifact,
-        pkl_basename="dae_denoised_signal_hrv_features.pkl",
-    )
+def get_combined_hrv_features(dataset_dataframes: Dict) -> pd.DataFrame:
+    raw_hrv_features = dataset_dataframes["raw_signal_hrv_features"]
+    dae_denoised_hrv_features = dataset_dataframes["dae_denoised_signal_hrv_features"]
     raw_features_to_combine = raw_hrv_features[["pnn50", "lf/hf"]]
     dae_denoised_features_to_combine = dae_denoised_hrv_features[
         ["bpm", "sdnn", "rmssd"]
@@ -91,6 +86,26 @@ def get_combined_hrv_features(complete_dataset_artifact) -> pd.DataFrame:
 def assert_both_index_and_columns_are_equal(df1, df2):
     assert df1.index.equals(df2.index)
     assert df1.columns.equals(df2.columns)
+
+
+def validate_dataset(dataset_dataframes: Dict) -> None:
+    """
+    Check examples are in the same order. Check features are in the same order.
+    :param complete_dataset_artifact:
+    :return:
+    """
+    raw_hrv_features = dataset_dataframes["raw_signal_hrv_features"]
+    labels = dataset_dataframes["stress_labels"]
+    assert raw_hrv_features.index.equals(labels.index)
+    for feature_set_name in [
+        "just_downsampled_signal",
+        "traditional_preprocessed_signal",
+        "dae_denoised_signal",
+        "combined",
+    ]:
+        key = f"{feature_set_name}_hrv_features"
+        feature_set_df = dataset_dataframes[key]
+        assert_both_index_and_columns_are_equal(raw_hrv_features, feature_set_df)
 
 
 if __name__ == "__main__":
@@ -135,6 +150,15 @@ if __name__ == "__main__":
     )
     clean_indexes = get_non_baseline_windows(clean_indexes)
 
+    complete_dataset_artifact = wandb.Artifact(
+        name=f"{sheet_name}_complete_dataset",
+        type="get_dataset",
+        metadata=config,
+        description=notes,
+    )
+
+    dataset_dataframes = {}
+
     # load labels
     labels = get_committed_artifact_dataframe(
         run=run,
@@ -142,13 +166,12 @@ if __name__ == "__main__":
         pkl_filename="labels.pkl",
     )
     filtered_labels = filter_labels(labels=labels, config=config)
-
-    complete_dataset_artifact = wandb.Artifact(
-        name=f"{sheet_name}_complete_dataset",
-        type="get_dataset",
-        metadata=config,
-        description=notes,
+    add_temp_file_to_artifact(
+        artifact=complete_dataset_artifact,
+        fp="stress_labels.pkl",
+        df=filtered_labels,
     )
+    dataset_dataframes["stress_labels"] = filtered_labels
 
     # load HRV features
     for preprocessing_method in preprocessing_methods:
@@ -163,30 +186,34 @@ if __name__ == "__main__":
         filtered_hrv_features = filter_hrv_features(
             hrv_features=hrv_features, config=config
         )
-        # check input and labels are in same order
-        assert filtered_hrv_features.index.equals(filtered_labels.index)
         add_temp_file_to_artifact(
             artifact=complete_dataset_artifact,
             fp=f"{preprocessing_method}_signal_hrv_features.pkl",
             df=filtered_hrv_features,
         )
+        dataset_dataframes[
+            f"{preprocessing_method}_signal_hrv_features"
+        ] = filtered_hrv_features
 
     # get combined hrv features
-    combined_hrv_features = get_combined_hrv_features(complete_dataset_artifact)
-    assert_both_index_and_columns_are_equal(combined_hrv_features, filtered_labels)
+    combined_hrv_features = get_combined_hrv_features(dataset_dataframes)
+    add_temp_file_to_artifact(
+        artifact=complete_dataset_artifact,
+        fp="combined_hrv_features.pkl",
+        df=combined_hrv_features,
+    )
+    dataset_dataframes["combined_hrv_features"] = combined_hrv_features
+
+    # add_temp_file_to_artifact(
+    #     artifact=complete_dataset_artifact,
+    #     fp=f"combined_hrv_features.pkl",
+    #     df=pd.DataFrame(),
+    # )
+
+    validate_dataset(dataset_dataframes)
 
     # upload to wandb
     if upload_to_wandb:
-        add_temp_file_to_artifact(
-            artifact=complete_dataset_artifact,
-            fp=f"combined_hrv_features.pkl",
-            df=combined_hrv_features,
-        )
-        add_temp_file_to_artifact(
-            artifact=complete_dataset_artifact,
-            fp="stress_labels.pkl",
-            df=filtered_labels,
-        )
         complete_dataset_artifact.add_file(local_path=os.path.abspath(__file__))
         run.log_artifact(complete_dataset_artifact)
     run.finish()
