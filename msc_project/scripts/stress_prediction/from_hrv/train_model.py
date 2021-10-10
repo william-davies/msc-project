@@ -1,6 +1,8 @@
 """
 Train a Gaussian Naive Bayes classifier to predict binary stress label from input HRV features.
 Do LOSO-CV. Repeat for all data preprocessing methods.
+
+:param: dataset_artifact_name
 """
 from typing import List, Dict, Tuple
 
@@ -15,8 +17,11 @@ from sklearn.metrics import accuracy_score, matthews_corrcoef, make_scorer
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
 from msc_project.scripts.dataset_preparer import get_test_participants, train_test_split
-from msc_project.scripts.hrv.get_whole_signal_hrv import add_temp_file_to_artifact
-from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.hrv.utils import add_temp_file_to_artifact
+from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import (
+    get_sheet_name_prefix,
+)
+from msc_project.scripts.utils import get_committed_artifact_dataframe
 from sklearn.pipeline import make_pipeline
 
 
@@ -27,6 +32,12 @@ def standardize_data(
 
 
 def convert_scores_to_df(scores: Dict, unique_participant_values) -> pd.DataFrame:
+    """
+    Handle index and index naming.
+    :param scores:
+    :param unique_participant_values:
+    :return:
+    """
     scores_df = pd.DataFrame(data=scores, index=unique_participant_values)
     scores_df.index = scores_df.index.rename(name="loso_cv_test_subject")
     return scores_df
@@ -73,58 +84,50 @@ def concat_scoring_dfs(
 
 
 def get_fitted_model_scoring(
-    preprocessing_method: str,
+    feature_set: str,
 ) -> pd.DataFrame:
     """
     Evaluate a single preprocessing method.
-    :param preprocessing_method:
+    :param feature_set:
     :return:
     """
     # load dataset
-    X = get_artifact_dataframe(
+    X = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=dataset_artifact_name,
-        pkl_filename=f"{preprocessing_method}_signal_hrv_features.pkl",
+        pkl_filename=f"{feature_set}_hrv_features.pkl",
     )
 
     gnb = make_pipeline(preprocessing.StandardScaler(), GaussianNB())
-    fitted_model_scoring = get_model_scoring(X=X, model=gnb)
+    fitted_model_scoring = do_loso_cv(clf=gnb, X=X, y=y, scoring=scoring)
     return fitted_model_scoring
 
 
 def get_dummy_model_scoring() -> pd.DataFrame:
     # load dataset
     # the data doesn't matter so we just load raw signal
-    X = get_artifact_dataframe(
+    X = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=dataset_artifact_name,
         pkl_filename=f"raw_signal_hrv_features.pkl",
     )
 
     dummy_clf = DummyClassifier(strategy="most_frequent", random_state=0)
-    dummy_model_scoring = get_model_scoring(X=X, model=dummy_clf)
+    dummy_model_scoring = do_loso_cv(clf=dummy_clf, X=X, y=y, scoring=scoring)
     return dummy_model_scoring
 
 
-def get_model_scoring(X: pd.DataFrame, model) -> pd.DataFrame:
-    # check example order
-    assert X.index.equals(y.index)
-
-    model_scoring = do_loso_cv(clf=model, X=X, y=y, scoring=scoring)
-
-    return model_scoring
-
-
-preprocessing_methods: List[str] = [
-    "raw",
-    "just_downsampled",
-    "traditional_preprocessed",
-    "dae_denoised",
+feature_sets: List[str] = [
+    "raw_signal",
+    "just_downsampled_signal",
+    "traditional_preprocessed_signal",
+    "dae_denoised_signal",
+    "combined",
 ]
 
 if __name__ == "__main__":
-    dataset_artifact_name = "complete_dataset:v3"
-
+    dataset_artifact_name = "EmLBVP_complete_dataset:latest"
+    sheet_name = get_sheet_name_prefix(dataset_artifact_name)
     upload_artifact: bool = True
 
     run = wandb.init(
@@ -140,21 +143,19 @@ if __name__ == "__main__":
         "f1_macro": "f1_macro",
         "MCC": MCC_scorer,
     }
-    y = get_artifact_dataframe(
+    y = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=dataset_artifact_name,
         pkl_filename="stress_labels.pkl",
     ).squeeze()
 
     model_scorings: List[pd.DataFrame] = []
-    for preprocessing_method in preprocessing_methods:
-        fitted_model_scoring = get_fitted_model_scoring(
-            preprocessing_method=preprocessing_method
-        )
+    for feature_set in feature_sets:
+        fitted_model_scoring = get_fitted_model_scoring(feature_set=feature_set)
 
         model_scorings.append(fitted_model_scoring)
         fitted_model_summary = fitted_model_scoring.mean(axis=0)
-        print(f"{preprocessing_method} fitted model summary:\n{fitted_model_summary}")
+        print(f"{feature_set} fitted model summary:\n{fitted_model_summary}")
     dummy_model_scoring = get_dummy_model_scoring()
     model_scorings.append(dummy_model_scoring)
     dummy_model_summary = dummy_model_scoring.mean(axis=0)
@@ -162,11 +163,13 @@ if __name__ == "__main__":
 
     model_scorings_df = concat_scoring_dfs(
         model_scorings=model_scorings,
-        preprocessing_methods=[*preprocessing_methods, "dummy_model"],
+        preprocessing_methods=[*feature_sets, "dummy_model"],
     )
 
     if upload_artifact:
-        artifact = wandb.Artifact(name="loso_cv_results", type="model_evaluation")
+        artifact = wandb.Artifact(
+            name=f"{sheet_name}_loso_cv_results", type="model_evaluation"
+        )
         add_temp_file_to_artifact(
             artifact=artifact,
             fp="model_scorings.pkl",
