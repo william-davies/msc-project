@@ -10,7 +10,7 @@ from msc_project.scripts.hrv.utils import add_temp_file_to_artifact
 from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import (
     get_sheet_name_prefix,
 )
-from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.utils import get_committed_artifact_dataframe
 
 
 def get_labels(windowed_index) -> pd.DataFrame:
@@ -28,7 +28,6 @@ def get_labels(windowed_index) -> pd.DataFrame:
 
 if __name__ == "__main__":
     hrv_features_artifact_name: str = "EmLBVP_hrv_features:v0"
-    sheet_name = get_sheet_name_prefix(hrv_features_artifact_name)
     upload_to_wandb: bool = True
 
     run = wandb.init(
@@ -37,7 +36,7 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    raw_signal_hrv = get_artifact_dataframe(
+    raw_signal_hrv = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=hrv_features_artifact_name,
         pkl_filename=os.path.join("changed_label", "raw_signal.pkl"),
@@ -46,7 +45,7 @@ if __name__ == "__main__":
     labels = get_labels(windowed_index=raw_signal_hrv.index)
 
     if upload_to_wandb:
-        artifact = wandb.Artifact(name=f"{sheet_name}_labels", type="get_dataset")
+        artifact = wandb.Artifact(name="labels", type="get_dataset")
         add_temp_file_to_artifact(artifact=artifact, fp="labels.pkl", df=labels)
         run.log_artifact(artifact)
     run.finish()
