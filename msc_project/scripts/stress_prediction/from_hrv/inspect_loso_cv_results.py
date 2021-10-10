@@ -18,15 +18,36 @@ import matplotlib.pyplot as plt
 
 
 def get_mean(scorings: pd.DataFrame) -> pd.DataFrame:
-    return get_groupby(scorings).mean()
+    mean = get_groupby(scorings).mean()
+    return sort(mean)
 
 
 def get_std(scorings: pd.DataFrame) -> pd.DataFrame:
-    return get_groupby(scorings).std(ddof=0)
+    std = get_groupby(scorings).std(ddof=0)
+    return sort(std)
 
 
 def get_groupby(scorings: pd.DataFrame) -> pd.core.groupby.generic.DataFrameGroupBy:
     return scorings.groupby(axis=0, level=["sheet_name", "preprocessing_method"])
+
+
+def sort(summary_statistics):
+    """
+    Makes plot more intuitive to read.
+    :param summary_statistics:
+    :return:
+    """
+    mapper = lambda method: list(preprocessing_methods).index(method)
+    key = lambda index: index.map(mapper=mapper)
+    sorted = summary_statistics.sort_index(
+        axis=0,
+        level=["preprocessing_method"],
+        inplace=False,
+        sort_remaining=True,
+        key=key,
+    )
+    sorted = sorted.sort_index(axis=0, level="sheet_name", sort_remaining=False)
+    return sorted
 
 
 def plot_metric(ax, metric):
