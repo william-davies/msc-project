@@ -109,10 +109,50 @@ def validate_dataset(dataset_dataframes: Dict) -> None:
         assert_both_index_and_columns_are_equal(raw_hrv_features, feature_set_df)
 
 
+def load_hrv_features(hrv_features_artifact_name: str):
+    """
+    Load HRV features. Filter HRV features. Add to artifact. Track in dictionary.
+    :param hrv_features_artifact_name:
+    :return:
+    """
+    sheet_name = get_sheet_name_prefix(hrv_features_artifact_name)
+    sheet_dataset_dataframes = {}
+    for feature_set in feature_sets:
+        hrv_features = get_committed_artifact_dataframe(
+            run=run,
+            artifact_or_name=hrv_features_artifact_name,
+            pkl_filename=os.path.join("changed_label", f"{feature_set}_signal.pkl"),
+        )
+
+        filtered_hrv_features = filter_hrv_features(
+            hrv_features=hrv_features, config=config
+        )
+        add_temp_file_to_artifact(
+            artifact=complete_dataset_artifact,
+            fp=os.path.join(sheet_name, f"{feature_set}_signal_hrv_features.pkl"),
+            df=filtered_hrv_features,
+        )
+        sheet_dataset_dataframes[
+            f"{feature_set}_signal_hrv_features"
+        ] = filtered_hrv_features
+
+    combined_hrv_features = get_combined_hrv_features(dataset_dataframes)
+    add_temp_file_to_artifact(
+        artifact=complete_dataset_artifact,
+        fp=os.path.join(sheet_name, "combined_hrv_features.pkl"),
+        df=combined_hrv_features,
+    )
+    dataset_dataframes["combined_hrv_features"] = combined_hrv_features
+
+    validate_dataset(dataset_dataframes)
+
+    return sheet_dataset_dataframes
+
+
 if __name__ == "__main__":
-    inf_features_artifact_name: str = "Inf_hrv_features:v0"
-    hrv_features_artifact_name: str = "EmLBVP_hrv_features:v0"
-    labels_artifact_name: str = "EmLBVP_labels:v0"
+    Inf_features_artifact_name: str = "Inf_hrv_features:v0"
+    EmLBVP_features_artifact_name: str = "EmLBVP_hrv_features:v0"
+    labels_artifact_name: str = "labels:v1"
     Inf_excluded_participants = ["0725135216P4_608", "0726094551P5_609"]
     EmLBVP_excluded_participants = ["0726114041P6_609"]
     config = {
@@ -124,10 +164,10 @@ if __name__ == "__main__":
     notes = ""
     upload_to_wandb: bool = True
 
-    assert get_sheet_name_prefix(hrv_features_artifact_name) == get_sheet_name_prefix(
-        labels_artifact_name
-    )
-    sheet_name = get_sheet_name_prefix(hrv_features_artifact_name)
+    assert get_sheet_name_prefix(
+        EmLBVP_features_artifact_name
+    ) == get_sheet_name_prefix(labels_artifact_name)
+    sheet_name = get_sheet_name_prefix(EmLBVP_features_artifact_name)
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -160,38 +200,14 @@ if __name__ == "__main__":
     )
     dataset_dataframes["stress_labels"] = filtered_labels
 
-    # load HRV features
-    for preprocessing_method in feature_sets:
-        hrv_features = get_committed_artifact_dataframe(
-            run=run,
-            artifact_or_name=hrv_features_artifact_name,
-            pkl_filename=os.path.join(
-                "changed_label", f"{preprocessing_method}_signal.pkl"
-            ),
+    for features_artifact_name in [
+        Inf_features_artifact_name,
+        EmLBVP_features_artifact_name,
+    ]:
+        sheet_name = get_sheet_name_prefix(features_artifact_name)
+        dataset_dataframes[sheet_name] = load_hrv_features(
+            hrv_features_artifact_name=Inf_features_artifact_name
         )
-
-        filtered_hrv_features = filter_hrv_features(
-            hrv_features=hrv_features, config=config
-        )
-        add_temp_file_to_artifact(
-            artifact=complete_dataset_artifact,
-            fp=f"{preprocessing_method}_signal_hrv_features.pkl",
-            df=filtered_hrv_features,
-        )
-        dataset_dataframes[
-            f"{preprocessing_method}_signal_hrv_features"
-        ] = filtered_hrv_features
-
-    # get combined hrv features
-    combined_hrv_features = get_combined_hrv_features(dataset_dataframes)
-    add_temp_file_to_artifact(
-        artifact=complete_dataset_artifact,
-        fp="combined_hrv_features.pkl",
-        df=combined_hrv_features,
-    )
-    dataset_dataframes["combined_hrv_features"] = combined_hrv_features
-
-    validate_dataset(dataset_dataframes)
 
     # upload to wandb
     if upload_to_wandb:
