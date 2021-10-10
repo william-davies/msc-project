@@ -25,7 +25,10 @@ from msc_project.scripts.stress_prediction.from_hrv.get_preprocessed_data import
 from msc_project.scripts.stress_prediction.from_hrv.train_model import (
     preprocessing_methods,
 )
-from msc_project.scripts.utils import get_artifact_dataframe, get_single_input_artifact
+from msc_project.scripts.utils import (
+    get_committed_artifact_dataframe,
+    get_single_input_artifact,
+)
 
 
 def get_windowed_artifact(hrv_features_artifact):
@@ -56,16 +59,24 @@ def filter_hrv_features(hrv_features: pd.DataFrame, config: Dict) -> pd.DataFram
     ]
 
 
+def get_pending_artifact_dataframe(artifact, pkl_basename) -> pd.DataFrame:
+    """
+    For artifact that hasn't been COMMITTED yet.
+    :param artifact:
+    :param pkl_basename:
+    :return:
+    """
+    local_path = artifact.manifest.entries[pkl_basename].local_path
+    return pd.read_pickle(local_path)
+
+
 def get_combined_hrv_features(complete_dataset_artifact) -> pd.DataFrame:
-    raw_hrv_features = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_features_artifact_name,
-        pkl_filename=os.path.join("changed_label", f"raw_signal.pkl"),
+    raw_hrv_features = get_pending_artifact_dataframe(
+        artifact=complete_dataset_artifact, pkl_basename="raw_signal_hrv_features.pkl"
     )
-    dae_denoised_hrv_features = get_artifact_dataframe(
-        run=run,
-        artifact_or_name=hrv_features_artifact_name,
-        pkl_filename=os.path.join("changed_label", f"dae_denoised_signal.pkl"),
+    dae_denoised_hrv_features = get_pending_artifact_dataframe(
+        artifact=complete_dataset_artifact,
+        pkl_basename="dae_denoised_signal_hrv_features.pkl",
     )
     raw_features_to_combine = raw_hrv_features[["pnn50", "lf/hf"]]
     dae_denoised_features_to_combine = dae_denoised_hrv_features[
@@ -74,7 +85,7 @@ def get_combined_hrv_features(complete_dataset_artifact) -> pd.DataFrame:
     combined_hrv_features = pd.concat(
         objs=[raw_features_to_combine, dae_denoised_features_to_combine], axis=1
     )
-    return combined_hrv_features
+    return combined_hrv_features[dae_denoised_hrv_features.columns]
 
 
 def assert_both_index_and_columns_are_equal(df1, df2):
@@ -112,7 +123,7 @@ if __name__ == "__main__":
             artifact_or_name=hrv_features_artifact_name
         )
     )
-    noisy_mask = get_artifact_dataframe(
+    noisy_mask = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=windowed_artifact,
         pkl_filename="noisy_mask.pkl",
@@ -125,7 +136,7 @@ if __name__ == "__main__":
     clean_indexes = get_non_baseline_windows(clean_indexes)
 
     # load labels
-    labels = get_artifact_dataframe(
+    labels = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=labels_artifact_name,
         pkl_filename="labels.pkl",
@@ -141,7 +152,7 @@ if __name__ == "__main__":
 
     # load HRV features
     for preprocessing_method in preprocessing_methods:
-        hrv_features = get_artifact_dataframe(
+        hrv_features = get_committed_artifact_dataframe(
             run=run,
             artifact_or_name=hrv_features_artifact_name,
             pkl_filename=os.path.join(
@@ -161,8 +172,7 @@ if __name__ == "__main__":
         )
 
     # get combined hrv features
-    combined_hrv_features = get_combined_hrv_features()
-    combined_hrv_features = combined_hrv_features[filtered_hrv_features.columns]
+    combined_hrv_features = get_combined_hrv_features(complete_dataset_artifact)
     assert_both_index_and_columns_are_equal(combined_hrv_features, filtered_labels)
 
     # upload to wandb
