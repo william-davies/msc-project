@@ -9,7 +9,7 @@ from typing import List, Dict
 import pandas as pd
 import wandb
 
-from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME
+from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME, SheetNames
 from msc_project.scripts.utils import (
     get_committed_artifact_dataframe,
     get_single_input_artifact,
@@ -57,16 +57,25 @@ def plot_metric(ax, metric):
     :param metric:
     :return:
     """
+
+    def get_color():
+        sheet_names = model_means.index.get_level_values(level="sheet_name")
+        mapping = {
+            SheetNames.INFINITY.value: "b",
+            SheetNames.EMPATICA_LEFT_BVP.value: "r",
+            "dummy_model": "k",
+        }
+        color = list(map(mapping.get, sheet_names))
+        return color
+
     ax.set_title(metric)
     ax.set(xlabel="preprocessing method", ylabel="score")
     x = [
         f"{sheet_name}: {feature_set}" for sheet_name, feature_set in model_means.index
     ]
+    color = get_color()
     ax.bar(
-        x=x,
-        height=model_means[metric],
-        yerr=model_stds[metric],
-        capsize=5,
+        x=x, height=model_means[metric], yerr=model_stds[metric], capsize=5, color=color
     )
     for i, height in enumerate(model_means[metric]):
         ax.text(i + 0.25, height, f"{height:.3f}", ha="center")
