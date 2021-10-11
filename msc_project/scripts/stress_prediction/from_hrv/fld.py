@@ -5,8 +5,10 @@ import os
 
 import numpy as np
 import wandb
+from matplotlib import pyplot as plt
 
 from msc_project.constants import STRESS_PREDICTION_PROJECT_NAME, SheetNames
+from msc_project.scripts.stress_prediction.from_hrv.train_model import feature_sets
 from msc_project.scripts.utils import get_committed_artifact_dataframe
 
 
@@ -29,6 +31,14 @@ def get_fld_wrapper(sheet_name, feature_set_name):
     return fld
 
 
+def plot_fld(fld, title):
+    fld.plot(kind="bar", title=title)
+    plt.xlabel("feature")
+    plt.ylabel("FLD score")
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     complete_dataset_artifact_name: str = "complete_dataset:v25"
 
@@ -44,6 +54,10 @@ if __name__ == "__main__":
         pkl_filename="stress_labels.pkl",
     )
 
-    fld = get_fld_wrapper(
-        sheet_name=SheetNames.EMPATICA_LEFT_BVP.value, feature_set_name="raw_signal"
-    )
+    for sheet_name in [SheetNames.INFINITY.value, SheetNames.EMPATICA_LEFT_BVP.value]:
+        for feature_set_name in feature_sets:
+            fld = get_fld_wrapper(
+                sheet_name=sheet_name, feature_set_name=feature_set_name
+            )
+            title = f"{sheet_name}: {feature_set_name}"
+            plot_fld(fld, title=title)
