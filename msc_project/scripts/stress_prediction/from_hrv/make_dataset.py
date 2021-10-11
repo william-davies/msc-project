@@ -6,6 +6,7 @@ Parameters
 - participants to exclude
 """
 import os
+from itertools import chain
 from typing import List, Dict
 
 import pandas as pd
@@ -163,6 +164,18 @@ def load_labels() -> pd.DataFrame:
     return filtered_labels
 
 
+def get_included_features(combination_feature_set_config):
+    """
+    Neat because we don't have to set included_features in two places.
+    :param combination_feature_set_config:
+    :return:
+    """
+    included_features = [
+        features for features in combination_feature_set_config.values()
+    ]
+    return list(chain.from_iterable(included_features))
+
+
 if __name__ == "__main__":
     Inf_features_artifact_name: str = "Inf_hrv_features:v0"
     EmLBVP_features_artifact_name: str = "EmLBVP_hrv_features:v0"
@@ -173,13 +186,14 @@ if __name__ == "__main__":
         Inf_excluded_participants + EmLBVP_excluded_participants
     )
     combination_feature_set_config = {
-        "raw": ["pnn50", "lf", "hf", "lf/hf"],
+        "raw": ["pnn50", "lf/hf"],
         "dae_denoised": ["bpm", "sdnn", "rmssd"],
     }
+    included_features = get_included_features(combination_feature_set_config)
     config = {
         "noise_tolerance": 1,
         "excluded_participants": combined_excluded_participants,
-        "included_features": ["bpm", "sdnn", "rmssd", "pnn50", "lf", "hf", "lf/hf"],
+        "included_features": included_features,
         "combination_feature_set_config": combination_feature_set_config,
     }
     notes = ""
