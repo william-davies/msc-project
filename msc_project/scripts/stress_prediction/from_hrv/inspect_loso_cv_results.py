@@ -15,6 +15,7 @@ from msc_project.scripts.utils import (
     get_single_input_artifact,
 )
 import matplotlib.pyplot as plt
+from msc_project.scripts.hrv.get_rmse import metrics_of_interest as all_hrv_features
 
 
 def get_mean(scorings: pd.DataFrame) -> pd.DataFrame:
@@ -78,8 +79,22 @@ def get_dataset_metadata(loso_cv_results_artifact: wandb.Artifact) -> Dict:
     return make_dataset_artifact.metadata
 
 
+def sort_dataset_metadata(dataset_metadata):
+    copy = dataset_metadata.copy()
+    key = lambda feature: all_hrv_features.index(feature)
+
+    def sort_features(features):
+        return sorted(features, key=key)
+
+    copy["included_features"] = sort_features(copy["included_features"])
+    copy["combination_feature_set_config"] = {
+        k: sort_features(v) for k, v in copy["combination_feature_set_config"].items()
+    }
+    return copy
+
+
 if __name__ == "__main__":
-    loso_cv_results_artifact_name = "loso_cv_results:v18"
+    loso_cv_results_artifact_name = "loso_cv_results:latest"
     metrics_of_interest: List[str] = [
         "test_accuracy",
         "train_accuracy",
@@ -117,6 +132,8 @@ if __name__ == "__main__":
 
     for ax in axs.flat:
         ax.label_outer()
+
+    dataset_metadata = sort_dataset_metadata(dataset_metadata)
     suptitle = "\n".join([f"{key}: {value}" for key, value in dataset_metadata.items()])
     suptitle += f"\nrun name: {run.name}"
     fig.suptitle(suptitle)
