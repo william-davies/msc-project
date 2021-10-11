@@ -31,6 +31,7 @@ from msc_project.scripts.utils import (
     get_committed_artifact_dataframe,
     get_single_input_artifact,
 )
+from msc_project.scripts.hrv.get_rmse import metrics_of_interest as all_hrv_features
 
 
 def get_windowed_artifact(hrv_features_artifact):
@@ -78,16 +79,15 @@ def get_combined_hrv_features(dataset_dataframes: Dict) -> pd.DataFrame:
     :param dataset_dataframes:
     :return:
     """
-    raw_hrv_features = dataset_dataframes["raw_signal_hrv_features"]
-    dae_denoised_hrv_features = dataset_dataframes["dae_denoised_signal_hrv_features"]
-    raw_features_to_combine = raw_hrv_features[combination_feature_set_config["raw"]]
-    dae_denoised_features_to_combine = dae_denoised_hrv_features[
-        combination_feature_set_config["dae_denoised"]
-    ]
-    combined_hrv_features = pd.concat(
-        objs=[raw_features_to_combine, dae_denoised_features_to_combine], axis=1
-    )
-    return combined_hrv_features[dae_denoised_hrv_features.columns]
+    to_combine = []
+    for feature_set, features_to_combine in combination_feature_set_config.items():
+        features = dataset_dataframes[f"{feature_set}_signal_hrv_features"]
+        to_combine.append(features[features_to_combine])
+    combined_hrv_features = pd.concat(objs=to_combine, axis=1)
+    mapper = lambda method: list(all_hrv_features).index(method)
+    key = lambda index: index.map(mapper=mapper)
+    sorted = combined_hrv_features.sort_index(axis=1, key=key)
+    return sorted
 
 
 def assert_both_index_and_columns_are_equal(df1, df2):
@@ -186,7 +186,7 @@ if __name__ == "__main__":
         Inf_excluded_participants + EmLBVP_excluded_participants
     )
     combination_feature_set_config = {
-        "raw": ["pnn50", "lf/hf"],
+        "raw": ["pnn50", "lf", "hf", "lf/hf"],
         "dae_denoised": ["bpm", "sdnn", "rmssd"],
     }
     included_features = get_included_features(combination_feature_set_config)
