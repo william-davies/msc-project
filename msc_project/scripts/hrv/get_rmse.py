@@ -4,12 +4,13 @@ Get RMSE of HRV metrics between Infiniti GT and whatever processing I've done on
 import os
 from typing import Iterable, Tuple
 
+import numpy as np
 import pandas as pd
 import wandb
 
 #%%
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME, BASE_DIR
-from msc_project.scripts.utils import get_artifact_dataframe
+from msc_project.scripts.utils import get_committed_artifact_dataframe
 
 # run_dir = "/Users/williamdavies/OneDrive - University College London/Documents/MSc Machine Learning/MSc Project/My project/msc_project/results/hrv/unique-dream-323"
 # inf_raw_data_heartpy_output = pd.read_pickle(os.path.join(run_dir, "inf_raw_data_hrv.pkl"))
@@ -36,21 +37,6 @@ def load_rmse(data_name) -> pd.DataFrame:
 
 
 # %%
-def get_rmse(
-    gt_hrv_metrics: pd.DataFrame, other_hrv_metrics: pd.DataFrame
-) -> pd.DataFrame:
-    """
-    Get root mean square error. `gt_hrv_metrics` and `other_hrv_metrics` must have exactly the same shape, index, columns.
-    :param gt_hrv_metrics: rows is hrv metric. columns is multiindex window.
-    :param other_hrv_metrics:
-    :return:
-    """
-    delta = gt_hrv_metrics - other_hrv_metrics
-    mean_square = (delta ** 2).mean(axis=1)
-    rmse = mean_square ** 0.5
-    return rmse
-
-
 def get_dtypes_of_series(series: pd.Series):
     for index, row in series.iteritems():
         print(f"{index}: {type(row)}")
@@ -76,14 +62,29 @@ def get_all_rmses(gt_hrv: pd.DataFrame, hrv_data: Iterable[Tuple]) -> pd.DataFra
     return all_rmses
 
 
-def get_hrv(pkl_filename: str, clean_indexes: pd.Index) -> pd.DataFrame:
+def get_rmse(
+    gt_hrv_metrics: pd.DataFrame, other_hrv_metrics: pd.DataFrame
+) -> pd.DataFrame:
     """
-    Filter hrv metrics of interest. Also get the indexes (clean indexes) that we're using for the RMSE calculation.
-    :param pkl_filename: as uploaded to Wandb
-    :param clean_indexes:
+    Get root mean square error. `gt_hrv_metrics` and `other_hrv_metrics` must have exactly the same shape, index, columns.
+    :param gt_hrv_metrics: rows is hrv metric. columns is multiindex window.
+    :param other_hrv_metrics:
     :return:
     """
-    heartpy_output = get_artifact_dataframe(
+    delta = gt_hrv_metrics - other_hrv_metrics
+    mean_square = (delta ** 2).mean(axis=1)
+    rmse = mean_square ** 0.5
+    return rmse
+
+
+def get_hrv(pkl_filename: str, clean_indexes: pd.Index) -> pd.DataFrame:
+    """
+    Filter hrv metrics of interest. Also only select the indexes (clean indexes) that we're using for the RMSE calculation.
+    :param pkl_filename: as uploaded to Wandb
+    :param clean_indexes: Infiniti GT is clean at these indexes
+    :return:
+    """
+    heartpy_output = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=hrv_artifact_name,
         pkl_filename=pkl_filename,
@@ -97,20 +98,53 @@ def get_clean_signal_indexes(
 ) -> pd.Index:
     """
     Return indexes of signals that are below noise tolerance.
-    :param noisy_mask: binary
+    :param noisy_mask: binary. rows is TimedeltaIndex.
     :param noise_tolerance: between 0 and 1
     :return:
     """
-    noisy_proportions = noisy_mask.sum(axis=0) / noisy_mask.shape[0]
+    noisy_proportions = get_noisy_proportions(noisy_mask)
     is_clean = noisy_proportions <= noise_tolerance
     clean_indexes = is_clean.index[is_clean]
     return clean_indexes
 
 
+def get_noisy_proportions(noisy_mask):
+    """
+    Rows is TimedeltaIndex.
+    :param noisy_mask:
+    :return:
+    """
+    return noisy_mask.sum(axis=0) / noisy_mask.shape[0]
+
+
+def heartpy_failed(hrv):
+    """
+    Returns boolean series.
+    :param hrv:
+    :return:
+    """
+    return hrv.isna().any(axis=0)
+
+
+def heartpy_succeeded(hrv):
+    """
+    Returns boolean series.
+    :param hrv:
+    :return:
+    """
+    return hrv.notna().any(axis=0)
+
+
+def assert_all_indexes_equal(indexes):
+    reference = indexes[0]
+    for index in indexes[1:]:
+        assert reference.equals(index)
+
+
 if __name__ == "__main__":
-    hrv_artifact_name: str = "get_merged_signal_hrv:v1"
-    preprocessed_data_artifact_name: str = "Inf_preprocessed_data:v7"
-    upload_artifacts: bool = True
+    hrv_artifact_name: str = "get_merged_signal_hrv:v2"
+    preprocessed_data_artifact_name: str = "Inf_preprocessed_data:v8"
+    upload_artifacts: bool = False
     noise_tolerance: float = 0
     config = {"noise_tolerance": noise_tolerance}
 
@@ -121,7 +155,7 @@ if __name__ == "__main__":
         config=config,
     )
 
-    noisy_mask = get_artifact_dataframe(
+    noisy_mask = get_committed_artifact_dataframe(
         run=run,
         artifact_or_name=preprocessed_data_artifact_name,
         pkl_filename=os.path.join("not_windowed", "noisy_mask.pkl"),
@@ -145,25 +179,53 @@ if __name__ == "__main__":
         pkl_filename="empatica_dae_denoised.pkl", clean_indexes=clean_indexes
     )
 
+    all_hrvs = [
+        inf_raw_hrv,
+        empatica_raw_hrv,
+        empatica_only_downsampled_hrv,
+        empatica_traditional_preprocessed_hrv,
+        empatica_dae_denoised_hrv,
+    ]
+    assert_all_indexes_equal(indexes=[hrv.columns for hrv in all_hrvs])
+    assert_all_indexes_equal(indexes=[hrv.index for hrv in all_hrvs])
+
+    # remove windows where heartpy failed
+    heartpy_succeededs = [heartpy_succeeded(hrv) for hrv in all_hrvs]
+    heartpy_available_for_all = inf_raw_hrv.columns[
+        np.logical_and.reduce(heartpy_succeededs)
+    ]
+
+    inf_raw_hrv_no_nans = inf_raw_hrv[heartpy_available_for_all]
+    empatica_raw_hrv_no_nans = empatica_raw_hrv[heartpy_available_for_all]
+    empatica_only_downsampled_hrv_no_nans = empatica_only_downsampled_hrv[
+        heartpy_available_for_all
+    ]
+    empatica_traditional_preprocessed_hrv_no_nans = (
+        empatica_traditional_preprocessed_hrv[heartpy_available_for_all]
+    )
+    empatica_dae_denoised_hrv_no_nans = empatica_dae_denoised_hrv[
+        heartpy_available_for_all
+    ]
+
     run_dir = os.path.join(BASE_DIR, "results", "hrv_rmse", run.name)
     to_upload_dir = os.path.join(run_dir, "to_upload")
     os.makedirs(to_upload_dir)
 
     hrv_data = [
-        (empatica_raw_hrv, "empatica_raw"),
-        (empatica_only_downsampled_hrv, "empatica_only_downsampled"),
+        (empatica_raw_hrv_no_nans, "empatica_raw"),
+        (empatica_only_downsampled_hrv_no_nans, "empatica_only_downsampled"),
         (
-            empatica_traditional_preprocessed_hrv,
+            empatica_traditional_preprocessed_hrv_no_nans,
             "empatica_traditional_preprocessed",
         ),
-        (empatica_dae_denoised_hrv, "empatica_dae_denoised"),
+        (empatica_dae_denoised_hrv_no_nans, "empatica_dae_denoised"),
     ]
 
-    all_rmses = get_all_rmses(gt_hrv=inf_raw_hrv, hrv_data=hrv_data)
+    all_rmses = get_all_rmses(gt_hrv=inf_raw_hrv_no_nans, hrv_data=hrv_data)
     all_rmses.to_pickle(os.path.join(to_upload_dir, "all_rmses.pkl"))
     all_rmses.to_csv(os.path.join(to_upload_dir, "all_rmses.csv"))
 
-    for (hrv_data, data_name) in [(inf_raw_hrv, "inf_raw"), *hrv_data]:
+    for (hrv_data, data_name) in [(inf_raw_hrv_no_nans, "inf_raw"), *hrv_data]:
         hrv_data.to_pickle(os.path.join(run_dir, f"{data_name}_hrv_of_interest.pkl"))
 
     if upload_artifacts:
