@@ -2,10 +2,12 @@
 Compare original signal vs traditionally preprocessed signal vs DAE denoised signal.
 """
 import os
+from typing import Tuple
 
 import numpy as np
 import pandas as pd
 import wandb
+from matplotlib import pyplot as plt
 
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
 from msc_project.scripts.compare_sqi import make_boxplots
@@ -125,9 +127,14 @@ if __name__ == "__main__":
     all_sqis = tuple(map(pd.DataFrame.squeeze, all_sqis))
 
     denoising_methods = [
-        "original",
-        "traditional preprocessed",
-        "downsample + transfer learning",
+        "Original signal",
+        "Traditional preprocessed signal",
+        "DAE denoised signal",
     ]
 
     make_boxplots(all_sqis=all_sqis, labels=denoising_methods)
+    plt.title(
+        "Comparing pSQI attained by traditional preprocessing\n and DAE denoising methods"
+    )
+    plt.tight_layout()
+    plt.show()
