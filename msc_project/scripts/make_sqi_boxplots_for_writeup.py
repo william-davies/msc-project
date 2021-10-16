@@ -34,6 +34,15 @@ def indexes_equal_ignore_order(index1, index2) -> bool:
     return is_equal_one_way and is_equal_other_way
 
 
+def make_boxplots_wrapper(sqis, signal_type: str) -> None:
+    make_boxplots(all_sqis=sqis, labels=denoising_methods)
+    plt.title(
+        f"Comparing pSQI attained by traditional preprocessing\n and DAE denoising methods\n{signal_type} signals"
+    )
+    plt.tight_layout()
+    plt.show()
+
+
 if __name__ == "__main__":
     data_split_artifact_name: str = "EmLBVP_data_split:v4"
     model_artifact_name: str = "trained_on_EmLBVP:v6"
@@ -132,9 +141,10 @@ if __name__ == "__main__":
         "DAE denoised signal",
     ]
 
-    make_boxplots(all_sqis=all_sqis, labels=denoising_methods)
-    plt.title(
-        "Comparing pSQI attained by traditional preprocessing\n and DAE denoising methods"
-    )
-    plt.tight_layout()
-    plt.show()
+    # clean signals
+    clean_sqis = tuple(sqi.loc[clean_signals.index] for sqi in all_sqis)
+    make_boxplots_wrapper(sqis=clean_sqis, signal_type="Clean")
+
+    # noisy signals
+    clean_sqis = tuple(sqi.loc[noisy.index] for sqi in all_sqis)
+    make_boxplots_wrapper(sqis=clean_sqis, signal_type="Noisy")
