@@ -20,25 +20,9 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.utils import get_committed_artifact_dataframe
 
 
-def get_central_3_minutes(
-    signals: pd.DataFrame,
-) -> pd.DataFrame:
-    """
-    Works on already windowed data.
-    :param signals: windowed signals
-    :return:
-    """
-    window_starts = signals.index.get_level_values(level="window_start")
-    central_3_minutes_index = np.logical_and(
-        window_starts >= 60, window_starts <= 4 * 60
-    )
-    central_3_minutes_df = signals.iloc[central_3_minutes_index]
-    return central_3_minutes_df
-
-
 def indexes_equal_ignore_order(index1, index2) -> bool:
     """
-    pandas.Index.equals cares about order.
+    pandas.Index.equals cares about order. This function doesn't care about order.
     :param index1:
     :param index2:
     :return:
@@ -66,20 +50,21 @@ if __name__ == "__main__":
 
     data_split_artifact = run.use_artifact(data_split_artifact_name)
     preprocessed_data_fp = download_preprocessed_data(data_split_artifact)
-    # get all signals
-    # get original signal
-    # transpose so examples is row axis.
-    original_signals = pd.read_pickle(
-        os.path.join(preprocessed_data_fp, "windowed", "raw_data.pkl")
-    ).T
-    original_signals = get_central_3_minutes(original_signals)
 
+    # get all signals
+    # transpose so examples is row axis.
     # get traditional preprocessed signals
     traditional_preprocessed_signals = pd.read_pickle(
         os.path.join(
             preprocessed_data_fp, "windowed", "traditional_preprocessed_data.pkl"
         )
     ).T
+
+    # get original signal
+    original_signals = pd.read_pickle(
+        os.path.join(preprocessed_data_fp, "windowed", "raw_data.pkl")
+    ).T
+    original_signals = original_signals.loc[traditional_preprocessed_signals.index]
 
     # get DAE denoised signals
     train = get_committed_artifact_dataframe(
@@ -109,8 +94,9 @@ if __name__ == "__main__":
     assert indexes_equal_ignore_order(
         traditional_preprocessed_signals.index, dae_denoised_signals.index
     )
-    traditional_preprocessed_signals.index.difference(original_signals.index)
-    original_signals.index.difference(traditional_preprocessed_signals.index)
+    assert indexes_equal_ignore_order(
+        original_signals.index, dae_denoised_signals.index
+    )
 
     # get all SQIs
     (
