@@ -8,6 +8,7 @@ import pandas as pd
 import wandb
 
 from msc_project.constants import DENOISING_AUTOENCODER_PROJECT_NAME
+from msc_project.scripts.compare_sqi import make_boxplots
 from msc_project.scripts.evaluate_autoencoder import (
     download_artifact_model,
     download_preprocessed_data,
@@ -19,10 +20,12 @@ from msc_project.scripts.evaluate_autoencoder import (
 from msc_project.scripts.utils import get_committed_artifact_dataframe
 
 
-def get_central_3_minutes(signals: pd.DataFrame) -> pd.DataFrame:
+def get_central_3_minutes(
+    signals: pd.DataFrame,
+) -> pd.DataFrame:
     """
     Works on already windowed data.
-    :param signals:
+    :param signals: windowed signals
     :return:
     """
     window_starts = signals.index.get_level_values(level="window_start")
@@ -31,6 +34,18 @@ def get_central_3_minutes(signals: pd.DataFrame) -> pd.DataFrame:
     )
     central_3_minutes_df = signals.iloc[central_3_minutes_index]
     return central_3_minutes_df
+
+
+def indexes_equal_ignore_order(index1, index2) -> bool:
+    """
+    pandas.Index.equals cares about order.
+    :param index1:
+    :param index2:
+    :return:
+    """
+    is_equal_one_way = len(index1.difference(index2)) == 0
+    is_equal_other_way = len(index2.difference(index1)) == 0
+    return is_equal_one_way and is_equal_other_way
 
 
 if __name__ == "__main__":
@@ -49,21 +64,18 @@ if __name__ == "__main__":
         config=config,
     )
 
-    # get all signals
-    autoencoder = download_artifact_model(run=run, artifact_or_name=model_artifact_name)
-
     data_split_artifact = run.use_artifact(data_split_artifact_name)
     preprocessed_data_fp = download_preprocessed_data(data_split_artifact)
-
+    # get all signals
     # get original signal
-    # transpose so examples is row axis. like train/val/noisy
+    # transpose so examples is row axis.
     original_signals = pd.read_pickle(
         os.path.join(preprocessed_data_fp, "windowed", "raw_data.pkl")
     ).T
     original_signals = get_central_3_minutes(original_signals)
 
     # get traditional preprocessed signals
-    traditional_preprocessed_data = pd.read_pickle(
+    traditional_preprocessed_signals = pd.read_pickle(
         os.path.join(
             preprocessed_data_fp, "windowed", "traditional_preprocessed_data.pkl"
         )
@@ -85,14 +97,27 @@ if __name__ == "__main__":
         artifact_or_name=data_split_artifact,
         pkl_filename=os.path.join(data_name, "noisy.pkl"),
     )
-    model_input_signals = pd.concat(objs=[train, val, noisy], axis=0)
+    clean_signals = pd.concat(objs=[train, val], axis=0)
+    model_input_signals = pd.concat(objs=[clean_signals, noisy], axis=0)
 
-    reconstructed_signals = get_reconstructed_df(
+    autoencoder = download_artifact_model(run=run, artifact_or_name=model_artifact_name)
+    dae_denoised_signals = get_reconstructed_df(
         model_input_signals, autoencoder=autoencoder
     )
 
+    # validation
+    assert indexes_equal_ignore_order(
+        traditional_preprocessed_signals.index, dae_denoised_signals.index
+    )
+    traditional_preprocessed_signals.index.difference(original_signals.index)
+    original_signals.index.difference(traditional_preprocessed_signals.index)
+
     # get all SQIs
-    (original_signals_SQI, model_input_SQI, reconstructed_signals_SQI,) = (
+    (
+        original_signals_SQI,
+        traditional_preprocessed_signals_SQI,
+        dae_denoised_signals_SQI,
+    ) = (
         get_SQI(
             signal,
             band_of_interest_lower_freq=SQI_HR_range_min,
@@ -100,7 +125,23 @@ if __name__ == "__main__":
         )
         for signal in (
             original_signals,
-            model_input_signals,
-            reconstructed_signals,
+            traditional_preprocessed_signals,
+            dae_denoised_signals,
         )
     )
+
+    # make plots
+    all_sqis = (
+        original_signals_SQI,
+        traditional_preprocessed_signals_SQI,
+        dae_denoised_signals_SQI,
+    )
+    all_sqis = tuple(map(pd.DataFrame.squeeze, all_sqis))
+
+    denoising_methods = [
+        "original",
+        "traditional preprocessed",
+        "downsample + transfer learning",
+    ]
+
+    make_boxplots(all_sqis=all_sqis, labels=denoising_methods)
