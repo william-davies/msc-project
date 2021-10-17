@@ -82,10 +82,10 @@ def plot_metric(ax, metric):
     ax.set_xticklabels(x, rotation=90)
 
 
-def get_dataset_metadata(loso_cv_results_artifact: wandb.Artifact) -> Dict:
+def get_make_dataset_artifact(loso_cv_results_artifact: wandb.Artifact):
     loso_cv_run = loso_cv_results_artifact.logged_by()
     make_dataset_artifact = get_single_input_artifact(loso_cv_run)
-    return make_dataset_artifact.metadata
+    return make_dataset_artifact
 
 
 def sort_dataset_metadata(dataset_metadata):
@@ -119,9 +119,10 @@ if __name__ == "__main__":
         save_code=True,
     )
 
-    dataset_metadata = get_dataset_metadata(
-        run.use_artifact(loso_cv_results_artifact_name)
-    )
+    loso_cv_results_artifact = run.use_artifact(loso_cv_results_artifact_name)
+    make_dataset_artifact = get_make_dataset_artifact(loso_cv_results_artifact)
+    dataset_metadata = make_dataset_artifact.metadata
+    dataset_input_artifacts = make_dataset_artifact.logged_by().used_artifacts()
 
     model_scorings = get_committed_artifact_dataframe(
         run=run,
@@ -144,7 +145,8 @@ if __name__ == "__main__":
 
     dataset_metadata = sort_dataset_metadata(dataset_metadata)
     suptitle = "\n".join([f"{key}: {value}" for key, value in dataset_metadata.items()])
-    suptitle += f"\nrun name: {run.name}"
+    suptitle += f"\nrun name: {run.name}\n"
+    suptitle += str([artifact.name for artifact in dataset_input_artifacts])
     fig.suptitle(suptitle)
     plt.tight_layout()
     plt.show()
