@@ -143,6 +143,14 @@ if __name__ == "__main__":
     for ax in axs.flat:
         ax.label_outer()
 
+    def set_axs_ylim(axs, ylim):
+        for ax in axs:
+            ax.set_ylim(ylim)
+
+    set_axs_ylim(axs[0], [0, 1])
+    set_axs_ylim(axs[1], [0, 1])
+    set_axs_ylim(axs[2], [-0.3, 1])
+
     dataset_metadata = sort_dataset_metadata(dataset_metadata)
     suptitle = "\n".join([f"{key}: {value}" for key, value in dataset_metadata.items()])
     suptitle += f"\nrun name: {run.name}\n"
