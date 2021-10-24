@@ -135,6 +135,18 @@ if __name__ == "__main__":
     model_means = get_mean(scorings=model_scorings)
     model_stds = get_std(scorings=model_scorings)
 
+    preprocessing_methods_of_interest = model_means.index.drop(
+        [
+            ("EmLBVP", "just_downsampled_signal"),
+            ("Inf", "just_downsampled_signal"),
+            ("Inf", "traditional_preprocessed_signal"),
+            ("Inf", "dae_denoised_signal"),
+            ("Inf", "combined"),
+        ]
+    )
+    model_means = model_means.loc[preprocessing_methods_of_interest]
+    model_stds = model_stds.loc[preprocessing_methods_of_interest]
+
     fig, axs = plt.subplots(2, 2, sharex="all", sharey="row", figsize=[12, 12])
     for i, metric in enumerate(metrics_of_interest):
         plot_metric(ax=axs[i // 2, i % 2], metric=metric)
