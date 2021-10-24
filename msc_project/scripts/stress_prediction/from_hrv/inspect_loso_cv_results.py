@@ -105,8 +105,6 @@ def sort_dataset_metadata(dataset_metadata):
 if __name__ == "__main__":
     loso_cv_results_artifact_name = "loso_cv_results:v31"
     metrics_of_interest: List[str] = [
-        "test_accuracy",
-        "train_accuracy",
         "test_f1_macro",
         "train_f1_macro",
         "test_MCC",
@@ -137,7 +135,7 @@ if __name__ == "__main__":
     model_means = get_mean(scorings=model_scorings)
     model_stds = get_std(scorings=model_scorings)
 
-    fig, axs = plt.subplots(3, 2, sharex="all", sharey="row", figsize=[12, 12])
+    fig, axs = plt.subplots(2, 2, sharex="all", sharey="row", figsize=[12, 12])
     for i, metric in enumerate(metrics_of_interest):
         plot_metric(ax=axs[i // 2, i % 2], metric=metric)
 
@@ -149,8 +147,7 @@ if __name__ == "__main__":
             ax.set_ylim(ylim)
 
     set_axs_ylim(axs[0], [0, 1])
-    set_axs_ylim(axs[1], [0, 1])
-    set_axs_ylim(axs[2], [-0.3, 1])
+    set_axs_ylim(axs[1], [-0.3, 1])
 
     dataset_metadata = sort_dataset_metadata(dataset_metadata)
     suptitle = "\n".join([f"{key}: {value}" for key, value in dataset_metadata.items()])
