@@ -103,7 +103,7 @@ def sort_dataset_metadata(dataset_metadata):
 
 
 if __name__ == "__main__":
-    loso_cv_results_artifact_name = "loso_cv_results:latest"
+    loso_cv_results_artifact_name = "loso_cv_results:v31"
     metrics_of_interest: List[str] = [
         "test_accuracy",
         "train_accuracy",
@@ -112,6 +112,7 @@ if __name__ == "__main__":
         "test_MCC",
         "train_MCC",
     ]
+    upload_artifact: bool = True
 
     run = wandb.init(
         project=STRESS_PREDICTION_PROJECT_NAME,
@@ -158,3 +159,10 @@ if __name__ == "__main__":
     fig.suptitle(suptitle)
     plt.tight_layout()
     plt.show()
+
+    if upload_artifact:
+        artifact = wandb.Artifact(name="loso_cv_plot", type="model_evaluation")
+        with artifact.new_file(name="plot.png", mode="w") as f:
+            fig.savefig(f.name)
+        run.log_artifact(artifact)
+    run.finish()
